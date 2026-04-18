@@ -1,8 +1,14 @@
 import os
 import re
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
+
+# Cache of (abs_path_str, mtime_ns) -> parsed text. Keeps one agent turn from
+# re-parsing the same PDFs/DOCX repeatedly across search + read_file calls.
+_READ_CACHE: dict[tuple[str, int], str] = {}
+_READ_CACHE_MAX = 256
 
 GDRIVE_DIR = Path(
     "/Users/thomasthiadens/Library/CloudStorage/"
@@ -28,7 +34,30 @@ TEXT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".doc", ".rtf", ".csv", ".jso
 
 
 def _read_text(path: Path) -> str:
-    """Read a file as plain text, best-effort."""
+    """Read a file as plain text, best-effort. Cached by (abspath, mtime)."""
+    try:
+        st = path.stat()
+        cache_key = (str(path.resolve()), st.st_mtime_ns)
+    except OSError:
+        cache_key = None
+
+    if cache_key is not None:
+        cached = _READ_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
+    result = _read_text_uncached(path)
+
+    if cache_key is not None:
+        if len(_READ_CACHE) >= _READ_CACHE_MAX:
+            # Simple FIFO eviction — drop the oldest key
+            _READ_CACHE.pop(next(iter(_READ_CACHE)))
+        _READ_CACHE[cache_key] = result
+    return result
+
+
+def _read_text_uncached(path: Path) -> str:
+    """Actual parser implementation, separated so the cache wraps it cleanly."""
     try:
         if path.suffix.lower() in {".docx", ".doc"}:
             from docx import Document
@@ -238,7 +267,9 @@ def web_search(query: str, max_results: int = 5) -> dict:
             ],
         }
     except Exception as e:
-        return {"error": f"Web search failed: {e}"}
+        # Loud log so the agent loop operator sees this, not just a 119-char payload
+        print(f"[tools] web_search FAILED: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        return {"error": f"Web search failed: {e}", "results": []}
 
 
 # Tool schemas for the Anthropic API

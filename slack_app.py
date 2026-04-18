@@ -19,16 +19,29 @@ Usage in Slack:
 import os
 import re
 import ssl
+import sys
 import threading
 import tempfile
+import traceback
 import certifi
 
-# Fix SSL certificate verification on macOS with python.org Python builds.
-# Must be set before any network imports.
-os.environ["SSL_CERT_FILE"] = certifi.where()
-os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
-os.environ["WEBSOCKET_CLIENT_CA_BUNDLE"] = certifi.where()
-ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
+def _configure_ssl() -> None:
+    """Force certifi bundle on macOS python.org builds so TLS handshakes work.
+
+    NOTE: this MUST run before `App(token=...)` is constructed, because
+    slack-bolt's App.__init__ does a live auth.test call. So we can't defer
+    it to __main__ — it's called at module top. Kept in a function anyway
+    so the side effects are explicit and grep-able, not scattered across
+    module-level imports.
+    """
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+    os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+    os.environ["WEBSOCKET_CLIENT_CA_BUNDLE"] = certifi.where()
+    ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
+
+_configure_ssl()
 
 from dotenv import load_dotenv
 import anthropic
@@ -95,7 +108,15 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
                 "What is missing from the source layer? What would make you more useful here?"
             )}]
             response = run_agent(fallback_messages, ANTHROPIC_CLIENT)
-        except Exception:
+        except Exception as fallback_err:
+            # Log both original and fallback failure so we never lose context
+            print(
+                f"[slack_app] fallback run_agent also failed: "
+                f"{type(fallback_err).__name__}: {fallback_err}",
+                file=sys.stderr,
+                flush=True,
+            )
+            traceback.print_exc(file=sys.stderr)
             response = (
                 "Ik kon deze vraag nu niet beantwoorden. "
                 "Controleer of de juiste bestanden in de bronmappen staan en probeer het opnieuw."
@@ -180,10 +201,14 @@ def cmd_experts(body, ack, say):
     _slash_handler("match_experts", body, ack, say)
 
 
+_SLACK_FILE_HOSTS = {"files.slack.com", "slack-files.com"}
+
+
 def _download_files(files: list) -> str:
     """Download and read Slack file attachments. Returns combined text."""
     from tools import _read_text
     from pathlib import Path
+    from urllib.parse import urlparse
     import requests as _req
 
     parts = []
@@ -193,7 +218,18 @@ def _download_files(files: list) -> str:
         if not url:
             continue
         try:
-            headers = {"Authorization": f"Bearer {_slack_bot_token}"}
+            host = urlparse(url).hostname or ""
+            # Only attach the bot token when the URL is a known Slack file host.
+            # Prevents token leakage if Slack ever returns a redirect-style URL.
+            if host in _SLACK_FILE_HOSTS:
+                headers = {"Authorization": f"Bearer {_slack_bot_token}"}
+            else:
+                print(
+                    f"[slack_app] refusing to attach bot token to non-Slack host: {host}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                headers = {}
             r = _req.get(url, headers=headers, timeout=30)
             r.raise_for_status()
             suffix = Path(filename).suffix.lower()

@@ -50,6 +50,26 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from agent import run_agent
 from memory import load as mem_load, save as mem_save
+from feedback import (
+    register_pending,
+    pop_pending,
+    has_pending,
+    append_feedback,
+)
+
+# Slack reactions we treat as 👎 feedback triggers
+_NEGATIVE_REACTIONS = {"thumbsdown", "-1", "x", "no_entry_sign"}
+
+# Placeholder prefixes the bot posts during processing — never treat these
+# as the "answer" when someone reacts to them.
+_BOT_PLACEHOLDER_PREFIXES = (
+    "_Searching source layer",
+    "_Bestand ontvangen",
+    "_Genoteerd",
+    "_Dank voor de 👎",
+    "_Gebruik:",
+    "_Kon",
+)
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
@@ -263,6 +283,44 @@ def handle_dm(event, say, client):
 
     channel = event["channel"]
     thread_ts = event.get("thread_ts", event["ts"])
+    user_id = event.get("user", "")
+
+    # If this user has a pending feedback request in this thread, capture
+    # their reply as feedback instead of dispatching to the agent.
+    if caption and not files and user_id and has_pending(channel, user_id, thread_ts):
+        state = pop_pending(channel, user_id, thread_ts)
+        if state:
+            user_name = None
+            try:
+                info = client.users_info(user=user_id)
+                user_name = (
+                    info.get("user", {}).get("real_name")
+                    or info.get("user", {}).get("name")
+                )
+            except Exception as e:
+                print(
+                    f"[slack_app] users_info lookup failed ({e}); continuing with id only",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            append_feedback(
+                thread_ts=thread_ts,
+                user_id=user_id,
+                user_name=user_name,
+                skill=None,
+                bot_excerpt=state["bot_excerpt"],
+                user_comment=caption,
+            )
+            say(
+                text=(
+                    "_Genoteerd. ✅ Opgeslagen in `07_Feedback/gaps.md` — "
+                    "volgende vergelijkbare vraag komt dit in context._"
+                ),
+                thread_ts=thread_ts,
+                channel=channel,
+                mrkdwn=True,
+            )
+            return
 
     if files:
         say(text="_Bestand ontvangen, even lezen…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
@@ -282,6 +340,82 @@ def handle_dm(event, say, client):
             args=(channel, thread_ts, caption, say),
             daemon=True,
         ).start()
+
+
+@app.event("reaction_added")
+def handle_reaction(event, client):
+    """Capture 👎 on a bot answer and ask the user what could be better."""
+    reaction = event.get("reaction", "")
+    if reaction not in _NEGATIVE_REACTIONS:
+        return
+
+    item = event.get("item", {})
+    if item.get("type") != "message":
+        return
+
+    channel = item.get("channel")
+    message_ts = item.get("ts")
+    user_id = event.get("user")
+    if not channel or not message_ts or not user_id:
+        return
+
+    try:
+        bot_user_id = client.auth_test()["user_id"]
+
+        # Retrieve the message the user reacted to
+        resp = client.conversations_history(
+            channel=channel,
+            latest=message_ts,
+            inclusive=True,
+            limit=1,
+        )
+        messages = resp.get("messages", [])
+        if not messages:
+            return
+        msg = messages[0]
+
+        # Only act on our own bot's messages
+        msg_user = msg.get("user")
+        msg_bot_id = msg.get("bot_id")
+        if msg_user != bot_user_id and not msg_bot_id:
+            return
+
+        bot_text = msg.get("text", "") or ""
+        if not bot_text.strip() or bot_text.startswith(_BOT_PLACEHOLDER_PREFIXES):
+            # Ignore reactions on placeholders or empty text
+            return
+
+        thread_ts = msg.get("thread_ts") or message_ts
+
+        register_pending(
+            channel=channel,
+            user_id=user_id,
+            thread_ts=thread_ts,
+            bot_message_ts=message_ts,
+            bot_excerpt=bot_text,
+        )
+
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=(
+                "_Dank voor de 👎. Wat had hier beter gekund? "
+                "Antwoord in deze thread — één regel is genoeg. "
+                "Komt terecht in `07_Feedback/gaps.md` zodat Ainstein er scherper van wordt._"
+            ),
+            mrkdwn=True,
+        )
+        print(
+            f"[feedback] registered pending for user={user_id} thread={thread_ts}",
+            flush=True,
+        )
+    except Exception as e:
+        print(
+            f"[slack_app] reaction_added handler failed: {type(e).__name__}: {e}",
+            file=sys.stderr,
+            flush=True,
+        )
+        traceback.print_exc(file=sys.stderr)
 
 
 if __name__ == "__main__":

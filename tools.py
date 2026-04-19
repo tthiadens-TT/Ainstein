@@ -16,7 +16,15 @@ GDRIVE_DIR = Path(
     "1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e/Thomas /AInstein"
 )
 
-_FOLDER_NAMES = ["01_Proposals", "02_Tools", "03_Pricing", "04_Experts", "05_Venues", "06_Marketing"]
+_FOLDER_NAMES = [
+    "01_Proposals",
+    "02_Tools",
+    "03_Pricing",
+    "04_Experts",
+    "05_Venues",
+    "06_Marketing",
+    "07_Feedback",
+]
 
 
 def _resolve_folder(name: str) -> Path:

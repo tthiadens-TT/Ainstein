@@ -69,6 +69,7 @@ Your primary source layer is the structured Minkowski folder architecture. There
 | `04_Experts` | Expert profiles, role definitions, expertise comparisons, matching logic |
 | `05_Venues` | Venue suggestions, format fit, experience design trade-offs |
 | `06_Marketing` | Proposition language, positioning, external messaging |
+| `07_Feedback` | Logged gaps from past bot answers — user critiques after 👎 reactions. Consult this before answering similar questions and acknowledge patterns if they repeat. |
 
 When the same subfolder exists in both locations, prefer the Google Drive version as it is more complete.
 

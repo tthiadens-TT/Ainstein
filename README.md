@@ -39,6 +39,7 @@ See `tools._resolve_folder`.
 | `04_Experts` | Expert profiles (docx), decision layer JSON — lives mostly in Google Drive |
 | `05_Venues` | Venue profiles + comparison matrix |
 | `06_Marketing` | Positioning, message pillars, LinkedIn themes, one-pager template |
+| `07_Feedback` | `gaps.md` — auto-appended by the 👎 feedback loop |
 
 ## Local setup
 
@@ -80,9 +81,11 @@ timing logs do not appear in the file until the process exits.
 Enable Socket Mode and generate an App-Level Token (`xapp-…`).
 
 **Bot scopes:** `app_mentions:read`, `chat:write`, `channels:history`,
-`im:history`, `im:write`, `im:read`, `files:read` (for attachment parsing).
+`im:history`, `im:write`, `im:read`, `files:read` (for attachment parsing),
+`reactions:read` (for the 👎 feedback loop), `users:read` (to capture the
+reviewer's name in feedback entries).
 
-**Event subscriptions:** `app_mention`, `message.im`.
+**Event subscriptions:** `app_mention`, `message.im`, `reaction_added`.
 
 **Slash commands:** `/analyse`, `/voorstel`, `/experts` — each maps to one of
 the three primary skills in `CLAUDE.md`.
@@ -126,5 +129,16 @@ the 2026-04-18 `TextBlock is not JSON serializable` outage lived in that gap.
 | `tools.py` | `list_folder`, `read_file`, `search_files`, `web_search` + schemas |
 | `prompts.py` | `SYSTEM_PROMPT` + per-skill prompts |
 | `memory.py` | SQLite persistence with SDK-block serialization + schema versioning |
+| `feedback.py` | 👎 reaction → "what could be better?" → `07_Feedback/gaps.md` |
 | `CLAUDE.md` | Product and tone guidance (read by the agent at runtime) |
 | `reviews/` | Daily commit review reports |
+
+## Feedback loop
+
+Users react 👎 on any bot answer in DM. The bot replies in-thread asking what
+could be better. The user's next message in that thread is captured and
+appended to `07_Feedback/gaps.md`. That folder is part of the source layer,
+so future retrievals surface past gaps automatically.
+
+Pending-feedback state is in-memory only — on bot restart it's lost. That's
+acceptable: the user reacts again and gets re-prompted.

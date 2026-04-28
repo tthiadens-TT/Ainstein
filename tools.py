@@ -10,11 +10,15 @@ BASE_DIR = Path(__file__).parent
 _READ_CACHE: dict[tuple[str, int], str] = {}
 _READ_CACHE_MAX = 256
 
-GDRIVE_DIR = Path(
+# Source layer = Google Drive (multi-user, single source of truth).
+# Override AINSTEIN_SOURCE_ROOT to point elsewhere (e.g. another machine,
+# a CI mount, or a future Drive-API-backed path) without touching code.
+_DEFAULT_SOURCE_ROOT = (
     "/Users/thomasthiadens/Library/CloudStorage/"
     "GoogleDrive-tthiadens@gmail.com/.shortcut-targets-by-id/"
-    "1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e/Thomas /AInstein"
+    "1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e/Minkowski    Thomas /AInstein"
 )
+SOURCE_ROOT = Path(os.environ.get("AINSTEIN_SOURCE_ROOT", _DEFAULT_SOURCE_ROOT))
 
 _FOLDER_NAMES = [
     "01_Proposals",
@@ -26,19 +30,176 @@ _FOLDER_NAMES = [
     "07_Feedback",
 ]
 
+SOURCE_FOLDERS = {name: SOURCE_ROOT / name for name in _FOLDER_NAMES}
 
-def _resolve_folder(name: str) -> Path:
-    """Return Google Drive path if it exists and has content, else local path."""
-    gdrive = GDRIVE_DIR / name
-    local = BASE_DIR / name
-    if gdrive.exists() and any(gdrive.iterdir()):
-        return gdrive
-    return local
+TEXT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".doc", ".rtf", ".csv", ".json", ".xlsx", ".xlsm", ".pptx", ".gdoc", ".gsheet", ".gslides", ".eml"}
 
 
-SOURCE_FOLDERS = {name: _resolve_folder(name) for name in _FOLDER_NAMES}
+def _log_source_health() -> None:
+    """Log per-folder file counts at import time so a broken SOURCE_ROOT or
+    missing folder is visible in the bot logs instead of silently degrading
+    output quality."""
+    root_ok = SOURCE_ROOT.exists()
+    print(
+        f"[tools] source health — SOURCE_ROOT exists: {root_ok} ({SOURCE_ROOT})",
+        file=sys.stderr, flush=True,
+    )
+    for name, path in SOURCE_FOLDERS.items():
+        try:
+            n = sum(1 for p in path.rglob("*") if p.is_file() and not p.name.startswith("."))
+        except OSError:
+            n = 0
+        warn = "  ⚠ THIN" if n <= 1 else ""
+        print(f"[tools]   {name}: ({n} files){warn}", file=sys.stderr, flush=True)
 
-TEXT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".doc", ".rtf", ".csv", ".json", ".xlsx", ".xlsm"}
+
+_log_source_health()
+
+
+# ---- OCR fallback (scanned PDFs → Claude vision) ----
+
+OCR_MODEL = "claude-haiku-4-5-20251001"
+OCR_MAX_PAGES = 20  # cap to keep cost predictable
+OCR_RENDER_DPI = 200
+
+
+def _ocr_pdf_via_vision(path: Path) -> str:
+    """Render PDF pages to PNG and OCR them via Claude vision. Returns
+    extracted text, or empty string on failure. Triggered only when pypdf
+    found no embedded text."""
+    import base64
+    try:
+        import fitz  # PyMuPDF
+        import anthropic
+    except ImportError as e:
+        print(f"[tools] OCR unavailable: {e}", file=sys.stderr, flush=True)
+        return ""
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("[tools] OCR skipped: ANTHROPIC_API_KEY not set", file=sys.stderr, flush=True)
+        return ""
+
+    try:
+        doc = fitz.open(str(path))
+    except Exception as e:
+        print(f"[tools] OCR could not open PDF {path.name}: {e}", file=sys.stderr, flush=True)
+        return ""
+
+    n_pages = min(len(doc), OCR_MAX_PAGES)
+    if len(doc) > OCR_MAX_PAGES:
+        print(
+            f"[tools] OCR capped at {OCR_MAX_PAGES} of {len(doc)} pages for {path.name}",
+            file=sys.stderr, flush=True,
+        )
+
+    client = anthropic.Anthropic(api_key=api_key)
+    parts = []
+    for i in range(n_pages):
+        try:
+            page = doc.load_page(i)
+            pix = page.get_pixmap(dpi=OCR_RENDER_DPI)
+            png_b64 = base64.standard_b64encode(pix.tobytes("png")).decode()
+        except Exception as e:
+            print(f"[tools] OCR render failed page {i+1}: {e}", file=sys.stderr, flush=True)
+            continue
+
+        try:
+            resp = client.messages.create(
+                model=OCR_MODEL,
+                max_tokens=2048,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": png_b64}},
+                        {"type": "text", "text": (
+                            "Extract all text from this page verbatim. Preserve structure "
+                            "(headings, lists, tables) using plain markdown. Output only the "
+                            "extracted text — no commentary. If the page is blank or has no "
+                            "text, output exactly: [blank page]"
+                        )},
+                    ],
+                }],
+            )
+            text = "\n".join(b.text for b in resp.content if b.type == "text").strip()
+        except Exception as e:
+            print(f"[tools] OCR API failed page {i+1}: {e}", file=sys.stderr, flush=True)
+            continue
+
+        if text and text != "[blank page]":
+            parts.append(f"## Page {i+1} (OCR)\n{text}")
+
+    doc.close()
+    return "\n\n".join(parts)
+
+
+# ---- Google Docs resolver (.gdoc stubs → live content) ----
+
+GDOC_TOKEN_PATH = Path.home() / ".minkowski_gdrive_token.json"
+GDOC_CREDS_PATH = Path.home() / ".minkowski_gdrive_credentials.json"
+_GDOC_SERVICE = None
+
+
+def _get_gdoc_service():
+    """Build (and cache) a Google Drive API client. Returns None if
+    credentials are not configured — callers must handle that gracefully."""
+    global _GDOC_SERVICE
+    if _GDOC_SERVICE is not None:
+        return _GDOC_SERVICE
+    if not GDOC_TOKEN_PATH.exists():
+        return None
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+        creds = Credentials.from_authorized_user_file(
+            str(GDOC_TOKEN_PATH),
+            scopes=["https://www.googleapis.com/auth/drive.readonly"],
+        )
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            GDOC_TOKEN_PATH.write_text(creds.to_json())
+        _GDOC_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
+        return _GDOC_SERVICE
+    except Exception as e:
+        print(f"[tools] gdoc service init failed: {e}", file=sys.stderr, flush=True)
+        return None
+
+
+def _read_gdoc(path: Path) -> str:
+    """Read a .gdoc / .gsheet stub by exporting the live document via the
+    Drive API. Returns clear marker text if credentials missing or fetch
+    fails — never raises into the caller."""
+    import json as _json
+    try:
+        meta = _json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return f"[Could not parse .gdoc stub: {e}]"
+    doc_id = meta.get("doc_id")
+    if not doc_id:
+        return "[.gdoc stub has no doc_id]"
+
+    service = _get_gdoc_service()
+    if service is None:
+        return (
+            f"[.gdoc unresolved — Google Drive credentials not configured. "
+            f"doc_id={doc_id}. Run setup_gdrive_auth.py to enable.]"
+        )
+
+    suffix = path.suffix.lower()
+    mime = {
+        ".gdoc":   "text/markdown",
+        ".gsheet": "text/csv",
+        ".gslides":"text/plain",
+    }.get(suffix, "text/plain")
+
+    try:
+        data = service.files().export(fileId=doc_id, mimeType=mime).execute()
+        if isinstance(data, bytes):
+            data = data.decode("utf-8", errors="replace")
+        return data or "[Google Doc returned empty content]"
+    except Exception as e:
+        return f"[.gdoc fetch failed for {path.name}: {e}]"
 
 
 def _read_text(path: Path) -> str:
@@ -67,6 +228,34 @@ def _read_text(path: Path) -> str:
 def _read_text_uncached(path: Path) -> str:
     """Actual parser implementation, separated so the cache wraps it cleanly."""
     try:
+        if path.suffix.lower() in {".gdoc", ".gsheet", ".gslides"}:
+            return _read_gdoc(path)
+        if path.suffix.lower() == ".eml":
+            from email import policy
+            from email.parser import BytesParser
+            with open(path, "rb") as fh:
+                msg = BytesParser(policy=policy.default).parse(fh)
+            headers = []
+            for h in ("From", "To", "Cc", "Date", "Subject"):
+                v = msg.get(h)
+                if v:
+                    headers.append(f"{h}: {v}")
+            body_part = msg.get_body(preferencelist=("plain", "html"))
+            body = ""
+            if body_part is not None:
+                body = body_part.get_content() or ""
+                if body_part.get_content_type() == "text/html":
+                    import re as _re
+                    body = _re.sub(r"<[^>]+>", "", body)
+                    body = _re.sub(r"\n{3,}", "\n\n", body).strip()
+            attachments = [
+                p.get_filename() for p in msg.iter_attachments() if p.get_filename()
+            ]
+            parts = ["\n".join(headers), "", body.strip()]
+            if attachments:
+                parts.append("")
+                parts.append("Attachments: " + ", ".join(attachments))
+            return "\n".join(parts).strip()
         if path.suffix.lower() in {".docx", ".doc"}:
             from docx import Document
             doc = Document(str(path))
@@ -92,7 +281,37 @@ def _read_text_uncached(path: Path) -> str:
                 text = text.strip()
                 if text:
                     parts.append(f"## Page {i}\n{text}")
-            return "\n\n".join(parts) if parts else "[PDF has no extractable text — may be scanned images]"
+            if parts:
+                return "\n\n".join(parts)
+            # No embedded text — try OCR via Claude vision
+            ocr = _ocr_pdf_via_vision(path)
+            if ocr:
+                return ocr
+            return "[PDF has no extractable text — may be scanned images, OCR also returned nothing]"
+        if path.suffix.lower() == ".pptx":
+            from pptx import Presentation
+            prs = Presentation(str(path))
+            parts = []
+            for i, slide in enumerate(prs.slides, start=1):
+                slide_lines = [f"## Slide {i}"]
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            text = "".join(run.text for run in para.runs).strip()
+                            if text:
+                                slide_lines.append(text)
+                    if shape.has_table:
+                        for row in shape.table.rows:
+                            row_text = " | ".join(c.text.strip() for c in row.cells if c.text.strip())
+                            if row_text:
+                                slide_lines.append(row_text)
+                if slide.has_notes_slide:
+                    notes = slide.notes_slide.notes_text_frame.text.strip()
+                    if notes:
+                        slide_lines.append(f"[Notes] {notes}")
+                if len(slide_lines) > 1:
+                    parts.append("\n".join(slide_lines))
+            return "\n\n".join(parts) if parts else "[PPTX has no extractable text]"
         if path.suffix.lower() in {".xlsx", ".xlsm"}:
             import openpyxl
             wb = openpyxl.load_workbook(str(path), data_only=True)
@@ -145,18 +364,16 @@ def list_folder(folder: str | None = None) -> dict:
 def read_file(path: str) -> dict:
     """
     Read a file from the Minkowski source structure.
-    Accepts absolute paths or paths relative to BASE_DIR or GDRIVE_DIR.
+    Accepts absolute paths or paths relative to SOURCE_ROOT (or BASE_DIR for repo files).
     """
     target = Path(path)
 
-    # Absolute path that exists — use directly
     if not target.is_absolute():
-        # Try relative to BASE_DIR first, then GDRIVE_DIR
-        candidate = BASE_DIR / path.lstrip("/")
+        candidate = SOURCE_ROOT / path.lstrip("/")
         if candidate.exists():
             target = candidate
         else:
-            candidate = GDRIVE_DIR / path.lstrip("/")
+            candidate = BASE_DIR / path.lstrip("/")
             if candidate.exists():
                 target = candidate
 

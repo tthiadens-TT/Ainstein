@@ -1,8 +1,4 @@
-# Git LFS — large binary proposals
-# Requires: brew install git-lfs && git lfs install (run once per clone)
-01_Proposals/**/*.pdf filter=lfs diff=lfs merge=lfs -text
-*.docx filter=lfs diff=lfs merge=lfs -text
-*.xlsx filter=lfs diff=lfs merge=lfs -text
+# Source data lives in Google Drive (see tools.SOURCE_ROOT) — no LFS needed in repo.
 
 # Line endings
 *.py text eol=lf

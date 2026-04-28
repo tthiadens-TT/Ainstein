@@ -17,7 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
-FEEDBACK_DIR = Path(__file__).parent / "07_Feedback"
+from tools import SOURCE_ROOT
+
+FEEDBACK_DIR = SOURCE_ROOT / "07_Feedback"
 GAPS_FILE = FEEDBACK_DIR / "gaps.md"
 
 _lock = Lock()

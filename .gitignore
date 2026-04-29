@@ -3,6 +3,15 @@
 conversations.db
 *.db
 
+# Source layer lives in Google Drive (see tools.SOURCE_ROOT) — never in repo
+01_Proposals/
+02_Tools/
+03_Pricing/
+04_Experts/
+05_Venues/
+06_Marketing/
+07_Feedback/
+
 # Python
 __pycache__/
 *.pyc

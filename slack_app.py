@@ -98,8 +98,32 @@ def _clean_text(text: str, bot_user_id: str) -> str:
 
 
 def _detect_skill(text: str) -> str | None:
-    """Auto-detect skill from message content."""
+    """Auto-detect skill from message content. Order = specificity first."""
     t = text.lower()
+
+    # debrief_to_messaging needs to win over plain 'debrief' — check first
+    if "debrief" in t and any(w in t for w in ["messaging", "marketing", "glossary", "content opport"]):
+        return "debrief_to_messaging"
+
+    # Sales sub-skills
+    if any(w in t for w in ["kwalifice", "qualify", "past dit", "is dit een fit"]):
+        return "qualify_lead"
+    if any(w in t for w in ["discovery", "call prep", "gesprek voorbereiden", "discovery vragen"]):
+        return "prepare_discovery"
+    if any(w in t for w in ["bezwaar", "bezwaren", "objection", "weerstand", "obstakel"]):
+        return "map_objections"
+    if any(w in t for w in ["debrief", "recap", "call notes", "transcriptie"]):
+        return "client_discovery_debrief"
+
+    # Marketing sub-skills
+    if any(w in t for w in ["positionering", "positioning", "scherper", "sharpen"]):
+        return "sharpen_positioning"
+    if any(w in t for w in ["adapt messaging", "vertaal naar", "sector messaging", "audience messaging"]):
+        return "adapt_messaging"
+    if any(w in t for w in ["linkedin", "artikel", "article", "nurture", "newsletter", "one-pager", "onepager", "content"]):
+        return "create_content"
+
+    # Existing top-level skills
     if any(w in t for w in ["opportunity", "lead", "brief", "prospect", "client ask"]):
         return "analyse_opportunity"
     if any(w in t for w in ["proposal", "voorstel", "draft", "offer", "pitch"]):
@@ -219,6 +243,48 @@ def cmd_voorstel(body, ack, say):
 @app.command("/experts")
 def cmd_experts(body, ack, say):
     _slash_handler("match_experts", body, ack, say)
+
+
+# Sales sub-skills
+@app.command("/qualify")
+def cmd_qualify(body, ack, say):
+    _slash_handler("qualify_lead", body, ack, say)
+
+
+@app.command("/discovery")
+def cmd_discovery(body, ack, say):
+    _slash_handler("prepare_discovery", body, ack, say)
+
+
+@app.command("/objections")
+def cmd_objections(body, ack, say):
+    _slash_handler("map_objections", body, ack, say)
+
+
+@app.command("/debrief")
+def cmd_debrief(body, ack, say):
+    _slash_handler("client_discovery_debrief", body, ack, say)
+
+
+# Marketing sub-skills
+@app.command("/positioning")
+def cmd_positioning(body, ack, say):
+    _slash_handler("sharpen_positioning", body, ack, say)
+
+
+@app.command("/content")
+def cmd_content(body, ack, say):
+    _slash_handler("create_content", body, ack, say)
+
+
+@app.command("/adapt")
+def cmd_adapt(body, ack, say):
+    _slash_handler("adapt_messaging", body, ack, say)
+
+
+@app.command("/debrief-messaging")
+def cmd_debrief_messaging(body, ack, say):
+    _slash_handler("debrief_to_messaging", body, ack, say)
 
 
 _SLACK_FILE_HOSTS = {"files.slack.com", "slack-files.com"}

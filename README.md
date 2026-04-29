@@ -17,26 +17,26 @@ Slack event ──► slack_app.py (Bolt + Socket Mode)
                           │
                           └── tools.py (list_folder / read_file / search_files / web_search)
                                    │
-                                   └── source layer (local + Google Drive)
+                                   └── source layer (Google Drive — see SOURCE_ROOT)
 ```
 
 ## Source layer
 
-Two locations, always searched in order:
+One location: Google Drive. Multi-user, single source of truth. The repo
+holds **only code** — no source data.
 
-1. **Primary — Google Drive**
-   `/Users/thomasthiadens/Library/CloudStorage/GoogleDrive-tthiadens@gmail.com/.shortcut-targets-by-id/1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e/Thomas /AInstein`
-2. **Secondary — local repo** (`01_Proposals/` … `06_Marketing/`)
+Default `SOURCE_ROOT`:
+`/Users/thomasthiadens/Library/CloudStorage/GoogleDrive-tthiadens@gmail.com/.shortcut-targets-by-id/1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e/Minkowski    Thomas /AInstein`
 
-When a folder exists in both, the Google Drive version wins *if* it has content.
-See `tools._resolve_folder`.
+Override by setting `AINSTEIN_SOURCE_ROOT` in `.env` (useful for CI, server
+deploys, or pointing at a different Drive mount). See `tools.SOURCE_ROOT`.
 
 | Folder | Content |
 |---|---|
 | `01_Proposals` | Past proposals — reused for wording, module combos, pricing |
 | `02_Tools` | Canonical frameworks + facilitation formats (`02_Tools_Agent_README.md`) |
 | `03_Pricing` | Decision matrix, worked examples, discount/escalation rules |
-| `04_Experts` | Expert profiles (docx), decision layer JSON — lives mostly in Google Drive |
+| `04_Experts` | Expert profiles (docx), decision layer JSON, structured index |
 | `05_Venues` | Venue profiles + comparison matrix |
 | `06_Marketing` | Positioning, message pillars, LinkedIn themes, one-pager template |
 | `07_Feedback` | `gaps.md` — auto-appended by the 👎 feedback loop |
@@ -47,24 +47,25 @@ See `tools._resolve_folder`.
 # 1. Clone & enter
 cd Ainstein
 
-# 2. (Optional but recommended) Git LFS for PDF attachments
-#    .gitattributes already configured; binary activates once lfs is installed.
-brew install git-lfs && git lfs install
-
-# 3. Virtualenv
+# 2. Virtualenv
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 4. Install pinned deps
+# 3. Install pinned deps
 pip install -r requirements.lock
 
-# 5. Configure secrets
+# 4. Configure secrets
 cp .env.example .env
 # edit .env — fill in ANTHROPIC_API_KEY, SLACK_BOT_TOKEN, SLACK_APP_TOKEN
+# optionally: AINSTEIN_SOURCE_ROOT=/path/to/your/Drive/AInstein
 
-# 6. Run
+# 5. Run
 python slack_app.py
 ```
+
+The default `SOURCE_ROOT` points at Thomas' Drive sync mount on macOS. On
+any other machine, set `AINSTEIN_SOURCE_ROOT` in `.env` to your own path
+(or leave empty if you've mounted Drive identically).
 
 Logs go to stdout. For background runs we use:
 

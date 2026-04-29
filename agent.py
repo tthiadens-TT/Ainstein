@@ -3,10 +3,9 @@
 Minkowski Agent — Commercial intelligence layer for Minkowski agency.
 
 Usage:
-    python agent.py
-    python agent.py --skill analyse_opportunity
-    python agent.py --skill build_proposal
-    python agent.py --skill match_experts
+    python agent.py                         # auto-detect skill from input
+    python agent.py --skill qualify_lead    # start in a specific skill
+    python agent.py --help                  # see all available skills
 """
 
 import os
@@ -216,7 +215,7 @@ def main():
     )
     parser.add_argument(
         "--skill",
-        choices=["analyse_opportunity", "build_proposal", "match_experts"],
+        choices=sorted(SKILL_PROMPTS.keys()),
         help="Start in a specific skill mode.",
     )
     parser.add_argument(

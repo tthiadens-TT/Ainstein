@@ -27,6 +27,7 @@ from tools import TOOL_SCHEMAS, dispatch
 MODEL = "claude-sonnet-4-6"
 
 SKILL_INTROS = {
+    # Top-level skills
     "analyse_opportunity": (
         "I'm ready to analyse an opportunity. Share the client brief, meeting notes, "
         "or whatever context you have — and I'll work through it."
@@ -38,6 +39,40 @@ SKILL_INTROS = {
     "match_experts": (
         "I'm ready to match experts to a challenge. Describe the client need, project context, "
         "or role requirements — and I'll search the expert profiles and recommend a shortlist."
+    ),
+    # Sales sub-skills
+    "qualify_lead": (
+        "I'm ready to qualify a lead. Share what came in — the brief, referral message, "
+        "email, or call summary — and I'll give a clear verdict with critical unknowns and a next action."
+    ),
+    "prepare_discovery": (
+        "I'm ready to prepare for a discovery conversation. Share what you know about the client, "
+        "the stated ask, and the moment — and I'll build themed questions, listen-for signals, and an opening."
+    ),
+    "map_objections": (
+        "I'm ready to map likely objections. Share the proposal, deal context, or competitive situation — "
+        "and I'll identify objections, root causes, response angles, and high-risk signals."
+    ),
+    "client_discovery_debrief": (
+        "I'm ready to turn raw call notes into a structured strategic debrief. Share the notes, "
+        "transcript, or recap — and I'll produce the 11-section debrief with Minkowski diagnosis."
+    ),
+    # Marketing sub-skills
+    "sharpen_positioning": (
+        "I'm ready to sharpen positioning. Share the current language, the audience, and the medium — "
+        "and I'll audit, identify what's generic, and rewrite for specificity."
+    ),
+    "create_content": (
+        "I'm ready to create a content asset. Tell me the format (LinkedIn post, email, one-pager, article), "
+        "the audience, and the angle — and I'll produce the actual asset, not an outline."
+    ),
+    "adapt_messaging": (
+        "I'm ready to adapt Minkowski's messaging for a specific sector or audience. Share the target "
+        "(sector + role + moment) — and I'll translate the positioning into language that lands for them."
+    ),
+    "debrief_to_messaging": (
+        "I'm ready to extract marketing intelligence from a Client Discovery Debrief. Share the debrief — "
+        "and I'll produce a client language glossary, pain point map, audience framing, and content opportunities."
     ),
 }
 

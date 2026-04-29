@@ -115,13 +115,21 @@ def _detect_skill(text: str) -> str | None:
     if any(w in t for w in ["debrief", "recap", "call notes", "transcriptie"]):
         return "client_discovery_debrief"
 
-    # Marketing sub-skills
-    if any(w in t for w in ["positionering", "positioning", "scherper", "sharpen"]):
-        return "sharpen_positioning"
-    if any(w in t for w in ["adapt messaging", "vertaal naar", "sector messaging", "audience messaging"]):
-        return "adapt_messaging"
+    # Marketing sub-skills (specificity first: asset words > action verbs > topic words)
     if any(w in t for w in ["linkedin", "artikel", "article", "nurture", "newsletter", "one-pager", "onepager", "content"]):
         return "create_content"
+    if any(w in t for w in ["adapt messaging", "vertaal naar", "sector messaging", "audience messaging"]):
+        return "adapt_messaging"
+    # sharpen_positioning: action verb required, never bare topic word.
+    # Match: explicit verbs (scherper/sharpen/aanscherpen), contiguous "scherp aan",
+    # OR "scherp" co-occurring with "positioning"/"positionering" (catches Dutch
+    # split-verb constructions like "scherp deze positionering aan").
+    # Slash /positioning remains the unambiguous trigger for any sharpen intent.
+    if (
+        any(w in t for w in ["scherper", "sharpen", "aanscherpen", "scherp aan"])
+        or ("scherp" in t and ("positioning" in t or "positionering" in t))
+    ):
+        return "sharpen_positioning"
 
     # Existing top-level skills
     if any(w in t for w in ["opportunity", "lead", "brief", "prospect", "client ask"]):

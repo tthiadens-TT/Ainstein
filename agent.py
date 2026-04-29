@@ -15,6 +15,11 @@ import textwrap
 from typing import Literal
 
 import anthropic
+from dotenv import load_dotenv
+
+# Load .env from the repo root so ANTHROPIC_API_KEY etc. are available
+# regardless of caller's working directory.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 from prompts import SYSTEM_PROMPT, SKILL_PROMPTS
 from tools import TOOL_SCHEMAS, dispatch

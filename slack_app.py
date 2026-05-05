@@ -421,15 +421,14 @@ def _download_files(files: list) -> str:
 
 @app.event("message")
 def handle_dm(event, say, client):
-    # Only handle direct messages (channel type "im"), ignore bot messages
-    if event.get("channel_type") != "im":
-        return
+    # Ignore bot's own messages and unsupported subtypes
     if event.get("bot_id"):
         return
     subtype = event.get("subtype", "")
     if subtype and subtype != "file_share":
         return
 
+    channel_type = event.get("channel_type")
     files = event.get("files", [])
     caption = event.get("text", "").strip()
 
@@ -440,8 +439,10 @@ def handle_dm(event, say, client):
     thread_ts = event.get("thread_ts", event["ts"])
     user_id = event.get("user", "")
 
-    # If this user has a pending feedback request in this thread, capture
-    # their reply as feedback instead of dispatching to the agent.
+    # Pending-feedback capture works in EVERY channel type (DM, public, private),
+    # so a 👎 in a channel + reply-in-thread is just as valid as in a DM. Without
+    # this, channel feedback was silently dropped because the rest of this
+    # handler only dispatches DM messages to the agent.
     if caption and not files and user_id and has_pending(channel, user_id, thread_ts):
         state = pop_pending(channel, user_id, thread_ts)
         if state:
@@ -482,6 +483,12 @@ def handle_dm(event, say, client):
                 mrkdwn=True,
             )
             return
+
+    # In channels (public/private), normal chat is NOT auto-dispatched to the
+    # agent — users address Ainstein via @mention there. Only DMs get the
+    # full agent treatment for every message.
+    if channel_type != "im":
+        return
 
     if files:
         say(text="_Bestand ontvangen, even lezen…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)

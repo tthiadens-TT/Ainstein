@@ -475,6 +475,47 @@ def search_files(query: str, folders: list[str] | None = None) -> dict:
     }
 
 
+def record_correction(
+    bot_excerpt: str,
+    user_correction: str,
+    feedback_type: str,
+    category: str,
+    skill: str | None = None,
+    thread_id: str | None = None,
+) -> dict:
+    """Log an inline mid-conversation correction to 07_Feedback/gaps.md.
+
+    Use when the user explicitly corrects something Ainstein just said
+    ("nee, dat klopt niet", "je vergeet X"). The agent must propose a
+    type+category and confirm with the user BEFORE calling this tool.
+
+    feedback_type: "technical" | "qualitative"
+    category:      one of the fixed sub-labels (see 07_Feedback/README.md)
+    """
+    # Imported lazily to avoid a circular import at module load (feedback.py
+    # imports SOURCE_ROOT from this module).
+    from feedback import capture_feedback
+
+    capture_feedback(
+        thread_id=thread_id or "inline",
+        user_id="inline",
+        user_name=None,
+        skill=skill,
+        bot_excerpt=bot_excerpt,
+        user_comment=user_correction,
+        feedback_type=feedback_type,
+        category=category,
+        source="inline",
+    )
+    return {
+        "status": "logged",
+        "type": feedback_type,
+        "category": category,
+        "skill": skill,
+        "note": "Saved to 07_Feedback/gaps.md. Will surface in future answers + /feedback-review.",
+    }
+
+
 def web_search(query: str, max_results: int = 5) -> dict:
     """
     Search the web using DuckDuckGo. Use for live company research,
@@ -566,6 +607,58 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "record_correction",
+        "description": (
+            "Log an inline mid-conversation correction to 07_Feedback/gaps.md. "
+            "Call this ONLY after the user has confirmed the proposed type+category. "
+            "Use when the user explicitly says you got something wrong "
+            "('nee dat klopt niet', 'je vergeet X', 'dit moet anders'). "
+            "Always classify and confirm BEFORE calling — never log without explicit user OK."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "bot_excerpt": {
+                    "type": "string",
+                    "description": "The part of your previous answer that was wrong or weak (max ~500 chars).",
+                },
+                "user_correction": {
+                    "type": "string",
+                    "description": "What the user said is wrong / what should be different.",
+                },
+                "feedback_type": {
+                    "type": "string",
+                    "enum": ["technical", "qualitative"],
+                    "description": (
+                        "technical = bot misunderstood, hallucinated, picked wrong source, tool error. "
+                        "qualitative = answer was technically correct but commercially or qualitatively weak."
+                    ),
+                },
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        # technical
+                        "hallucinatie", "context-misverstand", "onleesbaar-bestand",
+                        "tool-fout", "verkeerde-bron-gekozen",
+                        # qualitative
+                        "commercieel-zwak", "tone-of-voice", "missende-inhoud",
+                        "verkeerde-logica", "niet-Minkowski", "te-generiek",
+                    ],
+                    "description": "Sub-label confirmed with the user.",
+                },
+                "skill": {
+                    "type": "string",
+                    "description": "Skill name if known (e.g. 'analyse_opportunity'). Optional.",
+                },
+                "thread_id": {
+                    "type": "string",
+                    "description": "Thread or conversation id if available. Optional.",
+                },
+            },
+            "required": ["bot_excerpt", "user_correction", "feedback_type", "category"],
+        },
+    },
+    {
         "name": "web_search",
         "description": (
             "Search the web for live information. "
@@ -605,6 +698,15 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
         result = search_files(
             tool_input["query"],
             tool_input.get("folders"),
+        )
+    elif tool_name == "record_correction":
+        result = record_correction(
+            bot_excerpt=tool_input["bot_excerpt"],
+            user_correction=tool_input["user_correction"],
+            feedback_type=tool_input["feedback_type"],
+            category=tool_input["category"],
+            skill=tool_input.get("skill"),
+            thread_id=tool_input.get("thread_id"),
         )
     elif tool_name == "web_search":
         result = web_search(

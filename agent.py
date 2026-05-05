@@ -74,6 +74,11 @@ SKILL_INTROS = {
         "I'm ready to extract marketing intelligence from a Client Discovery Debrief. Share the debrief — "
         "and I'll produce a client language glossary, pain point map, audience framing, and content opportunities."
     ),
+    # Meta-skill
+    "review_feedback": (
+        "I'm ready to review the feedback log. I'll read `07_Feedback/gaps.md`, group entries into patterns, "
+        "and propose one concrete edit per pattern — with file paths Thomas can act on."
+    ),
 }
 
 

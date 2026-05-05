@@ -1,11 +1,16 @@
 """
-Feedback capture loop.
+Feedback capture loop — kanaal-onafhankelijk.
 
-Flow:
+Flow (Slack 👎):
   1. User reacts 👎 on a bot message in Slack
   2. Bot posts a thread follow-up: "what could be better?"
-  3. User's next thread message is captured and appended to 07_Feedback/gaps.md
+  3. User's next thread message is captured, classified (technical/qualitative + sub-label),
+     and appended to 07_Feedback/gaps.md
   4. search_files picks up that file automatically on future retrievals
+
+Flow (inline correction):
+  - Agent calls record_correction tool when user corrects mid-conversation.
+  - That tool routes into capture_feedback with source="inline".
 
 Storage is markdown on purpose — transparent, greppable, editable, goes through git.
 In-memory pending state resets on bot restart; acceptable loss (user just reacts again).
@@ -21,6 +26,29 @@ from tools import SOURCE_ROOT
 
 FEEDBACK_DIR = SOURCE_ROOT / "07_Feedback"
 GAPS_FILE = FEEDBACK_DIR / "gaps.md"
+
+# Vaste labelset. Auto-classifier moet hieruit kiezen; gebruiker kan overrulen.
+FEEDBACK_TYPES = ("technical", "qualitative")
+
+TECHNICAL_CATEGORIES = (
+    "hallucinatie",
+    "context-misverstand",
+    "onleesbaar-bestand",
+    "tool-fout",
+    "verkeerde-bron-gekozen",
+)
+
+QUALITATIVE_CATEGORIES = (
+    "commercieel-zwak",
+    "tone-of-voice",
+    "missende-inhoud",
+    "verkeerde-logica",
+    "niet-Minkowski",
+    "te-generiek",
+)
+
+ALL_CATEGORIES = TECHNICAL_CATEGORIES + QUALITATIVE_CATEGORIES
+
 
 _lock = Lock()
 
@@ -73,22 +101,43 @@ def _format_blockquote(text: str, limit: int = 500) -> str:
 
 _HEADER = (
     "# Feedback Log\n\n"
-    "*Append-only. Every 👎 on a bot answer + the user's one-liner on what was missing. "
-    "Picked up automatically by `search_files` so the next answer can do better.*\n\n"
+    "*Append-only. Elke 👎 of inline correctie + classificatie (Type + Category). "
+    "Picked up automatically by `search_files` so the next answer can do better. "
+    "Run `/feedback-review` periodically to surface patterns and propose edits.*\n\n"
     "---\n\n"
 )
 
 
-def append_feedback(
-    thread_ts: str,
+def _normalise_type(feedback_type: str | None) -> str:
+    if feedback_type and feedback_type.lower() in FEEDBACK_TYPES:
+        return feedback_type.lower()
+    return "qualitative"  # safest default — surfaces in /feedback-review review
+
+
+def _normalise_category(category: str | None) -> str:
+    if category and category in ALL_CATEGORIES:
+        return category
+    return "missende-inhoud" if category is None else category
+
+
+def capture_feedback(
+    thread_id: str,
     user_id: str,
     user_name: str | None,
     skill: str | None,
     bot_excerpt: str,
     user_comment: str,
+    feedback_type: str,
+    category: str,
+    source: str = "slack",
     gaps_file: Path = GAPS_FILE,
 ) -> None:
-    """Append one feedback entry to gaps.md. Creates the file + folder if needed."""
+    """Append one feedback entry to gaps.md. Creates the file + folder if needed.
+
+    feedback_type: "technical" | "qualitative" (see FEEDBACK_TYPES)
+    category:      one of TECHNICAL_CATEGORIES / QUALITATIVE_CATEGORIES
+    source:        "slack" | "inline" | "cli" | "web" — capture channel
+    """
     gaps_file.parent.mkdir(parents=True, exist_ok=True)
     fresh = not gaps_file.exists() or gaps_file.stat().st_size == 0
 
@@ -96,11 +145,16 @@ def append_feedback(
     who = f"{user_name} ({user_id})" if user_name else user_id
     skill_line = f"- **Skill:** {skill}\n" if skill else ""
 
+    ftype = _normalise_type(feedback_type)
+    cat = _normalise_category(category)
+
     entry = (
-        f"## {ts} — thread `{thread_ts}`\n\n"
+        f"## {ts} — thread `{thread_id}`\n\n"
         f"- **User:** {who}\n"
         f"{skill_line}"
-        f"- **Reaction:** 👎\n\n"
+        f"- **Source:** {source}\n"
+        f"- **Type:** {ftype}\n"
+        f"- **Category:** {cat}\n\n"
         f"**Original answer (excerpt):**\n\n"
         f"{_format_blockquote(bot_excerpt)}\n\n"
         f"**What could be better:**\n\n"
@@ -113,3 +167,31 @@ def append_feedback(
             if fresh:
                 f.write(_HEADER)
             f.write(entry)
+
+
+# Backwards-compatible alias — kept so existing callers keep working until
+# every call site has been migrated. New code should call capture_feedback.
+def append_feedback(
+    thread_ts: str,
+    user_id: str,
+    user_name: str | None,
+    skill: str | None,
+    bot_excerpt: str,
+    user_comment: str,
+    feedback_type: str = "qualitative",
+    category: str = "missende-inhoud",
+    source: str = "slack",
+    gaps_file: Path = GAPS_FILE,
+) -> None:
+    capture_feedback(
+        thread_id=thread_ts,
+        user_id=user_id,
+        user_name=user_name,
+        skill=skill,
+        bot_excerpt=bot_excerpt,
+        user_comment=user_comment,
+        feedback_type=feedback_type,
+        category=category,
+        source=source,
+        gaps_file=gaps_file,
+    )

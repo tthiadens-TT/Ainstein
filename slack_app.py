@@ -54,7 +54,11 @@ from feedback import (
     register_pending,
     pop_pending,
     has_pending,
-    append_feedback,
+    capture_feedback,
+    FEEDBACK_TYPES,
+    TECHNICAL_CATEGORIES,
+    QUALITATIVE_CATEGORIES,
+    ALL_CATEGORIES,
 )
 
 # Slack reactions we treat as 👎 feedback triggers
@@ -90,6 +94,62 @@ _lock = threading.Lock()
 
 ANTHROPIC_CLIENT = anthropic.Anthropic(api_key=_anthropic_key, max_retries=1)
 
+# Cheap, fast model for one-shot feedback classification — keeps latency low
+# and cost predictable. Mismatch with main agent model is intentional.
+_CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
+
+
+def _classify_feedback(bot_excerpt: str, user_comment: str) -> tuple[str, str]:
+    """Auto-label feedback into (type, category) using the fixed labelset.
+
+    Falls back to a safe default on any failure — never raises into the
+    Slack handler. The agent + Thomas can still correct in gaps.md later.
+    """
+    types_str = " | ".join(FEEDBACK_TYPES)
+    tech_str = ", ".join(TECHNICAL_CATEGORIES)
+    qual_str = ", ".join(QUALITATIVE_CATEGORIES)
+
+    prompt = (
+        "Classify the feedback below into ONE type and ONE category.\n\n"
+        f"Type (pick one): {types_str}\n"
+        f"  - technical = bot misunderstood, hallucinated, picked wrong source, "
+        "or had a tool/file issue. Categories: " + tech_str + "\n"
+        f"  - qualitative = answer was technically correct but commercially or "
+        "qualitatively weak. Categories: " + qual_str + "\n\n"
+        "Output EXACTLY two lines, no prose:\n"
+        "Type: <type>\n"
+        "Category: <category>\n\n"
+        "--- BOT ANSWER (excerpt) ---\n"
+        f"{bot_excerpt[:1500]}\n\n"
+        "--- USER FEEDBACK ---\n"
+        f"{user_comment[:1500]}\n"
+    )
+
+    try:
+        resp = ANTHROPIC_CLIENT.messages.create(
+            model=_CLASSIFIER_MODEL,
+            max_tokens=100,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = "".join(b.text for b in resp.content if b.type == "text")
+    except Exception as e:
+        print(f"[slack_app] classifier failed: {type(e).__name__}: {e}",
+              file=sys.stderr, flush=True)
+        return "qualitative", "missende-inhoud"
+
+    ftype, cat = "qualitative", "missende-inhoud"
+    for line in text.splitlines():
+        low = line.strip().lower()
+        if low.startswith("type:"):
+            val = low.split(":", 1)[1].strip()
+            if val in FEEDBACK_TYPES:
+                ftype = val
+        elif low.startswith("category:"):
+            val = line.split(":", 1)[1].strip()
+            if val in ALL_CATEGORIES:
+                cat = val
+    return ftype, cat
+
 
 def _clean_text(text: str, bot_user_id: str) -> str:
     """Strip the bot mention and clean whitespace."""
@@ -100,6 +160,10 @@ def _clean_text(text: str, bot_user_id: str) -> str:
 def _detect_skill(text: str) -> str | None:
     """Auto-detect skill from message content. Order = specificity first."""
     t = text.lower()
+
+    # review_feedback — explicit phrasing only, never trigger on stray "feedback"
+    if any(w in t for w in ["feedback review", "review feedback", "feedback patronen", "feedback-review"]):
+        return "review_feedback"
 
     # debrief_to_messaging needs to win over plain 'debrief' — check first
     if "debrief" in t and any(w in t for w in ["messaging", "marketing", "glossary", "content opport"]):
@@ -295,6 +359,23 @@ def cmd_debrief_messaging(body, ack, say):
     _slash_handler("debrief_to_messaging", body, ack, say)
 
 
+@app.command("/feedback-review")
+def cmd_feedback_review(body, ack, say):
+    """Trigger the review_feedback skill. Empty input is allowed — the skill
+    just reads gaps.md and proposes actions."""
+    ack()
+    user_text = body.get("text", "").strip() or "Doe een feedback review."
+    channel = body["channel_id"]
+    thread_ts = body.get("thread_ts", body.get("ts", channel))
+    say(text="_Reviewing feedback patterns…_", channel=channel, mrkdwn=True)
+    t = threading.Thread(
+        target=_run_and_reply,
+        args=(channel, thread_ts, user_text, say, "review_feedback"),
+        daemon=True,
+    )
+    t.start()
+
+
 _SLACK_FILE_HOSTS = {"files.slack.com", "slack-files.com"}
 
 
@@ -377,18 +458,24 @@ def handle_dm(event, say, client):
                     file=sys.stderr,
                     flush=True,
                 )
-            append_feedback(
-                thread_ts=thread_ts,
+            ftype, cat = _classify_feedback(state["bot_excerpt"], caption)
+            capture_feedback(
+                thread_id=thread_ts,
                 user_id=user_id,
                 user_name=user_name,
                 skill=None,
                 bot_excerpt=state["bot_excerpt"],
                 user_comment=caption,
+                feedback_type=ftype,
+                category=cat,
+                source="slack",
             )
             say(
                 text=(
-                    "_Genoteerd. ✅ Opgeslagen in `07_Feedback/gaps.md` — "
-                    "volgende vergelijkbare vraag komt dit in context._"
+                    f"_Genoteerd ✅ als `{ftype} / {cat}` in `07_Feedback/gaps.md`. "
+                    "Auto-classified door Ainstein — corrigeer het label direct in "
+                    "`gaps.md` als het niet klopt. Volgende vergelijkbare vraag "
+                    "komt dit in context, en `/feedback-review` haalt patronen eruit._"
                 ),
                 thread_ts=thread_ts,
                 channel=channel,
@@ -420,7 +507,14 @@ def handle_dm(event, say, client):
 def handle_reaction(event, client):
     """Capture 👎 on a bot answer and ask the user what could be better."""
     reaction = event.get("reaction", "")
+    item_type = event.get("item", {}).get("type", "?")
+    print(
+        f"[reaction_added] received: emoji={reaction!r} item_type={item_type} "
+        f"user={event.get('user')} channel={event.get('item', {}).get('channel')}",
+        flush=True,
+    )
     if reaction not in _NEGATIVE_REACTIONS:
+        print(f"[reaction_added] ignored: {reaction!r} not in {_NEGATIVE_REACTIONS}", flush=True)
         return
 
     item = event.get("item", {})
@@ -436,27 +530,71 @@ def handle_reaction(event, client):
     try:
         bot_user_id = client.auth_test()["user_id"]
 
-        # Retrieve the message the user reacted to
-        resp = client.conversations_history(
-            channel=channel,
-            latest=message_ts,
-            inclusive=True,
-            limit=1,
-        )
-        messages = resp.get("messages", [])
-        if not messages:
+        # Fast-path bot author check via event metadata — avoids fetching the
+        # message just to filter out reactions on user messages.
+        item_user = event.get("item_user")
+        if item_user and item_user != bot_user_id:
+            print(
+                f"[reaction_added] ignored: item_user={item_user} is not our bot",
+                flush=True,
+            )
             return
-        msg = messages[0]
 
-        # Only act on our own bot's messages
+        # Fetch the reacted-on message. We use conversations.replies (not
+        # .history) because bot replies are posted with thread_ts even in DMs,
+        # so they live in a thread — and .history returns only top-level
+        # messages, not thread replies.
+        msg = None
+        try:
+            resp = client.conversations_replies(
+                channel=channel, ts=message_ts, limit=1, inclusive=True,
+            )
+            for m in resp.get("messages", []):
+                if m.get("ts") == message_ts:
+                    msg = m
+                    break
+        except Exception as e:
+            print(f"[reaction_added] conversations_replies failed: {e}", flush=True)
+
+        # Fallback for true top-level messages (e.g. mentions in a channel):
+        if msg is None:
+            try:
+                resp = client.conversations_history(
+                    channel=channel, latest=message_ts, oldest=message_ts,
+                    inclusive=True, limit=1,
+                )
+                cands = resp.get("messages", [])
+                if cands and cands[0].get("ts") == message_ts:
+                    msg = cands[0]
+            except Exception as e:
+                print(f"[reaction_added] conversations_history fallback failed: {e}", flush=True)
+
+        if msg is None:
+            print(
+                f"[reaction_added] ignored: could not retrieve message {message_ts}",
+                flush=True,
+            )
+            return
+
+        # Confirm bot authorship from the fetched message too — defence in depth
+        # for the case where item_user was missing.
         msg_user = msg.get("user")
         msg_bot_id = msg.get("bot_id")
         if msg_user != bot_user_id and not msg_bot_id:
+            print(
+                f"[reaction_added] ignored: reacted-on message is from "
+                f"user={msg_user} bot_id={msg_bot_id}, not our bot ({bot_user_id})",
+                flush=True,
+            )
             return
 
         bot_text = msg.get("text", "") or ""
         if not bot_text.strip() or bot_text.startswith(_BOT_PLACEHOLDER_PREFIXES):
-            # Ignore reactions on placeholders or empty text
+            print(
+                f"[reaction_added] ignored: reaction on placeholder/empty text "
+                f"(text starts with: {bot_text[:40]!r})",
+                flush=True,
+            )
             return
 
         thread_ts = msg.get("thread_ts") or message_ts

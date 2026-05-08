@@ -24,7 +24,10 @@ import sys
 
 CREDS = Path.home() / ".minkowski_gdrive_credentials.json"
 TOKEN = Path.home() / ".minkowski_gdrive_token.json"
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/documents",
+]
 
 
 def main() -> int:

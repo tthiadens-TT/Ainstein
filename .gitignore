@@ -2,6 +2,7 @@
 .env
 conversations.db
 *.db
+client_secret*.json
 
 # Source layer lives in Google Drive (see tools.SOURCE_ROOT) — never in repo
 01_Proposals/
@@ -29,3 +30,6 @@ venv/
 
 # Logs
 *.log
+
+# Generated review output — canonical copy lives locally, not in git
+reviews/

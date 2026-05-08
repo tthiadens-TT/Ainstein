@@ -200,7 +200,13 @@ def _detect_skill(text: str) -> str | None:
         return "analyse_opportunity"
     if any(w in t for w in ["proposal", "voorstel", "draft", "offer", "pitch"]):
         return "build_proposal"
-    if any(w in t for w in ["expert", "facilitator", "who should", "team", "match"]):
+    # "team" and "match" are too generic on their own — require a companion word
+    # to avoid false positives like "team meeting" or "plan matcht niet".
+    _team_match = (
+        ("team" in t and any(w in t for w in ["expert", "facilitator", "samenstell", "wie", "who", "bezetting"]))
+        or ("match" in t and any(w in t for w in ["expert", "facilitator", "profiel", "wie past"]))
+    )
+    if any(w in t for w in ["expert", "facilitator", "who should"]) or _team_match:
         return "match_experts"
     return None
 

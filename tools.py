@@ -1107,6 +1107,79 @@ def record_correction(
 
 
 # ---------------------------------------------------------------------------
+# Google Doc comments
+# ---------------------------------------------------------------------------
+
+def read_doc_comments(doc_id: str, include_resolved: bool = False) -> dict:
+    """
+    Read comments (and their replies) from a Google Doc.
+
+    Works in both Drive API mode (service account) and filesystem mode (OAuth).
+    Returns a list of comments with author, date, quoted text, content, and replies.
+    """
+    service = _get_drive_service() if _is_drive_mode() else _get_gdoc_service()
+    if not service:
+        return {
+            "error": (
+                "Google Drive credentials not available. "
+                "In filesystem mode: run setup_gdrive_auth.py. "
+                "In server mode: set GOOGLE_SERVICE_ACCOUNT_JSON."
+            )
+        }
+
+    comments = []
+    page_token = None
+    try:
+        while True:
+            kwargs: dict = dict(
+                fileId=doc_id,
+                fields=(
+                    "comments(id,author,content,createdTime,resolved,"
+                    "replies(author,content,action),quotedFileContent),"
+                    "nextPageToken"
+                ),
+                includeDeleted=False,
+                pageSize=100,
+            )
+            if page_token:
+                kwargs["pageToken"] = page_token
+            response = service.comments().list(**kwargs).execute()
+            for c in response.get("comments", []):
+                if not include_resolved and c.get("resolved"):
+                    continue
+                comments.append({
+                    "id": c.get("id"),
+                    "author": c.get("author", {}).get("displayName", "Onbekend"),
+                    "date": (c.get("createdTime") or "")[:10],
+                    "resolved": c.get("resolved", False),
+                    "quoted_text": c.get("quotedFileContent", {}).get("value", ""),
+                    "content": c.get("content", "").strip(),
+                    "replies": [
+                        {
+                            "author": r.get("author", {}).get("displayName", "Onbekend"),
+                            "content": r.get("content", "").strip(),
+                            "action": r.get("action", ""),
+                        }
+                        for r in c.get("replies", [])
+                        if r.get("content") or r.get("action") == "resolve"
+                    ],
+                })
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+    except Exception as e:
+        logger.error("read_doc_comments failed for doc_id=%s: %s", doc_id, e)
+        return {"error": f"Could not read comments: {e}"}
+
+    return {
+        "doc_id": doc_id,
+        "total_comments": len(comments),
+        "include_resolved": include_resolved,
+        "comments": comments,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Web search
 # ---------------------------------------------------------------------------
 
@@ -1255,6 +1328,32 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "read_doc_comments",
+        "description": (
+            "Read open comments and suggestions from a Google Doc. "
+            "Use when a proposal or document has been reviewed and you need to understand "
+            "what feedback, questions, or unresolved points exist. "
+            "Always call this when analysing a specific proposal document to surface reviewer notes."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "doc_id": {
+                    "type": "string",
+                    "description": (
+                        "Google Doc ID — the long string in the document URL: "
+                        "docs.google.com/document/d/<doc_id>/edit"
+                    ),
+                },
+                "include_resolved": {
+                    "type": "boolean",
+                    "description": "Set to true to also include already-resolved comments. Default false.",
+                },
+            },
+            "required": ["doc_id"],
+        },
+    },
+    {
         "name": "web_search",
         "description": (
             "Search the web for live information. "
@@ -1307,6 +1406,11 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
             category=tool_input["category"],
             skill=tool_input.get("skill"),
             thread_id=tool_input.get("thread_id"),
+        )
+    elif tool_name == "read_doc_comments":
+        result = read_doc_comments(
+            tool_input["doc_id"],
+            tool_input.get("include_resolved", False),
         )
     elif tool_name == "web_search":
         result = web_search(

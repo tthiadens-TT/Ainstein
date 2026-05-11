@@ -1,9 +1,15 @@
 import io
+import json
 import os
 import re
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
+
+import log_setup
+
+logger = log_setup.get_logger("tools")
 
 BASE_DIR = Path(__file__).parent
 
@@ -91,10 +97,10 @@ def _get_drive_service():
             scopes=["https://www.googleapis.com/auth/drive"],
         )
         _DRIVE_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
-        print("[tools] Drive API mode: service account initialised", file=sys.stderr, flush=True)
+        logger.info("Drive API mode: service account initialised")
         return _DRIVE_SERVICE
     except Exception as e:
-        print(f"[tools] Drive API init failed: {e}", file=sys.stderr, flush=True)
+        logger.error("Drive API init failed: %s", e)
         return None
 
 
@@ -136,12 +142,12 @@ def _build_drive_folder_ids() -> dict[str, str]:
 
         for known in _FOLDER_NAMES:
             status = folder_ids.get(known, "NOT FOUND")
-            print(f"[tools] Drive: {known} → {status}", file=sys.stderr, flush=True)
+            logger.info("Drive: %s → %s", known, status)
 
         return folder_ids
 
     except Exception as e:
-        print(f"[tools] Drive folder discovery failed: {e}", file=sys.stderr, flush=True)
+        logger.error("Drive folder discovery failed: %s", e)
         return {}
 
 
@@ -231,7 +237,7 @@ def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
         try:
             result = service.files().list(**kwargs).execute()
         except Exception as e:
-            print(f"[tools] Drive list failed for {folder_id}: {e}", file=sys.stderr, flush=True)
+            logger.error("Drive list failed for %s: %s", folder_id, e)
             break
         files.extend(result.get("files", []))
         page_token = result.get("nextPageToken")
@@ -251,13 +257,13 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
 
     service = _get_drive_service()
     if not service:
-        print("[tools] Drive: cannot write feedback — service unavailable", file=sys.stderr, flush=True)
+        logger.error("Drive: cannot write feedback — service unavailable")
         return
 
     folder_ids = _get_drive_folder_ids()
     feedback_folder_id = folder_ids.get("07_Feedback")
     if not feedback_folder_id:
-        print("[tools] Drive: 07_Feedback folder ID not found — cannot write feedback", file=sys.stderr, flush=True)
+        logger.error("Drive: 07_Feedback folder ID not found — cannot write feedback")
         return
 
     # Find gaps.md in 07_Feedback
@@ -273,7 +279,7 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
             includeItemsFromAllDrives=True,
         ).execute()
     except Exception as e:
-        print(f"[tools] Drive: failed to find gaps.md: {e}", file=sys.stderr, flush=True)
+        logger.error("Drive: failed to find gaps.md: %s", e)
         return
 
     files = results.get("files", [])
@@ -288,9 +294,9 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
                 media_body=media,
                 supportsAllDrives=True,
             ).execute()
-            print("[tools] Drive: created gaps.md with new feedback entry", file=sys.stderr, flush=True)
+            logger.info("Drive: created gaps.md with new feedback entry")
         except Exception as e:
-            print(f"[tools] Drive: failed to create gaps.md: {e}", file=sys.stderr, flush=True)
+            logger.error("Drive: failed to create gaps.md: %s", e)
     else:
         # Download existing content, append entry, upload
         file_id = files[0]["id"]
@@ -304,7 +310,7 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
             buf.seek(0)
             current = buf.read().decode("utf-8", errors="replace")
         except Exception as e:
-            print(f"[tools] Drive: failed to download gaps.md: {e}", file=sys.stderr, flush=True)
+            logger.error("Drive: failed to download gaps.md: %s", e)
             return
 
         new_content = (current + entry).encode("utf-8")
@@ -315,9 +321,9 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
                 media_body=media,
                 supportsAllDrives=True,
             ).execute()
-            print("[tools] Drive: updated gaps.md with new feedback entry", file=sys.stderr, flush=True)
+            logger.info("Drive: updated gaps.md with new feedback entry")
         except Exception as e:
-            print(f"[tools] Drive: failed to update gaps.md: {e}", file=sys.stderr, flush=True)
+            logger.error("Drive: failed to update gaps.md: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -325,32 +331,119 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
 # ---------------------------------------------------------------------------
 
 def _log_source_health() -> None:
-    """Log source layer health at import time."""
+    """Log source layer health at import time and snapshot Drive metadata."""
     if _is_drive_mode():
         service = _get_drive_service()
         if service:
             folder_ids = _get_drive_folder_ids()
             found = len(folder_ids)
             total = len(_FOLDER_NAMES)
-            print(
-                f"[tools] Drive API mode — {found}/{total} subfolders discovered",
-                file=sys.stderr, flush=True,
-            )
+            logger.info("Drive API mode — %d/%d subfolders discovered", found, total)
         else:
-            print("[tools] Drive API mode — service account init FAILED", file=sys.stderr, flush=True)
+            logger.error("Drive API mode — service account init FAILED")
     else:
         root_ok = SOURCE_ROOT.exists()
-        print(
-            f"[tools] filesystem mode — SOURCE_ROOT exists: {root_ok} ({SOURCE_ROOT})",
-            file=sys.stderr, flush=True,
-        )
+        logger.info("filesystem mode — SOURCE_ROOT exists: %s (%s)", root_ok, SOURCE_ROOT)
         for name, path in SOURCE_FOLDERS.items():
             try:
                 n = sum(1 for p in path.rglob("*") if p.is_file() and not p.name.startswith("."))
             except OSError:
                 n = 0
             warn = "  ⚠ THIN" if n <= 1 else ""
-            print(f"[tools]   {name}: ({n} files){warn}", file=sys.stderr, flush=True)
+            logger.info("  %s: (%d files)%s", name, n, warn)
+    _snapshot_drive_sources()
+
+
+def _snapshot_drive_sources() -> None:
+    """Snapshot source layer file metadata; log additions, changes, and removals."""
+    snap_logger = log_setup.get_logger("tools.snapshot")
+    logs_dir = Path(__file__).parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    snapshot_path = logs_dir / "drive_snapshot_latest.json"
+
+    current: dict[str, dict] = {}
+
+    if _is_drive_mode():
+        service = _get_drive_service()
+        if not service:
+            return
+        folder_ids = _get_drive_folder_ids()
+        for folder_name, folder_id in folder_ids.items():
+            page_token = None
+            while True:
+                kwargs: dict = dict(
+                    q=(
+                        f"'{folder_id}' in parents "
+                        "and mimeType != 'application/vnd.google-apps.folder' "
+                        "and trashed=false"
+                    ),
+                    fields="nextPageToken, files(id, name, modifiedTime, size)",
+                    pageSize=100,
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                )
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                try:
+                    result = service.files().list(**kwargs).execute()
+                except Exception as e:
+                    snap_logger.warning("snapshot query failed for %s: %s", folder_name, e)
+                    break
+                for f in result.get("files", []):
+                    key = f"{folder_name}/{f['name']}"
+                    current[key] = {
+                        "modified": f.get("modifiedTime", ""),
+                        "size": f.get("size", ""),
+                    }
+                page_token = result.get("nextPageToken")
+                if not page_token:
+                    break
+    else:
+        for folder_name, folder_path in SOURCE_FOLDERS.items():
+            if not folder_path.exists():
+                continue
+            for p in folder_path.rglob("*"):
+                if p.is_file() and not p.name.startswith("."):
+                    key = f"{folder_name}/{p.relative_to(folder_path)}"
+                    try:
+                        st = p.stat()
+                        current[key] = {
+                            "modified": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(),
+                            "size": str(st.st_size),
+                        }
+                    except OSError:
+                        pass
+
+    if not current:
+        return
+
+    if snapshot_path.exists():
+        try:
+            previous = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        except Exception:
+            previous = {}
+
+        added = [k for k in current if k not in previous]
+        removed = [k for k in previous if k not in current]
+        changed = [
+            k for k in current
+            if k in previous and current[k]["modified"] != previous[k]["modified"]
+        ]
+
+        if added or removed or changed:
+            snap_logger.info("Source layer changes since last startup:")
+            for k in added:
+                snap_logger.info("  + ADDED   %s", k)
+            for k in removed:
+                snap_logger.info("  - REMOVED %s", k)
+            for k in changed:
+                snap_logger.info("  ~ CHANGED %s (was %s, now %s)", k, previous[k]["modified"], current[k]["modified"])
+        else:
+            snap_logger.info("Source layer: no changes since last startup (%d files)", len(current))
+    else:
+        snap_logger.info("Source layer: initial snapshot taken (%d files)", len(current))
+
+    snapshot_path.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 _log_source_health()
@@ -374,26 +467,23 @@ def _ocr_pdf_via_vision(path: Path) -> str:
         import fitz  # PyMuPDF
         import anthropic
     except ImportError as e:
-        print(f"[tools] OCR unavailable: {e}", file=sys.stderr, flush=True)
+        logger.warning("OCR unavailable: %s", e)
         return ""
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        print("[tools] OCR skipped: ANTHROPIC_API_KEY not set", file=sys.stderr, flush=True)
+        logger.warning("OCR skipped: ANTHROPIC_API_KEY not set")
         return ""
 
     try:
         doc = fitz.open(str(path))
     except Exception as e:
-        print(f"[tools] OCR could not open PDF {path.name}: {e}", file=sys.stderr, flush=True)
+        logger.error("OCR could not open PDF %s: %s", path.name, e)
         return ""
 
     n_pages = min(len(doc), OCR_MAX_PAGES)
     if len(doc) > OCR_MAX_PAGES:
-        print(
-            f"[tools] OCR capped at {OCR_MAX_PAGES} of {len(doc)} pages for {path.name}",
-            file=sys.stderr, flush=True,
-        )
+        logger.info("OCR capped at %d of %d pages for %s", OCR_MAX_PAGES, len(doc), path.name)
 
     client = anthropic.Anthropic(api_key=api_key)
     parts = []
@@ -403,7 +493,7 @@ def _ocr_pdf_via_vision(path: Path) -> str:
             pix = page.get_pixmap(dpi=OCR_RENDER_DPI)
             png_b64 = base64.standard_b64encode(pix.tobytes("png")).decode()
         except Exception as e:
-            print(f"[tools] OCR render failed page {i+1}: {e}", file=sys.stderr, flush=True)
+            logger.error("OCR render failed page %d: %s", i + 1, e)
             continue
 
         try:
@@ -425,7 +515,7 @@ def _ocr_pdf_via_vision(path: Path) -> str:
             )
             text = "\n".join(b.text for b in resp.content if b.type == "text").strip()
         except Exception as e:
-            print(f"[tools] OCR API failed page {i+1}: {e}", file=sys.stderr, flush=True)
+            logger.error("OCR API failed page %d: %s", i + 1, e)
             continue
 
         if text and text != "[blank page]":
@@ -466,7 +556,7 @@ def _get_gdoc_service():
         _GDOC_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
         return _GDOC_SERVICE
     except Exception as e:
-        print(f"[tools] gdoc service init failed: {e}", file=sys.stderr, flush=True)
+        logger.error("gdoc service init failed: %s", e)
         return None
 
 
@@ -847,7 +937,7 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
         try:
             resp = service.files().list(**kwargs).execute()
         except Exception as e:
-            print(f"[tools] Drive fullText search failed: {e}", file=sys.stderr, flush=True)
+            logger.error("Drive fullText search failed: %s", e)
             break
 
         for f in resp.get("files", []):
@@ -896,7 +986,7 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
                     "snippets": [f"[Filename match for '{term}']"],
                 })
         except Exception as e:
-            print(f"[tools] Drive name search failed for '{term}': {e}", file=sys.stderr, flush=True)
+            logger.error("Drive name search failed for '%s': %s", term, e)
 
     results.sort(key=lambda r: r["score"], reverse=True)
 
@@ -1037,7 +1127,7 @@ def web_search(query: str, max_results: int = 5) -> dict:
             ],
         }
     except Exception as e:
-        print(f"[tools] web_search FAILED: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        logger.error("web_search FAILED: %s: %s", type(e).__name__, e)
         return {"error": f"Web search failed: {e}", "results": []}
 
 

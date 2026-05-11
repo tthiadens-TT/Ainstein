@@ -8,6 +8,10 @@ import sqlite3
 import sys
 from pathlib import Path
 
+import log_setup
+
+logger = log_setup.get_logger("memory")
+
 DB_PATH = Path(__file__).parent / "conversations.db"
 
 # Bump whenever the on-disk message shape changes incompatibly.
@@ -58,11 +62,7 @@ def _conn(db_path: Path = DB_PATH) -> sqlite3.Connection:
             )
         if on_disk < SCHEMA_VERSION:
             # Forward migration hook — for now just log; add steps per bump.
-            print(
-                f"[memory] migrating conversations.db from v{on_disk} to v{SCHEMA_VERSION}",
-                file=sys.stderr,
-                flush=True,
-            )
+            logger.info("migrating conversations.db from v%d to v%d", on_disk, SCHEMA_VERSION)
             con.execute(
                 "UPDATE schema_meta SET value = ? WHERE key = 'version'",
                 (str(SCHEMA_VERSION),),
@@ -81,11 +81,7 @@ def load(thread_ts: str, db_path: Path = DB_PATH) -> list:
     try:
         return json.loads(row[0])
     except json.JSONDecodeError as e:
-        print(
-            f"[memory] unreadable row for thread_ts={thread_ts}: {e} — returning empty history",
-            file=sys.stderr,
-            flush=True,
-        )
+        logger.error("unreadable row for thread_ts=%s: %s — returning empty history", thread_ts, e)
         return []
 
 

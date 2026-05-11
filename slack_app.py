@@ -48,8 +48,11 @@ import anthropic
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+import log_setup
 from agent import run_agent
 from memory import load as mem_load, save as mem_save
+
+logger = log_setup.get_logger("slack_app")
 from feedback import (
     register_pending,
     pop_pending,
@@ -85,8 +88,8 @@ if not _anthropic_key:
 if not _slack_bot_token:
     raise SystemExit("SLACK_BOT_TOKEN not set or empty in .env")
 
-print(f"ANTHROPIC_API_KEY loaded: {_anthropic_key[:12]}... (length {len(_anthropic_key)})")
-print(f"SLACK_BOT_TOKEN loaded: {_slack_bot_token[:10]}... (length {len(_slack_bot_token)})")
+logger.info("ANTHROPIC_API_KEY loaded: %s... (length %d)", _anthropic_key[:12], len(_anthropic_key))
+logger.info("SLACK_BOT_TOKEN loaded: %s... (length %d)", _slack_bot_token[:10], len(_slack_bot_token))
 
 app = App(token=_slack_bot_token)
 
@@ -133,8 +136,7 @@ def _classify_feedback(bot_excerpt: str, user_comment: str) -> tuple[str, str]:
         )
         text = "".join(b.text for b in resp.content if b.type == "text")
     except Exception as e:
-        print(f"[slack_app] classifier failed: {type(e).__name__}: {e}",
-              file=sys.stderr, flush=True)
+        logger.error("classifier failed: %s: %s", type(e).__name__, e)
         return "qualitative", "missende-inhoud"
 
     ftype, cat = "qualitative", "missende-inhoud"
@@ -211,7 +213,7 @@ def _detect_skill(text: str) -> str | None:
     return None
 
 
-def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str | None = None):
+def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str | None = None, user_id: str = ""):
     with _lock:
         messages = mem_load(thread_ts)
 
@@ -220,8 +222,9 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
         skill = _detect_skill(user_text)
 
     try:
-        response = run_agent(messages, ANTHROPIC_CLIENT, skill=skill)
+        response, trace = run_agent(messages, ANTHROPIC_CLIENT, skill=skill)
     except Exception as e:
+        logger.exception("run_agent failed for thread=%s: %s", thread_ts, e)
         try:
             fallback_messages = [{"role": "user", "content": (
                 f"I tried to answer this question: '{user_text}'\n\n"
@@ -229,25 +232,24 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
                 "Please reflect on what you would need to answer this properly. "
                 "What is missing from the source layer? What would make you more useful here?"
             )}]
-            response = run_agent(fallback_messages, ANTHROPIC_CLIENT)
+            response, trace = run_agent(fallback_messages, ANTHROPIC_CLIENT)
         except Exception as fallback_err:
-            # Log both original and fallback failure so we never lose context
-            print(
-                f"[slack_app] fallback run_agent also failed: "
-                f"{type(fallback_err).__name__}: {fallback_err}",
-                file=sys.stderr,
-                flush=True,
-            )
-            traceback.print_exc(file=sys.stderr)
+            logger.exception("fallback run_agent also failed: %s", fallback_err)
             response = (
                 "Ik kon deze vraag nu niet beantwoorden. "
                 "Controleer of de juiste bestanden in de bronmappen staan en probeer het opnieuw."
             )
+            trace = {}
+
+    trace["thread_ts"] = thread_ts
+    trace["channel"] = channel
+    trace["user_id"] = user_id
+    log_setup.append_decision_trace(trace)
 
     mem_save(thread_ts, messages)
-    print(f"[reply] posting {len(response)} chars to Slack", flush=True)
+    logger.info("posting %d chars to Slack thread=%s", len(response), thread_ts)
     _send_chunked(say, response, channel, thread_ts)
-    print(f"[reply] done", flush=True)
+    logger.info("reply done thread=%s", thread_ts)
 
 
 def _send_chunked(say, text: str, channel: str, thread_ts: str, limit: int = 2900):
@@ -286,6 +288,7 @@ def handle_mention(event, say, client):
     t = threading.Thread(
         target=_run_and_reply,
         args=(channel, thread_ts, user_text, say),
+        kwargs={"user_id": event.get("user", "")},
         daemon=True,
     )
     t.start()
@@ -303,6 +306,7 @@ def _slash_handler(skill: str, body, ack, say):
     t = threading.Thread(
         target=_run_and_reply,
         args=(channel, thread_ts, user_text, say, skill),
+        kwargs={"user_id": body.get("user_id", "")},
         daemon=True,
     )
     t.start()
@@ -405,11 +409,7 @@ def _download_files(files: list) -> str:
             if host in _SLACK_FILE_HOSTS:
                 headers = {"Authorization": f"Bearer {_slack_bot_token}"}
             else:
-                print(
-                    f"[slack_app] refusing to attach bot token to non-Slack host: {host}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                logger.warning("refusing to attach bot token to non-Slack host: %s", host)
                 headers = {}
             r = _req.get(url, headers=headers, timeout=30)
             r.raise_for_status()
@@ -460,11 +460,7 @@ def handle_dm(event, say, client):
                     or info.get("user", {}).get("name")
                 )
             except Exception as e:
-                print(
-                    f"[slack_app] users_info lookup failed ({e}); continuing with id only",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                logger.warning("users_info lookup failed (%s); continuing with id only", e)
             ftype, cat = _classify_feedback(state["bot_excerpt"], caption)
             capture_feedback(
                 thread_id=thread_ts,
@@ -505,13 +501,14 @@ def handle_dm(event, say, client):
                 return
             user_text = f"{caption}\n\n{file_content}".strip() if caption else file_content
             skill = _detect_skill(caption) if caption else None
-            _run_and_reply(channel, thread_ts, user_text, say, skill=skill)
+            _run_and_reply(channel, thread_ts, user_text, say, skill=skill, user_id=user_id)
         threading.Thread(target=process, daemon=True).start()
     else:
         say(text="_Searching source layer…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
         threading.Thread(
             target=_run_and_reply,
             args=(channel, thread_ts, caption, say),
+            kwargs={"user_id": user_id},
             daemon=True,
         ).start()
 
@@ -521,13 +518,12 @@ def handle_reaction(event, client):
     """Capture 👎 on a bot answer and ask the user what could be better."""
     reaction = event.get("reaction", "")
     item_type = event.get("item", {}).get("type", "?")
-    print(
-        f"[reaction_added] received: emoji={reaction!r} item_type={item_type} "
-        f"user={event.get('user')} channel={event.get('item', {}).get('channel')}",
-        flush=True,
+    logger.info(
+        "reaction_added: emoji=%r item_type=%s user=%s channel=%s",
+        reaction, item_type, event.get("user"), event.get("item", {}).get("channel"),
     )
     if reaction not in _NEGATIVE_REACTIONS:
-        print(f"[reaction_added] ignored: {reaction!r} not in {_NEGATIVE_REACTIONS}", flush=True)
+        logger.debug("reaction_added ignored: %r not in %s", reaction, _NEGATIVE_REACTIONS)
         return
 
     item = event.get("item", {})
@@ -547,10 +543,7 @@ def handle_reaction(event, client):
         # message just to filter out reactions on user messages.
         item_user = event.get("item_user")
         if item_user and item_user != bot_user_id:
-            print(
-                f"[reaction_added] ignored: item_user={item_user} is not our bot",
-                flush=True,
-            )
+            logger.debug("reaction_added ignored: item_user=%s is not our bot", item_user)
             return
 
         # Fetch the reacted-on message. We use conversations.replies (not
@@ -567,7 +560,7 @@ def handle_reaction(event, client):
                     msg = m
                     break
         except Exception as e:
-            print(f"[reaction_added] conversations_replies failed: {e}", flush=True)
+            logger.warning("reaction_added: conversations_replies failed: %s", e)
 
         # Fallback for true top-level messages (e.g. mentions in a channel):
         if msg is None:
@@ -580,13 +573,10 @@ def handle_reaction(event, client):
                 if cands and cands[0].get("ts") == message_ts:
                     msg = cands[0]
             except Exception as e:
-                print(f"[reaction_added] conversations_history fallback failed: {e}", flush=True)
+                logger.warning("reaction_added: conversations_history fallback failed: %s", e)
 
         if msg is None:
-            print(
-                f"[reaction_added] ignored: could not retrieve message {message_ts}",
-                flush=True,
-            )
+            logger.warning("reaction_added ignored: could not retrieve message %s", message_ts)
             return
 
         # Confirm bot authorship from the fetched message too — defence in depth
@@ -594,20 +584,15 @@ def handle_reaction(event, client):
         msg_user = msg.get("user")
         msg_bot_id = msg.get("bot_id")
         if msg_user != bot_user_id and not msg_bot_id:
-            print(
-                f"[reaction_added] ignored: reacted-on message is from "
-                f"user={msg_user} bot_id={msg_bot_id}, not our bot ({bot_user_id})",
-                flush=True,
+            logger.debug(
+                "reaction_added ignored: message from user=%s bot_id=%s, not our bot (%s)",
+                msg_user, msg_bot_id, bot_user_id,
             )
             return
 
         bot_text = msg.get("text", "") or ""
         if not bot_text.strip() or bot_text.startswith(_BOT_PLACEHOLDER_PREFIXES):
-            print(
-                f"[reaction_added] ignored: reaction on placeholder/empty text "
-                f"(text starts with: {bot_text[:40]!r})",
-                flush=True,
-            )
+            logger.debug("reaction_added ignored: placeholder/empty text (starts: %r)", bot_text[:40])
             return
 
         thread_ts = msg.get("thread_ts") or message_ts
@@ -630,17 +615,9 @@ def handle_reaction(event, client):
             ),
             mrkdwn=True,
         )
-        print(
-            f"[feedback] registered pending for user={user_id} thread={thread_ts}",
-            flush=True,
-        )
+        logger.info("feedback pending registered for user=%s thread=%s", user_id, thread_ts)
     except Exception as e:
-        print(
-            f"[slack_app] reaction_added handler failed: {type(e).__name__}: {e}",
-            file=sys.stderr,
-            flush=True,
-        )
-        traceback.print_exc(file=sys.stderr)
+        logger.exception("reaction_added handler failed: %s: %s", type(e).__name__, e)
 
 
 if __name__ == "__main__":
@@ -648,5 +625,5 @@ if __name__ == "__main__":
     if not app_token:
         raise SystemExit("SLACK_APP_TOKEN not set. See .env.example.")
     handler = SocketModeHandler(app, app_token)
-    print("Ainstein is running in Slack. Press Ctrl+C to stop.")
+    logger.info("Ainstein is running in Slack. Press Ctrl+C to stop.")
     handler.start()

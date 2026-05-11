@@ -29,7 +29,8 @@ venv/
 .vscode/
 .idea/
 
-# Logs
+# Logs — ephemeral, machine-local, never committed
+logs/
 *.log
 
 # Generated review output — canonical copy lives locally, not in git

@@ -553,6 +553,9 @@ def _get_gdoc_service():
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             GDOC_TOKEN_PATH.write_text(creds.to_json())
+        elif creds.expired:
+            logger.error("OAuth token verlopen zonder refresh_token — draai setup_gdrive_auth.py opnieuw")
+            return None
         _GDOC_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
         return _GDOC_SERVICE
     except Exception as e:

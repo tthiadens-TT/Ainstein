@@ -37,6 +37,9 @@ def get_creds():
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
         TOKEN.write_text(creds.to_json())
+    elif creds.expired:
+        print("ERROR: OAuth token verlopen zonder refresh_token — draai setup_gdrive_auth.py opnieuw.")
+        sys.exit(1)
     return creds
 
 

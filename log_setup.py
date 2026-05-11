@@ -27,8 +27,14 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def append_decision_trace(trace: dict) -> None:
-    """Append one JSON line to logs/decisions.jsonl (no rotation — small volume)."""
+    """Append one JSON line to logs/decisions.jsonl. Rotates at 10 MB."""
     _LOGS_DIR.mkdir(exist_ok=True)
+    path = _LOGS_DIR / "decisions.jsonl"
+    _MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+    if path.exists() and path.stat().st_size >= _MAX_BYTES:
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        path.rename(_LOGS_DIR / f"decisions_{timestamp}.jsonl")
     line = json.dumps(trace, ensure_ascii=False, default=str)
-    with (_LOGS_DIR / "decisions.jsonl").open("a", encoding="utf-8") as f:
+    with path.open("a", encoding="utf-8") as f:
         f.write(line + "\n")

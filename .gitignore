@@ -23,12 +23,14 @@ venv/
 # macOS
 .DS_Store
 
-# Editor
-.claude/
+# Editor — track project settings, ignore local overrides and worktrees
+.claude/*
+!.claude/settings.json
 .vscode/
 .idea/
 
-# Logs
+# Logs — ephemeral, machine-local, never committed
+logs/
 *.log
 
 # Generated review output — canonical copy lives locally, not in git

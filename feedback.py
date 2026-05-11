@@ -163,10 +163,17 @@ def capture_feedback(
     )
 
     with _lock:
-        with gaps_file.open("a", encoding="utf-8") as f:
-            if fresh:
-                f.write(_HEADER)
-            f.write(entry)
+        from tools import _is_drive_mode, drive_append_feedback
+        if _is_drive_mode():
+            # Drive API mode: upload via service account (no local filesystem write)
+            drive_append_feedback(entry=entry, header=_HEADER if fresh else "")
+        else:
+            # Filesystem mode: append directly to local gaps.md
+            gaps_file.parent.mkdir(parents=True, exist_ok=True)
+            with gaps_file.open("a", encoding="utf-8") as f:
+                if fresh:
+                    f.write(_HEADER)
+                f.write(entry)
 
 
 # Backwards-compatible alias — kept so existing callers keep working until

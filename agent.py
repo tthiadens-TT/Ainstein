@@ -12,7 +12,9 @@ import os
 import sys
 import argparse
 import textwrap
-from typing import Literal
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 import anthropic
 from dotenv import load_dotenv
@@ -21,8 +23,11 @@ from dotenv import load_dotenv
 # regardless of caller's working directory.
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
+import log_setup
 from prompts import SYSTEM_PROMPT, SKILL_PROMPTS
 from tools import TOOL_SCHEMAS, dispatch
+
+logger = log_setup.get_logger("agent")
 
 MODEL = "claude-sonnet-4-6"
 
@@ -102,8 +107,19 @@ def run_agent(
     skill: str | None = None,
     verbose: bool = False,
     max_iterations: int = 15,
-) -> str:
-    """Run one turn of the agent loop. Returns the final text response."""
+) -> tuple[str, dict]:
+    """Run one turn of the agent loop. Returns (final text, trace dict)."""
+
+    _t_start = time.time()
+    trace: dict = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "skill": skill,
+        "tools_called": [],
+        "files_read": [],
+        "iterations": 0,
+        "total_duration_s": 0.0,
+        "answer_chars": 0,
+    }
 
     system = [
         {
@@ -119,12 +135,17 @@ def run_agent(
             "cache_control": {"type": "ephemeral"},
         })
 
+    def _finish(text: str) -> tuple[str, dict]:
+        trace["iterations"] = iteration
+        trace["total_duration_s"] = round(time.time() - _t_start, 2)
+        trace["answer_chars"] = len(text)
+        return text, trace
+
     iteration = 0
     while True:
         iteration += 1
         if iteration > max_iterations:
-            print(f"[agent] max_iterations ({max_iterations}) reached — forcing final answer", flush=True)
-            # Nudge the model to wrap up without more tool calls
+            logger.warning("max_iterations (%d) reached — forcing final answer", max_iterations)
             messages.append({
                 "role": "user",
                 "content": (
@@ -140,14 +161,11 @@ def run_agent(
             )
             text = "\n".join(b.text for b in final.content if b.type == "text").strip()
             messages.append({"role": "assistant", "content": final.content})
-            return text or "Ik kon geen sluitend antwoord formuleren — probeer de vraag specifieker te stellen."
+            return _finish(text or "Ik kon geen sluitend antwoord formuleren — probeer de vraag specifieker te stellen.")
 
-        import time as _time
-        _api_t0 = _time.time()
-        input_chars = sum(
-            len(str(m.get("content", ""))) for m in messages
-        )
-        print(f"[agent] iteration {iteration} — calling API (input ≈{input_chars} chars)", flush=True)
+        _api_t0 = time.time()
+        input_chars = sum(len(str(m.get("content", ""))) for m in messages)
+        logger.info("iteration %d — calling API (input ≈%d chars)", iteration, input_chars)
         response = client.messages.create(
             model=MODEL,
             max_tokens=4096,
@@ -156,7 +174,10 @@ def run_agent(
             messages=messages,
             timeout=90.0,
         )
-        print(f"[agent] iteration {iteration} — API returned in {_time.time()-_api_t0:.1f}s, stop_reason={response.stop_reason}", flush=True)
+        logger.info(
+            "iteration %d — API returned in %.1fs, stop_reason=%s",
+            iteration, time.time() - _api_t0, response.stop_reason,
+        )
 
         # Collect text from this response
         text_parts = []
@@ -172,7 +193,7 @@ def run_agent(
         if response.stop_reason == "end_turn" or not tool_uses:
             full_text = "\n".join(text_parts).strip()
             messages.append({"role": "assistant", "content": response.content})
-            return full_text
+            return _finish(full_text)
 
         # Stream partial text if any
         if text_parts and verbose:
@@ -188,15 +209,23 @@ def run_agent(
             name = tool_use.name
             inp = tool_use.input
 
-            # Show what's being retrieved
             preview = ", ".join(f"{k}={repr(v)[:40]}" for k, v in inp.items())
             print_tool_use(name, preview)
 
-            import time as _time
-            _t0 = _time.time()
+            _t0 = time.time()
             result = dispatch(name, inp)
-            _dt = _time.time() - _t0
-            print(f"[tool] {name} took {_dt:.1f}s, returned {len(result)} chars", flush=True)
+            _dt = round(time.time() - _t0, 2)
+            logger.info("[tool] %s took %.1fs, returned %d chars", name, _dt, len(result))
+
+            trace["tools_called"].append({
+                "name": name,
+                "input_preview": preview[:200],
+                "duration_s": _dt,
+                "output_chars": len(result),
+            })
+            if name == "read_file" and "path" in inp:
+                trace["files_read"].append(inp["path"])
+
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": tool_use.id,
@@ -243,7 +272,7 @@ def chat_loop(skill: str | None, client: anthropic.Anthropic):
             messages.append({"role": "user", "content": user_input})
 
             print()
-            response_text = run_agent(messages, client, skill=skill, verbose=True)
+            response_text, _trace = run_agent(messages, client, skill=skill, verbose=True)
 
             print_separator()
             print_agent(response_text)
@@ -252,6 +281,43 @@ def chat_loop(skill: str | None, client: anthropic.Anthropic):
         except (KeyboardInterrupt, EOFError):
             print("\n\nExiting Minkowski Agent.")
             break
+
+
+def export_conversations(since: str | None = None) -> None:
+    """Dump conversations.db to logs/conversations_export_YYYY-MM-DD.jsonl."""
+    import json as _json
+    import sqlite3
+    from memory import DB_PATH
+
+    logs_dir = Path(__file__).parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    out_path = logs_dir / f"conversations_export_{today}.jsonl"
+
+    with sqlite3.connect(DB_PATH) as con:
+        if since:
+            rows = con.execute(
+                "SELECT thread_ts, messages, updated_at FROM conversations "
+                "WHERE updated_at >= ? ORDER BY updated_at",
+                (since,),
+            ).fetchall()
+        else:
+            rows = con.execute(
+                "SELECT thread_ts, messages, updated_at FROM conversations ORDER BY updated_at"
+            ).fetchall()
+
+    count = 0
+    with out_path.open("w", encoding="utf-8") as f:
+        for thread_ts, messages_json, updated_at in rows:
+            record = {
+                "thread_ts": thread_ts,
+                "updated_at": updated_at,
+                "messages": _json.loads(messages_json),
+            }
+            f.write(_json.dumps(record, ensure_ascii=False) + "\n")
+            count += 1
+
+    print(f"Exported {count} conversation(s) to {out_path}")
 
 
 def main():
@@ -267,7 +333,21 @@ def main():
         "--api-key",
         help="Anthropic API key (or set ANTHROPIC_API_KEY env var).",
     )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="Export conversation history to logs/conversations_export_YYYY-MM-DD.jsonl and exit.",
+    )
+    parser.add_argument(
+        "--since",
+        metavar="YYYY-MM-DD",
+        help="Only export conversations updated on or after this date (use with --export).",
+    )
     args = parser.parse_args()
+
+    if args.export:
+        export_conversations(since=args.since)
+        sys.exit(0)
 
     api_key = args.api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:

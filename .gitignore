@@ -23,8 +23,9 @@ venv/
 # macOS
 .DS_Store
 
-# Editor
-.claude/
+# Editor — track project settings, ignore local overrides and worktrees
+.claude/*
+!.claude/settings.json
 .vscode/
 .idea/
 

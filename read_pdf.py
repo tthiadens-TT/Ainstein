@@ -14,6 +14,9 @@ def read_pdf(path: str, pages: str = None) -> str:
     total = len(reader.pages)
 
     if pages:
+        import re
+        if not re.match(r'^\d+(-\d+)?$', pages):
+            raise ValueError(f"Ongeldig --pages formaat: '{pages}'. Gebruik bijv. '3' of '1-5'.")
         parts = pages.split("-")
         start = int(parts[0]) - 1
         end = int(parts[1]) if len(parts) > 1 else start + 1

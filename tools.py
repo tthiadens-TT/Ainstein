@@ -1,6 +1,8 @@
+import io
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -12,7 +14,7 @@ _READ_CACHE_MAX = 256
 
 # Source layer = Google Drive (multi-user, single source of truth).
 # Override AINSTEIN_SOURCE_ROOT to point elsewhere (e.g. another machine,
-# a CI mount, or a future Drive-API-backed path) without touching code.
+# a CI mount) without touching code.
 _DEFAULT_SOURCE_ROOT = (
     "/Users/thomasthiadens/Library/CloudStorage/"
     "GoogleDrive-tthiadens@gmail.com/.shortcut-targets-by-id/"
@@ -32,34 +34,334 @@ _FOLDER_NAMES = [
 
 SOURCE_FOLDERS = {name: SOURCE_ROOT / name for name in _FOLDER_NAMES}
 
-TEXT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".doc", ".rtf", ".csv", ".json", ".xlsx", ".xlsm", ".pptx", ".gdoc", ".gsheet", ".gslides", ".eml"}
+TEXT_EXTENSIONS = {
+    ".txt", ".md", ".pdf", ".docx", ".doc", ".rtf", ".csv", ".json",
+    ".xlsx", ".xlsm", ".pptx", ".gdoc", ".gsheet", ".gslides", ".eml",
+}
 
+# ---------------------------------------------------------------------------
+# Google Drive API mode
+# ---------------------------------------------------------------------------
+# Set GOOGLE_SERVICE_ACCOUNT_JSON (full JSON string of the service account key)
+# to enable Drive API mode. The bot will then read/search the source layer via
+# the Drive API instead of the local filesystem — enabling server deployments
+# without a Google Drive File Stream mount.
+#
+# Also set AINSTEIN_DRIVE_ROOT_ID to override the default root folder ID.
+# ---------------------------------------------------------------------------
+
+_DEFAULT_DRIVE_ROOT_ID = "1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e"
+_DRIVE_FILE_PREFIX = "drive://"
+
+_DRIVE_SERVICE = None                    # cached Drive v3 API client
+_DRIVE_FOLDER_IDS: dict[str, str] | None = None  # {"01_Proposals": "id…", …}
+
+# Google-native MIME types and their plain-text export formats
+_GOOGLE_NATIVE_MIMES: dict[str, str] = {
+    "application/vnd.google-apps.document":     "text/plain",
+    "application/vnd.google-apps.spreadsheet":  "text/csv",
+    "application/vnd.google-apps.presentation": "text/plain",
+}
+
+
+def _is_drive_mode() -> bool:
+    """Return True when the Drive API backend is configured."""
+    return bool(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON"))
+
+
+def _get_drive_service():
+    """Build (and cache) a Google Drive v3 API client using a service account.
+    Returns None on failure — callers must handle that gracefully."""
+    global _DRIVE_SERVICE
+    if _DRIVE_SERVICE is not None:
+        return _DRIVE_SERVICE
+
+    sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json_str:
+        return None
+
+    try:
+        import json as _json
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+
+        info = _json.loads(sa_json_str)
+        creds = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=["https://www.googleapis.com/auth/drive"],
+        )
+        _DRIVE_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
+        print("[tools] Drive API mode: service account initialised", file=sys.stderr, flush=True)
+        return _DRIVE_SERVICE
+    except Exception as e:
+        print(f"[tools] Drive API init failed: {e}", file=sys.stderr, flush=True)
+        return None
+
+
+def _get_drive_folder_ids() -> dict[str, str]:
+    """Return subfolder name → Drive folder ID mapping. Cached after first call."""
+    global _DRIVE_FOLDER_IDS
+    if _DRIVE_FOLDER_IDS is None:
+        _DRIVE_FOLDER_IDS = _build_drive_folder_ids()
+    return _DRIVE_FOLDER_IDS
+
+
+def _build_drive_folder_ids() -> dict[str, str]:
+    """Discover subfolder IDs from the root Drive folder."""
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+    service = _get_drive_service()
+    if not service:
+        return {}
+
+    try:
+        results = service.files().list(
+            q=(
+                f"'{root_id}' in parents "
+                "and mimeType='application/vnd.google-apps.folder' "
+                "and trashed=false"
+            ),
+            fields="files(id, name)",
+            pageSize=20,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+
+        folder_ids: dict[str, str] = {}
+        for f in results.get("files", []):
+            name = f["name"]
+            for known in _FOLDER_NAMES:
+                if name == known:
+                    folder_ids[known] = f["id"]
+                    break
+
+        for known in _FOLDER_NAMES:
+            status = folder_ids.get(known, "NOT FOUND")
+            print(f"[tools] Drive: {known} → {status}", file=sys.stderr, flush=True)
+
+        return folder_ids
+
+    except Exception as e:
+        print(f"[tools] Drive folder discovery failed: {e}", file=sys.stderr, flush=True)
+        return {}
+
+
+def _make_drive_path(file_id: str, filename: str) -> str:
+    """Build a Drive pseudo-path: drive://{file_id}/{filename}"""
+    return f"{_DRIVE_FILE_PREFIX}{file_id}/{filename}"
+
+
+def _parse_drive_path(path: str) -> tuple[str, str] | None:
+    """Parse a Drive pseudo-path → (file_id, filename), or None if not a Drive path."""
+    if not path.startswith(_DRIVE_FILE_PREFIX):
+        return None
+    rest = path[len(_DRIVE_FILE_PREFIX):]
+    slash = rest.find("/")
+    if slash == -1:
+        return rest, ""
+    return rest[:slash], rest[slash + 1:]
+
+
+def _read_drive_file_content(service, file_id: str, filename: str, mime_type: str) -> str:
+    """Download and parse a file from Drive. Returns plain text."""
+    from googleapiclient.http import MediaIoBaseDownload
+
+    # Google-native formats → export as plain text
+    if mime_type in _GOOGLE_NATIVE_MIMES:
+        export_mime = _GOOGLE_NATIVE_MIMES[mime_type]
+        try:
+            data = service.files().export(
+                fileId=file_id, mimeType=export_mime
+            ).execute()
+            if isinstance(data, bytes):
+                return data.decode("utf-8", errors="replace")
+            return str(data) if data else "[empty document]"
+        except Exception as e:
+            return f"[Drive export failed for {filename}: {e}]"
+
+    # All other files → download as bytes
+    try:
+        request = service.files().get_media(fileId=file_id)
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        buf.seek(0)
+        raw = buf.read()
+    except Exception as e:
+        return f"[Drive download failed for {filename}: {e}]"
+
+    suffix = Path(filename).suffix.lower()
+
+    # Plain text → decode directly
+    if suffix in {".txt", ".md", ".json", ".csv", ".rtf"}:
+        return raw.decode("utf-8", errors="replace")
+
+    # Binary formats → save to a temp file and use existing parsers
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    try:
+        return _read_text_uncached(tmp_path)
+    finally:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+
+
+def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
+    """List all files (not subfolders) in a Drive folder. Handles pagination."""
+    files: list[dict] = []
+    page_token = None
+    while True:
+        kwargs: dict = dict(
+            q=(
+                f"'{folder_id}' in parents "
+                "and mimeType != 'application/vnd.google-apps.folder' "
+                "and trashed=false"
+            ),
+            fields="nextPageToken, files(id, name, mimeType)",
+            pageSize=100,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+        try:
+            result = service.files().list(**kwargs).execute()
+        except Exception as e:
+            print(f"[tools] Drive list failed for {folder_id}: {e}", file=sys.stderr, flush=True)
+            break
+        files.extend(result.get("files", []))
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+    return files
+
+
+def drive_append_feedback(entry: str, header: str = "") -> None:
+    """Append a feedback entry to gaps.md on Drive.
+
+    If gaps.md doesn't exist, creates it with header + entry.
+    If it exists, downloads current content, appends entry, and uploads.
+    Called by feedback.py when Drive API mode is active.
+    """
+    from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+
+    service = _get_drive_service()
+    if not service:
+        print("[tools] Drive: cannot write feedback — service unavailable", file=sys.stderr, flush=True)
+        return
+
+    folder_ids = _get_drive_folder_ids()
+    feedback_folder_id = folder_ids.get("07_Feedback")
+    if not feedback_folder_id:
+        print("[tools] Drive: 07_Feedback folder ID not found — cannot write feedback", file=sys.stderr, flush=True)
+        return
+
+    # Find gaps.md in 07_Feedback
+    try:
+        results = service.files().list(
+            q=(
+                f"name='gaps.md' and '{feedback_folder_id}' in parents "
+                "and trashed=false"
+            ),
+            fields="files(id)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+    except Exception as e:
+        print(f"[tools] Drive: failed to find gaps.md: {e}", file=sys.stderr, flush=True)
+        return
+
+    files = results.get("files", [])
+
+    if not files:
+        # Create new file with header + entry
+        content = (header + entry).encode("utf-8")
+        media = MediaIoBaseUpload(io.BytesIO(content), mimetype="text/markdown", resumable=False)
+        try:
+            service.files().create(
+                body={"name": "gaps.md", "parents": [feedback_folder_id]},
+                media_body=media,
+                supportsAllDrives=True,
+            ).execute()
+            print("[tools] Drive: created gaps.md with new feedback entry", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[tools] Drive: failed to create gaps.md: {e}", file=sys.stderr, flush=True)
+    else:
+        # Download existing content, append entry, upload
+        file_id = files[0]["id"]
+        try:
+            request = service.files().get_media(fileId=file_id)
+            buf = io.BytesIO()
+            downloader = MediaIoBaseDownload(buf, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            buf.seek(0)
+            current = buf.read().decode("utf-8", errors="replace")
+        except Exception as e:
+            print(f"[tools] Drive: failed to download gaps.md: {e}", file=sys.stderr, flush=True)
+            return
+
+        new_content = (current + entry).encode("utf-8")
+        media = MediaIoBaseUpload(io.BytesIO(new_content), mimetype="text/markdown", resumable=False)
+        try:
+            service.files().update(
+                fileId=file_id,
+                media_body=media,
+                supportsAllDrives=True,
+            ).execute()
+            print("[tools] Drive: updated gaps.md with new feedback entry", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[tools] Drive: failed to update gaps.md: {e}", file=sys.stderr, flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Source health logging (called at import time)
+# ---------------------------------------------------------------------------
 
 def _log_source_health() -> None:
-    """Log per-folder file counts at import time so a broken SOURCE_ROOT or
-    missing folder is visible in the bot logs instead of silently degrading
-    output quality."""
-    root_ok = SOURCE_ROOT.exists()
-    print(
-        f"[tools] source health — SOURCE_ROOT exists: {root_ok} ({SOURCE_ROOT})",
-        file=sys.stderr, flush=True,
-    )
-    for name, path in SOURCE_FOLDERS.items():
-        try:
-            n = sum(1 for p in path.rglob("*") if p.is_file() and not p.name.startswith("."))
-        except OSError:
-            n = 0
-        warn = "  ⚠ THIN" if n <= 1 else ""
-        print(f"[tools]   {name}: ({n} files){warn}", file=sys.stderr, flush=True)
+    """Log source layer health at import time."""
+    if _is_drive_mode():
+        service = _get_drive_service()
+        if service:
+            folder_ids = _get_drive_folder_ids()
+            found = len(folder_ids)
+            total = len(_FOLDER_NAMES)
+            print(
+                f"[tools] Drive API mode — {found}/{total} subfolders discovered",
+                file=sys.stderr, flush=True,
+            )
+        else:
+            print("[tools] Drive API mode — service account init FAILED", file=sys.stderr, flush=True)
+    else:
+        root_ok = SOURCE_ROOT.exists()
+        print(
+            f"[tools] filesystem mode — SOURCE_ROOT exists: {root_ok} ({SOURCE_ROOT})",
+            file=sys.stderr, flush=True,
+        )
+        for name, path in SOURCE_FOLDERS.items():
+            try:
+                n = sum(1 for p in path.rglob("*") if p.is_file() and not p.name.startswith("."))
+            except OSError:
+                n = 0
+            warn = "  ⚠ THIN" if n <= 1 else ""
+            print(f"[tools]   {name}: ({n} files){warn}", file=sys.stderr, flush=True)
 
 
 _log_source_health()
 
 
-# ---- OCR fallback (scanned PDFs → Claude vision) ----
+# ---------------------------------------------------------------------------
+# OCR fallback (scanned PDFs → Claude vision)
+# ---------------------------------------------------------------------------
 
 OCR_MODEL = "claude-haiku-4-5-20251001"
-OCR_MAX_PAGES = 20  # cap to keep cost predictable
+OCR_MAX_PAGES = 20
 OCR_RENDER_DPI = 200
 
 
@@ -133,7 +435,10 @@ def _ocr_pdf_via_vision(path: Path) -> str:
     return "\n\n".join(parts)
 
 
-# ---- Google Docs resolver (.gdoc stubs → live content) ----
+# ---------------------------------------------------------------------------
+# Google Docs resolver (.gdoc stubs → live content via OAuth)
+# Used in filesystem mode when .gdoc stub files exist locally.
+# ---------------------------------------------------------------------------
 
 GDOC_TOKEN_PATH = Path.home() / ".minkowski_gdrive_token.json"
 GDOC_CREDS_PATH = Path.home() / ".minkowski_gdrive_credentials.json"
@@ -141,8 +446,7 @@ _GDOC_SERVICE = None
 
 
 def _get_gdoc_service():
-    """Build (and cache) a Google Drive API client. Returns None if
-    credentials are not configured — callers must handle that gracefully."""
+    """Build (and cache) a Drive API client using OAuth credentials (filesystem mode)."""
     global _GDOC_SERVICE
     if _GDOC_SERVICE is not None:
         return _GDOC_SERVICE
@@ -167,9 +471,7 @@ def _get_gdoc_service():
 
 
 def _read_gdoc(path: Path) -> str:
-    """Read a .gdoc / .gsheet stub by exporting the live document via the
-    Drive API. Returns clear marker text if credentials missing or fetch
-    fails — never raises into the caller."""
+    """Read a .gdoc / .gsheet stub by exporting the live document via Drive API."""
     import json as _json
     try:
         meta = _json.loads(path.read_text(encoding="utf-8"))
@@ -188,9 +490,9 @@ def _read_gdoc(path: Path) -> str:
 
     suffix = path.suffix.lower()
     mime = {
-        ".gdoc":   "text/markdown",
-        ".gsheet": "text/csv",
-        ".gslides":"text/plain",
+        ".gdoc":    "text/markdown",
+        ".gsheet":  "text/csv",
+        ".gslides": "text/plain",
     }.get(suffix, "text/plain")
 
     try:
@@ -201,6 +503,10 @@ def _read_gdoc(path: Path) -> str:
     except Exception as e:
         return f"[.gdoc fetch failed for {path.name}: {e}]"
 
+
+# ---------------------------------------------------------------------------
+# Filesystem file reading (used in filesystem mode)
+# ---------------------------------------------------------------------------
 
 def _read_text(path: Path) -> str:
     """Read a file as plain text, best-effort. Cached by (abspath, mtime)."""
@@ -219,7 +525,6 @@ def _read_text(path: Path) -> str:
 
     if cache_key is not None:
         if len(_READ_CACHE) >= _READ_CACHE_MAX:
-            # Simple FIFO eviction — drop the oldest key
             _READ_CACHE.pop(next(iter(_READ_CACHE)))
         _READ_CACHE[cache_key] = result
     return result
@@ -328,14 +633,51 @@ def _read_text_uncached(path: Path) -> str:
         return f"[Could not read file: {e}]"
 
 
+# ---------------------------------------------------------------------------
+# Public tool functions — route to Drive or filesystem based on mode
+# ---------------------------------------------------------------------------
+
 def list_folder(folder: str | None = None) -> dict:
     """
     List files in one or all source folders.
-    Returns a dict mapping folder names to lists of relative file paths.
+    Returns a dict mapping folder names to lists of file paths (or Drive IDs).
     """
+    if _is_drive_mode():
+        return _drive_list_folder(folder)
+    return _fs_list_folder(folder)
+
+
+def _drive_list_folder(folder: str | None = None) -> dict:
+    service = _get_drive_service()
+    if not service:
+        return {"error": "Drive API not available — check GOOGLE_SERVICE_ACCOUNT_JSON"}
+
+    folder_ids = _get_drive_folder_ids()
+
     if folder:
         folder = folder.strip().lstrip("/")
-        # Accept short names like "04_Experts" or just "Experts"
+        matched = None
+        for key in folder_ids:
+            if folder.lower() in key.lower() or key.lower() in folder.lower():
+                matched = key
+                break
+        if not matched:
+            return {"error": f"Folder '{folder}' not found. Available: {list(folder_ids.keys())}"}
+        folders_to_scan = {matched: folder_ids[matched]}
+    else:
+        folders_to_scan = folder_ids
+
+    result = {}
+    for name, fid in folders_to_scan.items():
+        files = _drive_list_files_in_folder(service, fid)
+        result[name] = [_make_drive_path(f["id"], f["name"]) for f in sorted(files, key=lambda x: x["name"])]
+
+    return result
+
+
+def _fs_list_folder(folder: str | None = None) -> dict:
+    if folder:
+        folder = folder.strip().lstrip("/")
         matched = None
         for key in SOURCE_FOLDERS:
             if folder.lower() in key.lower() or key.lower() in folder.lower():
@@ -355,7 +697,7 @@ def list_folder(folder: str | None = None) -> dict:
         files = []
         for f in sorted(path.rglob("*")):
             if f.is_file() and not f.name.startswith("."):
-                files.append(str(f))  # use absolute path so read_file can locate it
+                files.append(str(f))
         result[name] = files
 
     return result
@@ -364,8 +706,48 @@ def list_folder(folder: str | None = None) -> dict:
 def read_file(path: str) -> dict:
     """
     Read a file from the Minkowski source structure.
-    Accepts absolute paths or paths relative to SOURCE_ROOT (or BASE_DIR for repo files).
+    Accepts Drive pseudo-paths (drive://…), absolute filesystem paths,
+    or paths relative to SOURCE_ROOT.
     """
+    if _is_drive_mode():
+        return _drive_read_file(path)
+    return _fs_read_file(path)
+
+
+def _drive_read_file(path: str) -> dict:
+    service = _get_drive_service()
+    if not service:
+        return {"error": "Drive API not available"}
+
+    parsed = _parse_drive_path(path)
+    if parsed:
+        file_id, filename = parsed
+    else:
+        # Assume raw file ID was passed
+        file_id = path.strip()
+        filename = ""
+
+    try:
+        meta = service.files().get(
+            fileId=file_id,
+            fields="id, name, mimeType",
+            supportsAllDrives=True,
+        ).execute()
+        filename = meta.get("name", filename)
+        mime_type = meta.get("mimeType", "")
+    except Exception as e:
+        return {"error": f"Could not get Drive file metadata: {e}"}
+
+    content = _read_drive_file_content(service, file_id, filename, mime_type)
+    return {
+        "path": path,
+        "name": filename,
+        "size_chars": len(content),
+        "content": content,
+    }
+
+
+def _fs_read_file(path: str) -> dict:
     target = Path(path)
 
     if not target.is_absolute():
@@ -378,7 +760,6 @@ def read_file(path: str) -> dict:
                 target = candidate
 
     if not target.exists():
-        # Last resort: search by filename across all source folders
         name = target.name
         for folder_path in SOURCE_FOLDERS.values():
             matches = list(folder_path.rglob(name))
@@ -402,13 +783,131 @@ def read_file(path: str) -> dict:
 def search_files(query: str, folders: list[str] | None = None) -> dict:
     """
     Search for files whose name or content contains the query terms.
-    Returns matches ranked by relevance (number of term hits).
+    Returns matches ranked by relevance.
 
     Args:
-        query: Search string. Space-separated terms are all searched.
-        folders: Optional list of folder names to restrict search to.
-                 Accepts short names like ["Proposals", "Experts"].
+        query: Search string. Space-separated terms are all required.
+        folders: Optional list of folder names to restrict search.
     """
+    if _is_drive_mode():
+        return _drive_search_files(query, folders)
+    return _fs_search_files(query, folders)
+
+
+def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
+    service = _get_drive_service()
+    if not service:
+        return {"error": "Drive API not available"}
+
+    folder_ids = _get_drive_folder_ids()
+
+    if folders:
+        scan = {}
+        for f in folders:
+            for key, fid in folder_ids.items():
+                if f.lower() in key.lower() or key.lower() in f.lower():
+                    scan[key] = fid
+                    break
+    else:
+        scan = folder_ids
+
+    if not scan:
+        return {"query": query, "total_matches": 0, "results": []}
+
+    terms = [t.strip() for t in query.split() if t.strip()]
+    if not terms:
+        return {"error": "Empty search query"}
+
+    folder_conditions = " or ".join(f"'{fid}' in parents" for fid in scan.values())
+
+    # Drive API fullText: search for files containing ALL terms
+    # `fullText contains 'term'` searches both name and content
+    def escape(t: str) -> str:
+        return t.replace("\\", "\\\\").replace("'", "\\'")
+
+    fulltext_parts = [f"fullText contains '{escape(t)}'" for t in terms[:4]]
+    fulltext_conditions = " and ".join(fulltext_parts)
+
+    drive_query = f"({fulltext_conditions}) and ({folder_conditions}) and trashed=false"
+
+    results: list[dict] = []
+    seen_ids: set[str] = set()
+    page_token = None
+
+    while len(results) < 25:
+        kwargs: dict = dict(
+            q=drive_query,
+            fields="nextPageToken, files(id, name, mimeType, parents)",
+            pageSize=25,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+        try:
+            resp = service.files().list(**kwargs).execute()
+        except Exception as e:
+            print(f"[tools] Drive fullText search failed: {e}", file=sys.stderr, flush=True)
+            break
+
+        for f in resp.get("files", []):
+            if f["id"] in seen_ids:
+                continue
+            seen_ids.add(f["id"])
+            parent_id = (f.get("parents") or [None])[0]
+            folder_name = next((k for k, v in scan.items() if v == parent_id), "unknown")
+            name_hits = sum(1 for t in terms if t.lower() in f["name"].lower())
+            results.append({
+                "path": _make_drive_path(f["id"], f["name"]),
+                "folder": folder_name,
+                "score": name_hits * 10 + 5,
+                "name_matches": name_hits,
+                "content_matches": 1,
+                "snippets": ["[Drive content match — call read_file to see full content]"],
+            })
+
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+
+    # Also search by filename for each term (catches binary files Drive may not index)
+    for term in terms[:2]:
+        name_query = f"name contains '{escape(term)}' and ({folder_conditions}) and trashed=false"
+        try:
+            resp = service.files().list(
+                q=name_query,
+                fields="files(id, name, mimeType, parents)",
+                pageSize=20,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            ).execute()
+            for f in resp.get("files", []):
+                if f["id"] in seen_ids:
+                    continue
+                seen_ids.add(f["id"])
+                parent_id = (f.get("parents") or [None])[0]
+                folder_name = next((k for k, v in scan.items() if v == parent_id), "unknown")
+                results.append({
+                    "path": _make_drive_path(f["id"], f["name"]),
+                    "folder": folder_name,
+                    "score": 5,
+                    "name_matches": 1,
+                    "content_matches": 0,
+                    "snippets": [f"[Filename match for '{term}']"],
+                })
+        except Exception as e:
+            print(f"[tools] Drive name search failed for '{term}': {e}", file=sys.stderr, flush=True)
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+
+    return {
+        "query": query,
+        "total_matches": len(results),
+        "results": results[:20],
+    }
+
+
+def _fs_search_files(query: str, folders: list[str] | None = None) -> dict:
     terms = [t.strip().lower() for t in query.split() if t.strip()]
     if not terms:
         return {"error": "Empty search query"}
@@ -444,7 +943,6 @@ def search_files(query: str, folders: list[str] | None = None) -> dict:
             if total_score == 0:
                 continue
 
-            # Extract relevant snippets (up to 3)
             snippets = []
             for term in terms:
                 for match in re.finditer(re.escape(term), content_lower):
@@ -471,9 +969,13 @@ def search_files(query: str, folders: list[str] | None = None) -> dict:
     return {
         "query": query,
         "total_matches": len(results),
-        "results": results[:20],  # cap at 20
+        "results": results[:20],
     }
 
+
+# ---------------------------------------------------------------------------
+# Feedback correction tool (agent-callable)
+# ---------------------------------------------------------------------------
 
 def record_correction(
     bot_excerpt: str,
@@ -492,8 +994,6 @@ def record_correction(
     feedback_type: "technical" | "qualitative"
     category:      one of the fixed sub-labels (see 07_Feedback/README.md)
     """
-    # Imported lazily to avoid a circular import at module load (feedback.py
-    # imports SOURCE_ROOT from this module).
     from feedback import capture_feedback
 
     capture_feedback(
@@ -516,6 +1016,10 @@ def record_correction(
     }
 
 
+# ---------------------------------------------------------------------------
+# Web search
+# ---------------------------------------------------------------------------
+
 def web_search(query: str, max_results: int = 5) -> dict:
     """
     Search the web using DuckDuckGo. Use for live company research,
@@ -533,12 +1037,13 @@ def web_search(query: str, max_results: int = 5) -> dict:
             ],
         }
     except Exception as e:
-        # Loud log so the agent loop operator sees this, not just a 119-char payload
         print(f"[tools] web_search FAILED: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
         return {"error": f"Web search failed: {e}", "results": []}
 
 
+# ---------------------------------------------------------------------------
 # Tool schemas for the Anthropic API
+# ---------------------------------------------------------------------------
 
 TOOL_SCHEMAS = [
     {
@@ -573,7 +1078,10 @@ TOOL_SCHEMAS = [
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Relative path to the file, e.g. '04_Experts/jane_doe.md'.",
+                    "description": (
+                        "Path to the file as returned by list_folder or search_files. "
+                        "Accepts Drive pseudo-paths (drive://…) or filesystem paths."
+                    ),
                 }
             },
             "required": ["path"],
@@ -637,10 +1145,8 @@ TOOL_SCHEMAS = [
                 "category": {
                     "type": "string",
                     "enum": [
-                        # technical
                         "hallucinatie", "context-misverstand", "onleesbaar-bestand",
                         "tool-fout", "verkeerde-bron-gekozen",
-                        # qualitative
                         "commercieel-zwak", "tone-of-voice", "missende-inhoud",
                         "verkeerde-logica", "niet-Minkowski", "te-generiek",
                     ],
@@ -685,6 +1191,10 @@ TOOL_SCHEMAS = [
     },
 ]
 
+
+# ---------------------------------------------------------------------------
+# Tool dispatcher
+# ---------------------------------------------------------------------------
 
 def dispatch(tool_name: str, tool_input: dict) -> str:
     """Dispatch a tool call and return result as string."""

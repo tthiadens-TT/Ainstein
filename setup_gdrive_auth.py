@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-One-time setup: authorise the Minkowski bot to read Google Docs/Sheets/Slides
-referenced from .gdoc stubs in the source layer.
+One-time setup: authorise the Minkowski bot to read and write Google Docs/Sheets/Slides
+and to resolve comments on proposal documents.
 
 Prerequisite — done once in Google Cloud Console:
   1. Create a project at https://console.cloud.google.com (or reuse one).
@@ -16,7 +16,7 @@ Prerequisite — done once in Google Cloud Console:
 Then run this script once:
         .venv/bin/python setup_gdrive_auth.py
 
-It opens a browser, you grant read-only Drive access, and a refresh token is
+It opens a browser, you grant Drive + Docs access, and a refresh token is
 written to ~/.minkowski_gdrive_token.json. The bot picks it up automatically.
 """
 from pathlib import Path
@@ -25,8 +25,8 @@ import sys
 CREDS = Path.home() / ".minkowski_gdrive_credentials.json"
 TOKEN = Path.home() / ".minkowski_gdrive_token.json"
 SCOPES = [
-    "https://www.googleapis.com/auth/drive.readonly",
-    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive",        # Drive lezen + schrijven (o.a. comments resolven)
+    "https://www.googleapis.com/auth/documents",    # Google Docs inhoud bewerken
 ]
 
 

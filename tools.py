@@ -1395,6 +1395,80 @@ TOOL_SCHEMAS = [
             "required": ["query"],
         },
     },
+    {
+        "name": "create_gdoc",
+        "description": (
+            "Create a new Google Doc and write initial content to it. "
+            "Use after generating a proposal draft to give Thomas a collaborative working document. "
+            "Returns the doc_id and a shareable URL to post in Slack."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Document title, e.g. 'Voorstel NN Group Leadership Programma'.",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Full proposal text to write into the document.",
+                },
+            },
+            "required": ["title", "content"],
+        },
+    },
+    {
+        "name": "update_gdoc_section",
+        "description": (
+            "Replace a specific section of text in a Google Doc. "
+            "Use when processing a comment: replace the old (quoted) text with the improved rewrite. "
+            "Only rewrites the exact text provided — does not touch the rest of the document."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "doc_id": {
+                    "type": "string",
+                    "description": "Google Doc ID or full URL.",
+                },
+                "old_text": {
+                    "type": "string",
+                    "description": "The exact text to replace (quoted_text from the comment).",
+                },
+                "new_text": {
+                    "type": "string",
+                    "description": "The improved replacement text.",
+                },
+            },
+            "required": ["doc_id", "old_text", "new_text"],
+        },
+    },
+    {
+        "name": "resolve_doc_comment",
+        "description": (
+            "Mark a Google Doc comment as resolved and add a reply summarising what changed. "
+            "Call this after successfully rewriting a section via update_gdoc_section. "
+            "The reply gives Thomas track-and-trace visibility inside the document."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "doc_id": {
+                    "type": "string",
+                    "description": "Google Doc ID or full URL.",
+                },
+                "comment_id": {
+                    "type": "string",
+                    "description": "Comment ID as returned by read_doc_comments.",
+                },
+                "reply_text": {
+                    "type": "string",
+                    "description": "One-sentence summary of the rewrite, e.g. 'Herschreven: context aangescherpt op financiële sector context NN Group.'",
+                },
+            },
+            "required": ["doc_id", "comment_id"],
+        },
+    },
 ]
 
 
@@ -1434,6 +1508,32 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
             tool_input["query"],
             tool_input.get("max_results", 5),
         )
+    elif tool_name == "create_gdoc":
+        try:
+            from gdoc_tools import create_gdoc
+            result = create_gdoc(tool_input["title"], tool_input["content"])
+        except Exception as e:
+            result = {"error": str(e)}
+    elif tool_name == "update_gdoc_section":
+        try:
+            from gdoc_tools import update_gdoc_section
+            result = update_gdoc_section(
+                tool_input["doc_id"],
+                tool_input["old_text"],
+                tool_input["new_text"],
+            )
+        except Exception as e:
+            result = {"error": str(e)}
+    elif tool_name == "resolve_doc_comment":
+        try:
+            from gdoc_tools import resolve_comment
+            result = resolve_comment(
+                tool_input["doc_id"],
+                tool_input["comment_id"],
+                tool_input.get("reply_text", ""),
+            )
+        except Exception as e:
+            result = {"error": str(e)}
     else:
         result = {"error": f"Unknown tool: {tool_name}"}
 

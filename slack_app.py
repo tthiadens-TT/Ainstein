@@ -369,6 +369,82 @@ def cmd_debrief_messaging(body, ack, say):
     _slash_handler("debrief_to_messaging", body, ack, say)
 
 
+@app.command("/refine-comments")
+def cmd_refine_comments(body, ack, say):
+    """Process open comments on a Google Doc proposal draft."""
+    _slash_handler("refine_proposal", body, ack, say)
+
+
+@app.command("/export-deck")
+def cmd_export_deck(body, ack, say):
+    """Generate a Minkowski-branded PPTX from a Google Doc proposal."""
+    ack()
+    parts = body.get("text", "").strip().split(None, 1)
+    if not parts:
+        say(
+            text="_Gebruik: `/export-deck [doc_id of doc_url] [klantnaam]`_",
+            channel=body["channel_id"],
+        )
+        return
+
+    doc_id_or_url = parts[0]
+    client_name = parts[1].strip() if len(parts) > 1 else "Client"
+    channel = body["channel_id"]
+
+    say(text=f"_Generating Minkowski deck voor {client_name}…_", channel=channel, mrkdwn=True)
+
+    t = threading.Thread(
+        target=_build_and_upload_deck,
+        args=(doc_id_or_url, client_name, channel),
+        daemon=True,
+    )
+    t.start()
+
+
+def _build_and_upload_deck(doc_id_or_url: str, client_name: str, channel: str) -> None:
+    """Read a Google Doc, build a PPTX, and upload it to Slack."""
+    try:
+        from gdoc_tools import get_doc_content, _extract_doc_id
+        from pptx_builder import build_proposal_deck, parse_proposal_sections
+
+        doc_id = _extract_doc_id(doc_id_or_url)
+        doc_text = get_doc_content(doc_id)
+        if not doc_text.strip():
+            app.client.chat_postMessage(
+                channel=channel,
+                text="⚠️ Document is leeg of kon niet worden gelezen.",
+            )
+            return
+
+        sections = parse_proposal_sections(doc_text)
+        if not sections:
+            app.client.chat_postMessage(
+                channel=channel,
+                text=(
+                    "⚠️ Geen secties gevonden in het document. "
+                    "Zorg dat het voorstel koppen gebruikt (# Context, # Proposal Logic, etc.)."
+                ),
+            )
+            return
+
+        pptx_bytes = build_proposal_deck(sections, client_name=client_name)
+        filename = f"Voorstel_{client_name.replace(' ', '_')}.pptx"
+
+        app.client.files_upload_v2(
+            channel=channel,
+            content=pptx_bytes,
+            filename=filename,
+            title=f"Voorstel {client_name} — Minkowski",
+        )
+
+    except Exception as e:
+        import traceback as _tb
+        app.client.chat_postMessage(
+            channel=channel,
+            text=f"⚠️ PPTX genereren mislukt: {e}\n```{_tb.format_exc()[-800:]}```",
+        )
+
+
 @app.command("/feedback-review")
 def cmd_feedback_review(body, ack, say):
     """Trigger the review_feedback skill. Empty input is allowed — the skill

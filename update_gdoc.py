@@ -24,22 +24,36 @@ TOKEN = Path.home() / ".minkowski_gdrive_token.json"
 REQUIRED_SCOPE = "https://www.googleapis.com/auth/documents"
 
 
-def get_creds():
-    if not TOKEN.exists():
-        print(f"ERROR: No token at {TOKEN}. Run setup_gdrive_auth.py first.")
+class CredentialsError(RuntimeError):
+    """Raised when OAuth credentials are missing or have insufficient scope."""
+
+
+def get_creds(raise_on_error: bool = False):
+    """Return OAuth credentials with documents write scope.
+
+    When raise_on_error=True, raises CredentialsError instead of calling sys.exit.
+    Used by gdoc_tools.py for programmatic access.
+    """
+    def _fail(msg: str):
+        if raise_on_error:
+            raise CredentialsError(msg)
+        print(f"ERROR: {msg}")
         sys.exit(1)
+
+    if not TOKEN.exists():
+        _fail(f"No token at {TOKEN}. Run setup_gdrive_auth.py first.")
     creds = Credentials.from_authorized_user_file(str(TOKEN))
     if REQUIRED_SCOPE not in (creds.scopes or []):
-        print(f"ERROR: Token missing scope '{REQUIRED_SCOPE}'.")
-        print("Fix: update SCOPES in setup_gdrive_auth.py and re-run it.")
-        print("     Add: 'https://www.googleapis.com/auth/documents'")
-        sys.exit(1)
+        _fail(
+            f"Token missing scope '{REQUIRED_SCOPE}'. "
+            "Fix: update SCOPES in setup_gdrive_auth.py and re-run it. "
+            "Add: 'https://www.googleapis.com/auth/documents'"
+        )
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
         TOKEN.write_text(creds.to_json())
     elif creds.expired:
-        print("ERROR: OAuth token verlopen zonder refresh_token — draai setup_gdrive_auth.py opnieuw.")
-        sys.exit(1)
+        _fail("OAuth token verlopen zonder refresh_token — draai setup_gdrive_auth.py opnieuw.")
     return creds
 
 

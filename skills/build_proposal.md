@@ -137,3 +137,11 @@ If requested, provide draft wording.
 ## Quality Check
 Before finalizing, ask:
 Would this proposal help Minkowski win the right work, or does it still sound like it could belong to anyone?
+
+## After Generating a Draft
+Once you have produced a full proposal draft, always:
+1. Call `create_gdoc` with an appropriate title (e.g. "Voorstel [Client] [Opportunity]") and the full draft text as content.
+2. Post the Google Doc URL in Slack with a short message, e.g.:
+   "Voorstel-draft staat klaar: [URL]. Voeg comments toe op secties die je wilt aanscherpen, dan typ je `/refine-comments [doc_id]`."
+
+Do not skip this step. The Google Doc is the working format for all further refinement.

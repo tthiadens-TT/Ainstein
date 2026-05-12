@@ -94,7 +94,7 @@ def _get_drive_service():
         info = _json.loads(sa_json_str)
         creds = service_account.Credentials.from_service_account_info(
             info,
-            scopes=["https://www.googleapis.com/auth/drive"],
+            scopes=["https://www.googleapis.com/auth/drive.file"],
         )
         _DRIVE_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
         logger.info("Drive API mode: service account initialised")
@@ -295,6 +295,9 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
                 supportsAllDrives=True,
             ).execute()
             logger.info("Drive: created gaps.md with new feedback entry")
+            from log_setup import append_decision_trace
+            import datetime as _dt
+            append_decision_trace({"timestamp": _dt.datetime.utcnow().isoformat(), "event": "drive_write", "drive_write": True, "target": "07_Feedback/gaps.md", "action": "created"})
         except Exception as e:
             logger.error("Drive: failed to create gaps.md: %s", e)
     else:
@@ -322,6 +325,9 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
                 supportsAllDrives=True,
             ).execute()
             logger.info("Drive: updated gaps.md with new feedback entry")
+            from log_setup import append_decision_trace
+            import datetime as _dt
+            append_decision_trace({"timestamp": _dt.datetime.utcnow().isoformat(), "event": "drive_write", "drive_write": True, "target": "07_Feedback/gaps.md", "action": "updated"})
         except Exception as e:
             logger.error("Drive: failed to update gaps.md: %s", e)
 
@@ -851,6 +857,14 @@ def _fs_read_file(path: str) -> dict:
             candidate = BASE_DIR / path.lstrip("/")
             if candidate.exists():
                 target = candidate
+
+    try:
+        resolved = target.resolve()
+        allowed = (SOURCE_ROOT.resolve(), BASE_DIR.resolve())
+        if not any(resolved.is_relative_to(a) for a in allowed):
+            return {"error": f"Access denied: path outside allowed directories: {path}"}
+    except (ValueError, OSError):
+        return {"error": f"Invalid path: {path}"}
 
     if not target.exists():
         name = target.name

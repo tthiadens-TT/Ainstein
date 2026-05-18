@@ -100,30 +100,44 @@ _GOOGLE_NATIVE_MIMES: dict[str, str] = {
 
 def _is_drive_mode() -> bool:
     """Return True when the Drive API backend is configured."""
-    return bool(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON"))
+    return bool(
+        os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+        or os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+    )
 
 
 def _get_drive_service():
     """Build (and cache) a Google Drive v3 API client using a service account.
+    Supports two env vars:
+      GOOGLE_SERVICE_ACCOUNT_FILE — path to the JSON key file (preferred on VM)
+      GOOGLE_SERVICE_ACCOUNT_JSON — inline JSON string (fallback)
     Returns None on failure — callers must handle that gracefully."""
     global _DRIVE_SERVICE
     if _DRIVE_SERVICE is not None:
         return _DRIVE_SERVICE
-
-    sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    if not sa_json_str:
-        return None
 
     try:
         import json as _json
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
 
-        info = _json.loads(sa_json_str)
-        creds = service_account.Credentials.from_service_account_info(
-            info,
-            scopes=["https://www.googleapis.com/auth/drive.file"],
-        )
+        sa_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+        sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+        if sa_file:
+            creds = service_account.Credentials.from_service_account_file(
+                sa_file,
+                scopes=["https://www.googleapis.com/auth/drive"],
+            )
+        elif sa_json_str:
+            info = _json.loads(sa_json_str)
+            creds = service_account.Credentials.from_service_account_info(
+                info,
+                scopes=["https://www.googleapis.com/auth/drive"],
+            )
+        else:
+            return None
+
         _DRIVE_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
         logger.info("Drive API mode: service account initialised")
         return _DRIVE_SERVICE

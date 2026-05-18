@@ -31,6 +31,7 @@ SYSTEM_PROMPT = _load(_HERE / "brain.md")
 SKILL_LABELS = {
     "analyse_opportunity": "ANALYSE_OPPORTUNITY",
     "build_proposal": "BUILD_PROPOSAL",
+    "refine_proposal": "REFINE_PROPOSAL",
     "match_experts": "MATCH_EXPERTS",
     "qualify_lead": "QUALIFY_LEAD",
     "prepare_discovery": "PREPARE_DISCOVERY",

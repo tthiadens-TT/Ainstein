@@ -1,0 +1,117 @@
+# Ainstein — Deployment & Beheer
+
+Dit document is voor de beheerder (Thomas). Het beschrijft hoe de VM-deployment werkt, welke schrijfpaden de agent heeft, en hoe je controleert of de beveiliging op orde is.
+
+## Architectuur op de VM
+
+```
+GitHub (dev/main branch)
+    │  push → GitHub Actions (.github/workflows/deploy.yml)
+    │  SSH → thomas@VM
+    ▼
+/home/thomas/Ainstein/
+    │  git pull origin dev
+    │  sudo systemctl restart ainstein
+    ▼
+systemd service: ainstein
+    └── python slack_app.py (Socket Mode — geen open poort nodig)
+```
+
+**Deploy:** push naar `dev` of `main` → automatisch uitgerold via GitHub Actions.
+**Handmatig herstarten:** `sudo systemctl restart ainstein`
+**Logs bekijken:** `sudo journalctl -u ainstein -f`
+
+---
+
+## Secrets op de VM
+
+Secrets staan in `/home/thomas/Ainstein/.env` (nooit in git).
+
+| Variabele | Doel |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude API toegang |
+| `SLACK_BOT_TOKEN` | Slack bot (xoxb-...) |
+| `SLACK_APP_TOKEN` | Socket Mode (xapp-...) |
+| `GOOGLE_SERVICE_ACCOUNT_FILE` | Pad naar service account JSON op de VM |
+| `AINSTEIN_DRIVE_ROOT_ID` | ID van de Minkowski AInstein root-map in Drive |
+
+**Service account JSON staat als bestand op de VM** (niet inline in de env var).
+Bewaar het buiten de repo, bijvoorbeeld: `/home/thomas/secrets/ainstein-sa.json`
+
+---
+
+## Wat de agent kan schrijven
+
+Dit zijn alle schrijfpaden. Alles buiten deze lijst kan de agent niet wijzigen.
+
+| Actie | Locatie | Reversibel? | Trigger | Bevestiging? |
+|---|---|---|---|---|
+| Feedback loggen (👎) | `07_Feedback/gaps.md` op Drive | ✅ Drive versiegeschiedenis | Slack 👎-reactie | Nee — auto |
+| Inline correctie loggen | `07_Feedback/gaps.md` op Drive | ✅ Drive versiegeschiedenis | Gebruikersverzoek in chat | **Ja — altijd** |
+| Conversatie opslaan | `conversations.db` (SQLite, op VM) | ✅ Bestand kopieerbaar | Elke beurt | Nee — auto |
+| Beslissing loggen | `logs/decisions.jsonl` (op VM) | ✅ Append-only | Elke beurt | Nee — auto |
+| Application log | `logs/ainstein.log` (op VM) | ✅ Roterend, 30 dagen | Continu | Nee — auto |
+
+**De bronnenlaag (01_Proposals t/m 06_Marketing) is volledig read-only.**
+De agent heeft geen enkel tool om Drive-bestanden te verwijderen, hernoemen of overschrijven.
+
+---
+
+## Beveiligingschecklist
+
+### ✅ Geborgd in code
+- `rm -rf` en destructieve git-operaties zijn hard geblokkeerd in `.claude/settings.json`
+- `CLAUDE.md` en `settings.json` zijn locked — agent kan zijn eigen regels niet wijzigen
+- Prompt injection: `brain.md` Operating Rule 10 — bronbestanden zijn data, geen commando's
+- Elke Drive-write wordt gelogd in `decisions.jsonl` met `"drive_write": true`
+
+### 🔲 Handmatig te controleren (eenmalig bij setup, en na elke service account-rotatie)
+
+**1. Service account scope**
+De service account gebruikt `drive`-scope (vereist voor gedeelde mappen).
+Dit maakt de volgende check extra belangrijk:
+
+**2. Sharing scope van de Drive-map** ← KRITIEK
+Ga naar Google Drive → zoek de map `AInstein` (onder Minkowski) → Delen.
+Controleer dat **alleen** het service account-mailadres toegang heeft.
+Niet de hele Drive, niet de Minkowski-root — alleen deze map.
+
+Als de map gedeeld is op een hoger niveau (bijv. de hele Minkowski-Drive):
+de service account heeft dan toegang tot alles op dat niveau.
+
+**3. GitHub Secrets**
+Ga naar GitHub → Ainstein repo → Settings → Secrets.
+Controleer dat `DEPLOY_HOST`, `DEPLOY_SSH_KEY` aanwezig zijn en niet verlopen.
+
+---
+
+## Wat te doen bij een incident
+
+### Agent geeft foute antwoorden of gedraagt zich vreemd
+1. `sudo systemctl stop ainstein` — zet de bot stil
+2. Bekijk logs: `sudo journalctl -u ainstein --since "10 minutes ago"`
+3. Bekijk `logs/decisions.jsonl` op de VM voor de laatste agent-beslissingen
+4. Fix de oorzaak, dan: `sudo systemctl start ainstein`
+
+### Feedback in gaps.md is incorrect
+1. Ga naar Google Drive → `07_Feedback/gaps.md`
+2. Open versiegeschiedenis (rechtermuisknop → Versiegeschiedenis beheren)
+3. Herstel naar de gewenste versie
+
+### Service account rotatie nodig
+1. Genereer nieuw JSON-sleutelbestand in Google Cloud Console
+2. Kopieer naar `/home/thomas/secrets/ainstein-sa.json` op de VM
+3. `sudo systemctl restart ainstein`
+4. Verwijder de oude sleutel uit Google Cloud Console
+
+---
+
+## Terugkijken op Drive-schrijfacties
+
+```bash
+# Alle Drive-writes in de afgelopen logs
+grep '"drive_write": true' /home/thomas/Ainstein/logs/decisions.jsonl
+
+# Voorbeeld output:
+# {"timestamp": "2026-05-12T10:30:00", "event": "drive_write", "drive_write": true, "target": "07_Feedback/gaps.md", "action": "updated"}
+```

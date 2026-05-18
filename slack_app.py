@@ -200,6 +200,8 @@ def _detect_skill(text: str) -> str | None:
     # Existing top-level skills
     if any(w in t for w in ["opportunity", "lead", "brief", "prospect", "client ask"]):
         return "analyse_opportunity"
+    if any(w in t for w in ["verwerk de comments", "refine comments", "verwerk feedback", "update de doc", "refine_proposal"]):
+        return "refine_proposal"
     if any(w in t for w in ["proposal", "voorstel", "draft", "offer", "pitch"]):
         return "build_proposal"
     # "team" and "match" are too generic on their own — require a companion word

@@ -1,0 +1,23 @@
+name: Deploy to Ainstein VM
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: thomas
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /home/thomas/Ainstein
+            git pull origin dev
+            sudo systemctl restart ainstein
+            echo "Deploy done — $(date)"

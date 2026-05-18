@@ -2,6 +2,7 @@ import io
 import json
 import os
 import re
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -14,8 +15,9 @@ logger = log_setup.get_logger("tools")
 
 BASE_DIR = Path(__file__).parent
 
-# Cache of (abs_path_str, mtime_ns) -> parsed text. Keeps one agent turn from
-# re-parsing the same PDFs/DOCX repeatedly across search + read_file calls.
+# Two-tier file content cache:
+#   Tier 1 — in-memory dict: fast, per-process, evicted after 256 entries (FIFO)
+#   Tier 2 — SQLite on disk: survives restarts, keyed by (abspath, mtime_ns)
 _READ_CACHE: dict[tuple[str, int], str] = {}
 _READ_CACHE_MAX = 256
 
@@ -45,6 +47,27 @@ def _queue_upload(path: str, filename: str, title: str) -> None:
         _upload_queue.setdefault(tid, []).append(
             {"path": path, "filename": filename, "title": title}
         )
+
+
+# ---------------------------------------------------------------------------
+# Persistent file content cache (Tier 2 — survives restarts)
+# ---------------------------------------------------------------------------
+_CACHE_DB_PATH = BASE_DIR / "file_cache.db"
+_CACHE_DB: sqlite3.Connection | None = None
+
+
+def _cache_db() -> sqlite3.Connection:
+    global _CACHE_DB
+    if _CACHE_DB is None:
+        _CACHE_DB = sqlite3.connect(_CACHE_DB_PATH, check_same_thread=False)
+        _CACHE_DB.execute("PRAGMA journal_mode=WAL")
+        _CACHE_DB.execute(
+            "CREATE TABLE IF NOT EXISTS file_cache "
+            "(path TEXT, mtime_ns INTEGER, content TEXT, "
+            "PRIMARY KEY (path, mtime_ns))"
+        )
+        _CACHE_DB.commit()
+    return _CACHE_DB
 
 # Source layer = Google Drive (multi-user, single source of truth).
 # Override AINSTEIN_SOURCE_ROOT to point elsewhere (e.g. another machine,
@@ -650,7 +673,7 @@ def _read_gdoc(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 def _read_text(path: Path) -> str:
-    """Read a file as plain text, best-effort. Cached by (abspath, mtime)."""
+    """Read a file as plain text, best-effort. Two-tier cache: memory + SQLite."""
     try:
         st = path.stat()
         cache_key = (str(path.resolve()), st.st_mtime_ns)
@@ -658,16 +681,49 @@ def _read_text(path: Path) -> str:
         cache_key = None
 
     if cache_key is not None:
+        # Tier 1: in-memory
         cached = _READ_CACHE.get(cache_key)
         if cached is not None:
             return cached
 
+        # Tier 2: SQLite persistent cache
+        try:
+            row = _cache_db().execute(
+                "SELECT content FROM file_cache WHERE path=? AND mtime_ns=?",
+                cache_key,
+            ).fetchone()
+            if row:
+                result = row[0]
+                # Warm in-memory cache
+                if len(_READ_CACHE) >= _READ_CACHE_MAX:
+                    _READ_CACHE.pop(next(iter(_READ_CACHE)))
+                _READ_CACHE[cache_key] = result
+                logger.debug("cache hit (sqlite): %s", path.name)
+                return result
+        except Exception as exc:
+            logger.warning("SQLite cache read failed: %s", exc)
+
     result = _read_text_uncached(path)
 
     if cache_key is not None:
+        # Store in both tiers
         if len(_READ_CACHE) >= _READ_CACHE_MAX:
             _READ_CACHE.pop(next(iter(_READ_CACHE)))
         _READ_CACHE[cache_key] = result
+        try:
+            db = _cache_db()
+            db.execute(
+                "INSERT OR REPLACE INTO file_cache (path, mtime_ns, content) VALUES (?, ?, ?)",
+                (*cache_key, result),
+            )
+            # Remove stale entries for same path (old mtime)
+            db.execute(
+                "DELETE FROM file_cache WHERE path=? AND mtime_ns!=?",
+                (cache_key[0], cache_key[1]),
+            )
+            db.commit()
+        except Exception as exc:
+            logger.warning("SQLite cache write failed: %s", exc)
     return result
 
 

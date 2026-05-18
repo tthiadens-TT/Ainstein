@@ -247,6 +247,27 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
     log_setup.append_decision_trace(trace)
 
     mem_save(thread_ts, messages)
+
+    # Upload any files queued by tools (e.g. export_proposal_deck)
+    from tools import get_pending_uploads
+    for upload in get_pending_uploads():
+        try:
+            app.client.files_upload_v2(
+                channel=channel,
+                file=upload["path"],
+                filename=upload["filename"],
+                title=upload["title"],
+                thread_ts=thread_ts,
+            )
+            logger.info("uploaded %s to thread=%s", upload["filename"], thread_ts)
+        except Exception as _ue:
+            logger.warning("file upload failed for %s: %s", upload["filename"], _ue)
+        finally:
+            try:
+                os.unlink(upload["path"])
+            except OSError:
+                pass
+
     logger.info("posting %d chars to Slack thread=%s", len(response), thread_ts)
     _send_chunked(say, response, channel, thread_ts)
     logger.info("reply done thread=%s", thread_ts)

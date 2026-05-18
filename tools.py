@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +18,33 @@ BASE_DIR = Path(__file__).parent
 # re-parsing the same PDFs/DOCX repeatedly across search + read_file calls.
 _READ_CACHE: dict[tuple[str, int], str] = {}
 _READ_CACHE_MAX = 256
+
+# ---------------------------------------------------------------------------
+# Pending file uploads — set by export_proposal_deck dispatch, drained by
+# the Slack handler after the agent loop finishes.
+# Keyed by thread ID so concurrent requests don't interfere.
+# ---------------------------------------------------------------------------
+_upload_queue: dict[int, list[dict]] = {}
+_upload_lock = threading.Lock()
+
+
+def get_pending_uploads() -> list[dict]:
+    """Pop and return any file uploads queued by the current thread.
+
+    Each entry: {"path": str, "filename": str, "title": str}.
+    Called by slack_app._run_and_reply after run_agent() returns.
+    """
+    tid = threading.get_ident()
+    with _upload_lock:
+        return _upload_queue.pop(tid, [])
+
+
+def _queue_upload(path: str, filename: str, title: str) -> None:
+    tid = threading.get_ident()
+    with _upload_lock:
+        _upload_queue.setdefault(tid, []).append(
+            {"path": path, "filename": filename, "title": title}
+        )
 
 # Source layer = Google Drive (multi-user, single source of truth).
 # Override AINSTEIN_SOURCE_ROOT to point elsewhere (e.g. another machine,
@@ -1469,6 +1497,33 @@ TOOL_SCHEMAS = [
             "required": ["doc_id", "comment_id"],
         },
     },
+    {
+        "name": "export_proposal_deck",
+        "description": (
+            "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal "
+            "and upload it to Slack. Reads the doc, splits it on # headings into slides, "
+            "and builds a navy/cyan branded 16:9 deck. Use this whenever the user asks "
+            "for a PPTX, slidedeck, presentatie, or PowerPoint for a proposal."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "doc_id": {
+                    "type": "string",
+                    "description": "Google Doc ID or full URL of the proposal.",
+                },
+                "client_name": {
+                    "type": "string",
+                    "description": "Client name for the cover slide, e.g. 'NN Group'.",
+                },
+                "proposal_title": {
+                    "type": "string",
+                    "description": "Optional custom deck title. Defaults to 'Voorstel <client_name>'.",
+                },
+            },
+            "required": ["doc_id", "client_name"],
+        },
+    },
 ]
 
 
@@ -1534,6 +1589,53 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
             )
         except Exception as e:
             result = {"error": str(e)}
+    elif tool_name == "export_proposal_deck":
+        try:
+            from gdoc_tools import get_doc_content, _extract_doc_id
+            from pptx_builder import build_proposal_deck, parse_proposal_sections
+
+            raw_id = _extract_doc_id(tool_input["doc_id"])
+            client_name = tool_input["client_name"]
+            proposal_title = tool_input.get("proposal_title")
+
+            doc_text = get_doc_content(raw_id)
+            if not doc_text.strip():
+                result = {"error": "Document is leeg of kon niet worden gelezen."}
+            else:
+                sections = parse_proposal_sections(doc_text)
+                if not sections:
+                    result = {
+                        "error": (
+                            "Geen secties gevonden. Zorg dat het voorstel koppen gebruikt "
+                            "(# Context, # Proposal Logic, etc.)."
+                        )
+                    }
+                else:
+                    pptx_bytes = build_proposal_deck(
+                        sections,
+                        client_name=client_name,
+                        proposal_title=proposal_title,
+                    )
+                    filename = f"Voorstel_{client_name.replace(' ', '_')}.pptx"
+                    title_label = f"Voorstel {client_name} — Minkowski"
+
+                    # Save to temp file; slack_app drains this queue after run_agent()
+                    tmp = tempfile.NamedTemporaryFile(
+                        suffix=".pptx", delete=False, prefix="minkowski_deck_"
+                    )
+                    tmp.write(pptx_bytes)
+                    tmp.close()
+                    _queue_upload(tmp.name, filename, title_label)
+
+                    result = {
+                        "status": "ready",
+                        "filename": filename,
+                        "slides": len(sections) + 2,  # content + cover + back
+                        "size_kb": round(len(pptx_bytes) / 1024),
+                    }
+        except Exception as e:
+            import traceback as _tb
+            result = {"error": str(e), "traceback": _tb.format_exc()[-600:]}
     else:
         result = {"error": f"Unknown tool: {tool_name}"}
 

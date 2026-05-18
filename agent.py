@@ -101,6 +101,46 @@ def print_tool_use(name: str, input_preview: str):
     print(f"\033[2m  [{name}] {input_preview}\033[0m")
 
 
+def _apply_cache_breakpoint(messages: list) -> None:
+    """Mark ONLY the last user message with cache_control.
+
+    The Anthropic API allows a maximum of 4 cache_control blocks per request.
+    System already uses 1–2 (SYSTEM_PROMPT + optional skill prompt).
+    We must therefore ensure that at most 1 message block carries cache_control.
+
+    Strategy:
+      1. Strip cache_control from ALL existing message content blocks first.
+      2. Add cache_control to the last block of the last user message only.
+
+    Render order is tools → system → messages.  The system block already caches
+    tools + system prompt.  This covers the growing conversation history so each
+    iteration in the tool-use loop only sends the new content uncached.
+    """
+    # Step 1: remove any lingering cache_control from previous turns
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict):
+                    block.pop("cache_control", None)
+
+    # Step 2: mark only the last user message
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if msg["role"] != "user":
+            continue
+        content = msg["content"]
+        if isinstance(content, str):
+            messages[i] = {**msg, "content": [
+                {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
+            ]}
+        elif isinstance(content, list) and content:
+            last = content[-1]
+            if isinstance(last, dict):
+                last["cache_control"] = {"type": "ephemeral"}
+        break
+
+
 def run_agent(
     messages: list,
     client: anthropic.Anthropic,
@@ -153,9 +193,10 @@ def run_agent(
                     "Geef nu het eindantwoord zonder verdere tool-aanroepen."
                 ),
             })
+            _apply_cache_breakpoint(messages)
             final = client.messages.create(
                 model=MODEL,
-                max_tokens=4096,
+                max_tokens=8192,
                 system=system,
                 messages=messages,
             )
@@ -166,17 +207,35 @@ def run_agent(
         _api_t0 = time.time()
         input_chars = sum(len(str(m.get("content", ""))) for m in messages)
         logger.info("iteration %d — calling API (input ≈%d chars)", iteration, input_chars)
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=4096,
-            system=system,
-            tools=TOOL_SCHEMAS,
-            messages=messages,
-            timeout=90.0,
-        )
+        _apply_cache_breakpoint(messages)
+
+        # Retry up to 3× on rate-limit (429) with exponential backoff
+        _retry_delays = [15, 45]
+        for _attempt, _delay in enumerate(([0] + _retry_delays)):
+            if _delay:
+                logger.warning("rate limit hit — waiting %ds before retry %d/2", _delay, _attempt)
+                time.sleep(_delay)
+            try:
+                response = client.messages.create(
+                    model=MODEL,
+                    max_tokens=8192,
+                    system=system,
+                    tools=TOOL_SCHEMAS,
+                    messages=messages,
+                    timeout=180.0,
+                )
+                break  # success
+            except anthropic.RateLimitError:
+                if _attempt < len(_retry_delays):
+                    continue
+                raise  # all retries exhausted
         logger.info(
-            "iteration %d — API returned in %.1fs, stop_reason=%s",
-            iteration, time.time() - _api_t0, response.stop_reason,
+            "iteration %d — API returned in %.1fs, stop_reason=%s, cache_created=%d, cache_read=%d",
+            iteration,
+            time.time() - _api_t0,
+            response.stop_reason,
+            getattr(response.usage, "cache_creation_input_tokens", 0),
+            getattr(response.usage, "cache_read_input_tokens", 0),
         )
 
         # Collect text from this response

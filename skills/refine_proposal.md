@@ -56,8 +56,11 @@ If `status == "not_found"`:
 - Report in the Slack summary: "⚠️ Sectie niet gevonden in de doc — mogelijk al gewijzigd. Herschreven tekst:\n[rewrite]"
 - Continue with the next comment
 
-**d. Resolve the comment**
-Call `resolve_doc_comment(doc_id, comment_id, reply_text="Herschreven: [1-zin samenvatting van de aanpassing]")`.
+**d. Voeg een reply toe aan het comment (resolvet het NIET)**
+Call `resolve_doc_comment(doc_id, comment_id, reply_text="✅ Herschreven: [1-zin samenvatting van de aanpassing]")`.
+
+Belangrijk: de `action` in de reply moet "reply" zijn, niet "resolve". Thomas resolvet de comments zelf in Google Docs nadat hij de wijziging heeft gezien.
+Gebruik reply_text als: "✅ Herschreven: [korte samenvatting]. Controleer de wijziging en resolvet dit comment zelf."
 
 ### 5. Post Slack summary
 After processing all comments, post a structured summary:

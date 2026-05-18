@@ -230,10 +230,13 @@ def run_agent(
                     continue
                 raise  # all retries exhausted
         logger.info(
-            "iteration %d — API returned in %.1fs, stop_reason=%s, cache_created=%d, cache_read=%d",
+            "iteration %d — API returned in %.1fs, stop_reason=%s | "
+            "tokens: in=%d out=%d cache_created=%d cache_read=%d",
             iteration,
             time.time() - _api_t0,
             response.stop_reason,
+            getattr(response.usage, "input_tokens", 0),
+            getattr(response.usage, "output_tokens", 0),
             getattr(response.usage, "cache_creation_input_tokens", 0),
             getattr(response.usage, "cache_read_input_tokens", 0),
         )
@@ -285,10 +288,18 @@ def run_agent(
             if name == "read_file" and "path" in inp:
                 trace["files_read"].append(inp["path"])
 
+            # Large results (expert indices, full documents) get cache_control so
+            # subsequent turns in the same conversation can read them from cache.
+            if len(result) >= 2000:
+                content: str | list = [
+                    {"type": "text", "text": result, "cache_control": {"type": "ephemeral"}}
+                ]
+            else:
+                content = result
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": tool_use.id,
-                "content": result,
+                "content": content,
             })
 
         messages.append({"role": "user", "content": tool_results})

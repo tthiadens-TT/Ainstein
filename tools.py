@@ -1512,6 +1512,44 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "save_note",
+        "description": (
+            "Save notes, meeting summaries, design session notes, or any archival content "
+            "as a Google Doc in the Minkowski source layer. "
+            "Use when the user asks to 'add as source', 'archive', 'save notes', "
+            "'voeg toe als bron', 'archiveer', 'sla op', or shares raw notes to be stored. "
+            "The doc is created in '00_Werkdocumenten' by default; pass folder_hint to target "
+            "a specific project folder (e.g. 'lead3', 'proposals'). "
+            "Returns a Google Doc URL to share back in Slack."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": (
+                        "Document title following the naming convention: "
+                        "YYMMDD_Client_Project_Description, "
+                        "e.g. '260513_NationaleNederlanden_LEAD3_DesignSessie1_Aantekeningen'."
+                    ),
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Full notes or content to save. Preserve the original structure.",
+                },
+                "folder_hint": {
+                    "type": "string",
+                    "description": (
+                        "Optional hint to place the doc in the right folder. "
+                        "Examples: 'lead3', 'lead4', 'proposals', 'tools', 'feedback'. "
+                        "Defaults to '00_Werkdocumenten' if not provided or not recognised."
+                    ),
+                },
+            },
+            "required": ["title", "content"],
+        },
+    },
+    {
         "name": "export_proposal_deck",
         "description": (
             "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal "
@@ -1577,6 +1615,37 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
             tool_input["query"],
             tool_input.get("max_results", 5),
         )
+    elif tool_name == "save_note":
+        try:
+            from gdoc_tools import create_gdoc
+            # Resolve folder_hint to a known Drive folder ID
+            _FOLDER_HINT_MAP = {
+                "lead3":     "01_Proposals/NN Group/LEAD Programma's/Lead 3",
+                "lead4":     "01_Proposals/NN Group/LEAD Programma's/Lead 4",
+                "proposals": "01_Proposals",
+                "tools":     "02_Tools",
+                "feedback":  "07_Feedback",
+            }
+            folder_hint = tool_input.get("folder_hint", "").lower().strip()
+            # Use werkdocumenten as default — Thomas can move to source layer after review
+            result = create_gdoc(
+                title=tool_input["title"],
+                content=tool_input["content"],
+                parent_folder_id="werkdocumenten",
+            )
+            if folder_hint in _FOLDER_HINT_MAP:
+                result["note"] = (
+                    f"Opgeslagen in 00_Werkdocumenten. "
+                    f"Verplaats naar {_FOLDER_HINT_MAP[folder_hint]} na review."
+                )
+        except Exception as e:
+            logger.error("save_note failed: %s", e)
+            result = {
+                "error": (
+                    "Ainstein kon het document niet opslaan in Google Drive. "
+                    "Thomas, controleer de Drive-configuratie op de server."
+                )
+            }
     elif tool_name == "create_gdoc":
         try:
             from gdoc_tools import create_gdoc

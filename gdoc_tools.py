@@ -27,12 +27,47 @@ _AINSTEIN_DRIVE_ROOT_ID = os.environ.get(
 _WERKDOCUMENTEN_FOLDER_ID: str | None = None
 
 
+def _get_service_account_creds():
+    """Return service account credentials when available (VM/server mode).
+
+    Tries GOOGLE_SERVICE_ACCOUNT_FILE first, then GOOGLE_SERVICE_ACCOUNT_JSON.
+    Returns None when neither is set (local OAuth mode).
+    """
+    import json as _json
+    import os as _os
+    sa_file = _os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+    sa_json_str = _os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_file and not sa_json_str:
+        return None
+    try:
+        from google.oauth2 import service_account
+        scopes = [
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/documents",
+        ]
+        if sa_file:
+            return service_account.Credentials.from_service_account_file(sa_file, scopes=scopes)
+        info = _json.loads(sa_json_str)
+        return service_account.Credentials.from_service_account_info(info, scopes=scopes)
+    except Exception as e:
+        logger.error("gdoc_tools: service account init failed: %s", e)
+        return None
+
+
 def _get_docs_service():
     global _DOCS_SERVICE
     if _DOCS_SERVICE is not None:
         return _DOCS_SERVICE
-    from update_gdoc import get_creds, CredentialsError
     from googleapiclient.discovery import build
+
+    # Prefer service account (VM/server) over OAuth token (local)
+    sa_creds = _get_service_account_creds()
+    if sa_creds:
+        _DOCS_SERVICE = build("docs", "v1", credentials=sa_creds, cache_discovery=False)
+        logger.info("gdoc_tools: Docs service initialised via service account")
+        return _DOCS_SERVICE
+
+    from update_gdoc import get_creds, CredentialsError
     try:
         creds = get_creds(raise_on_error=True)
         _DOCS_SERVICE = build("docs", "v1", credentials=creds, cache_discovery=False)
@@ -46,8 +81,16 @@ def _get_drive_write_service():
     global _DRIVE_WRITE_SERVICE
     if _DRIVE_WRITE_SERVICE is not None:
         return _DRIVE_WRITE_SERVICE
-    from update_gdoc import get_creds, CredentialsError
     from googleapiclient.discovery import build
+
+    # Prefer service account (VM/server) over OAuth token (local)
+    sa_creds = _get_service_account_creds()
+    if sa_creds:
+        _DRIVE_WRITE_SERVICE = build("drive", "v3", credentials=sa_creds, cache_discovery=False)
+        logger.info("gdoc_tools: Drive write service initialised via service account")
+        return _DRIVE_WRITE_SERVICE
+
+    from update_gdoc import get_creds, CredentialsError
     try:
         creds = get_creds(raise_on_error=True)
         _DRIVE_WRITE_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)

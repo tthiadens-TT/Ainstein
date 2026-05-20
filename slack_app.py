@@ -197,6 +197,14 @@ def _detect_skill(text: str) -> str | None:
     ):
         return "sharpen_positioning"
 
+    # Archive / save notes — check before generic "lead" to avoid false positives
+    if any(w in t for w in [
+        "voeg toe", "toevoegen", "als bron", "archiveer", "archiveren",
+        "sla op", "opslaan", "save note", "notes", "aantekeningen",
+        "design sessie", "sessie notes", "voor het archief",
+    ]):
+        return "save_note"
+
     # Existing top-level skills
     if any(w in t for w in ["opportunity", "lead", "brief", "prospect", "client ask"]):
         return "analyse_opportunity"

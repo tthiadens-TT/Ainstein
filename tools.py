@@ -1264,6 +1264,77 @@ def web_search(query: str, max_results: int = 5) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# save_note — Drive API implementation (bypasses gdoc_tools OAuth path)
+# ---------------------------------------------------------------------------
+
+def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") -> dict:
+    """Save notes as a Google Doc using the existing Drive API service.
+
+    Uses _get_drive_service() which already works on the VM via service account.
+    Creates the doc via Drive API (no Docs API needed) then writes content as plain text.
+    Falls back to saving as .md file in the source layer if Drive API unavailable.
+    """
+    drive = _get_drive_service()
+
+    if drive is None:
+        # Fallback: save as .md in local source layer
+        from datetime import datetime
+        date_str = datetime.now().strftime("%y%m%d")
+        safe_title = re.sub(r"[^a-zA-Z0-9_-]", "_", title)[:60]
+        filename = f"{date_str}_{safe_title}.md"
+        dest = SOURCE_ROOT / "00_Werkdocumenten" if (SOURCE_ROOT / "00_Werkdocumenten").exists() else SOURCE_ROOT
+        dest.mkdir(parents=True, exist_ok=True)
+        filepath = dest / filename
+        filepath.write_text(f"# {title}\n\n{content}", encoding="utf-8")
+        logger.info("save_note fallback: saved to %s", filepath)
+        return {"saved_as": "markdown", "path": str(filepath), "title": title}
+
+    # Find or create 00_Werkdocumenten folder in Drive root
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+    folder_name = "00_Werkdocumenten"
+    q = (
+        f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' "
+        f"and '{root_id}' in parents and trashed=false"
+    )
+    res = drive.files().list(q=q, fields="files(id,name)").execute()
+    files = res.get("files", [])
+    if files:
+        folder_id = files[0]["id"]
+    else:
+        meta = {
+            "name": folder_name,
+            "mimeType": "application/vnd.google-apps.folder",
+            "parents": [root_id],
+        }
+        folder = drive.files().create(body=meta, fields="id").execute()
+        folder_id = folder["id"]
+        logger.info("save_note: created %s folder %s", folder_name, folder_id)
+
+    # Create Google Doc via Drive API
+    file_meta = {
+        "name": title,
+        "mimeType": "application/vnd.google-apps.document",
+        "parents": [folder_id],
+    }
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
+    media = MediaIoBaseUpload(
+        io.BytesIO(content.encode("utf-8")),
+        mimetype="text/plain",
+        resumable=False,
+    )
+    doc = drive.files().create(
+        body=file_meta,
+        media_body=media,
+        fields="id,webViewLink,name",
+    ).execute()
+
+    url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")
+    logger.info("save_note: created Google Doc '%s' → %s", title, doc["id"])
+    return {"doc_id": doc["id"], "url": url, "title": title, "folder": folder_name}
+
+
+# ---------------------------------------------------------------------------
 # Tool schemas for the Anthropic API
 # ---------------------------------------------------------------------------
 
@@ -1617,32 +1688,16 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
         )
     elif tool_name == "save_note":
         try:
-            from gdoc_tools import create_gdoc
-            # Resolve folder_hint to a known Drive folder ID
-            _FOLDER_HINT_MAP = {
-                "lead3":     "01_Proposals/NN Group/LEAD Programma's/Lead 3",
-                "lead4":     "01_Proposals/NN Group/LEAD Programma's/Lead 4",
-                "proposals": "01_Proposals",
-                "tools":     "02_Tools",
-                "feedback":  "07_Feedback",
-            }
-            folder_hint = tool_input.get("folder_hint", "").lower().strip()
-            # Use werkdocumenten as default — Thomas can move to source layer after review
-            result = create_gdoc(
+            result = _save_note_via_drive_api(
                 title=tool_input["title"],
                 content=tool_input["content"],
-                parent_folder_id="werkdocumenten",
+                folder_hint=tool_input.get("folder_hint", ""),
             )
-            if folder_hint in _FOLDER_HINT_MAP:
-                result["note"] = (
-                    f"Opgeslagen in 00_Werkdocumenten. "
-                    f"Verplaats naar {_FOLDER_HINT_MAP[folder_hint]} na review."
-                )
         except Exception as e:
             logger.error("save_note failed: %s", e)
             result = {
                 "error": (
-                    "Ainstein kon het document niet opslaan in Google Drive. "
+                    "Er ging iets mis bij het opslaan in Google Drive. "
                     "Thomas, controleer de Drive-configuratie op de server."
                 )
             }

@@ -292,7 +292,7 @@ def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
                 "and mimeType != 'application/vnd.google-apps.folder' "
                 "and trashed=false"
             ),
-            fields="nextPageToken, files(id, name, mimeType)",
+            fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime, size)",
             pageSize=100,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
@@ -867,7 +867,17 @@ def _drive_list_folder(folder: str | None = None) -> dict:
     result = {}
     for name, fid in folders_to_scan.items():
         files = _drive_list_files_in_folder(service, fid)
-        result[name] = [_make_drive_path(f["id"], f["name"]) for f in sorted(files, key=lambda x: x["name"])]
+        result[name] = [
+            {
+                "path": _make_drive_path(f["id"], f["name"]),
+                "name": f["name"],
+                "mime_type": f.get("mimeType", ""),
+                "created": (f.get("createdTime") or "")[:16],
+                "modified": (f.get("modifiedTime") or "")[:16],
+                "size_kb": round(int(f["size"]) / 1024, 1) if f.get("size") else None,
+            }
+            for f in sorted(files, key=lambda x: x.get("modifiedTime", ""), reverse=True)
+        ]
 
     return result
 
@@ -892,154 +902,29 @@ def _fs_list_folder(folder: str | None = None) -> dict:
             result[name] = []
             continue
         files = []
-        for f in sorted(path.rglob("*")):
-            if f.is_file() and not f.name.startswith("."):
-                files.append(str(f))
-        result[name] = files
-
-    return result
-
-
-def list_recent_files(
-    hours: int = 24,
-    folder: str | None = None,
-    include_modified: bool = False,
-) -> dict:
-    """
-    List files added (or optionally modified) in the source layer within the last N hours.
-
-    Args:
-        hours: Look-back window in hours (default 24).
-        folder: Optional folder name to restrict results, e.g. '04_Experts'.
-        include_modified: If True, also include files whose content changed within the window.
-    """
-    if _is_drive_mode():
-        return _drive_list_recent_files(hours, folder, include_modified)
-    return _fs_list_recent_files(hours, folder, include_modified)
-
-
-def _drive_list_recent_files(
-    hours: int, folder: str | None, include_modified: bool
-) -> dict:
-    from datetime import timedelta
-
-    service = _get_drive_service()
-    if not service:
-        return {"error": "Drive API not available — check GOOGLE_SERVICE_ACCOUNT_JSON"}
-
-    cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
-    cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    folder_ids = _get_drive_folder_ids()
-
-    if folder:
-        folder = folder.strip().lstrip("/")
-        matched = next((k for k in folder_ids if folder.lower() in k.lower() or k.lower() in folder.lower()), None)
-        if not matched:
-            return {"error": f"Folder '{folder}' not found. Available: {list(folder_ids.keys())}"}
-        folders_to_scan = {matched: folder_ids[matched]}
-    else:
-        folders_to_scan = folder_ids
-
-    time_filter = f"createdTime > '{cutoff_str}'"
-    if include_modified:
-        time_filter = f"(createdTime > '{cutoff_str}' or modifiedTime > '{cutoff_str}')"
-
-    results: list[dict] = []
-    for folder_name, folder_id in folders_to_scan.items():
-        q = (
-            f"'{folder_id}' in parents and {time_filter} "
-            "and mimeType != 'application/vnd.google-apps.folder' "
-            "and trashed=false"
-        )
-        page_token = None
-        while True:
-            kwargs: dict = dict(
-                q=q,
-                fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime)",
-                pageSize=100,
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-            )
-            if page_token:
-                kwargs["pageToken"] = page_token
-            try:
-                resp = service.files().list(**kwargs).execute()
-            except Exception as e:
-                logger.error("list_recent_files Drive query failed for %s: %s", folder_name, e)
-                break
-            for f in resp.get("files", []):
-                created = f.get("createdTime", "")
-                action = "toegevoegd" if created > cutoff_str else "gewijzigd"
-                results.append({
-                    "path": _make_drive_path(f["id"], f["name"]),
-                    "folder": folder_name,
-                    "name": f["name"],
-                    "created": created,
-                    "modified": f.get("modifiedTime", ""),
-                    "action": action,
-                })
-            page_token = resp.get("nextPageToken")
-            if not page_token:
-                break
-
-    results.sort(key=lambda r: r["created"], reverse=True)
-    return {
-        "hours": hours,
-        "cutoff": cutoff_str,
-        "total": len(results),
-        "files": results,
-    }
-
-
-def _fs_list_recent_files(
-    hours: int, folder: str | None, include_modified: bool
-) -> dict:
-    from datetime import timedelta
-
-    cutoff_ts = (datetime.now(timezone.utc) - timedelta(hours=hours)).timestamp()
-
-    if folder:
-        folder = folder.strip().lstrip("/")
-        matched = next((k for k in SOURCE_FOLDERS if folder.lower() in k.lower() or k.lower() in folder.lower()), None)
-        if not matched:
-            return {"error": f"Folder '{folder}' not found. Available: {list(SOURCE_FOLDERS.keys())}"}
-        folders_to_scan = {matched: SOURCE_FOLDERS[matched]}
-    else:
-        folders_to_scan = SOURCE_FOLDERS
-
-    results: list[dict] = []
-    for folder_name, folder_path in folders_to_scan.items():
-        if not folder_path.exists():
-            continue
-        for p in folder_path.rglob("*"):
-            if not p.is_file() or p.name.startswith("."):
+        for f in path.rglob("*"):
+            if not f.is_file() or f.name.startswith("."):
                 continue
             try:
-                st = p.stat()
-                create_ts = getattr(st, "st_birthtime", st.st_mtime)
-                mod_ts = st.st_mtime
-                is_new = create_ts >= cutoff_ts
-                is_changed = mod_ts >= cutoff_ts
-                if not (is_new or (include_modified and is_changed)):
-                    continue
-                results.append({
-                    "path": str(p),
-                    "folder": folder_name,
-                    "name": p.name,
-                    "created": datetime.fromtimestamp(create_ts, timezone.utc).isoformat(),
-                    "modified": datetime.fromtimestamp(mod_ts, timezone.utc).isoformat(),
-                    "action": "toegevoegd" if is_new else "gewijzigd",
+                st = f.stat()
+                created = datetime.fromtimestamp(
+                    getattr(st, "st_birthtime", st.st_mtime), timezone.utc
+                ).isoformat()[:16]
+                modified = datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat()[:16]
+                files.append({
+                    "path": str(f),
+                    "name": f.name,
+                    "mime_type": "",
+                    "created": created,
+                    "modified": modified,
+                    "size_kb": round(st.st_size / 1024, 1),
                 })
             except OSError:
                 pass
+        files.sort(key=lambda x: x["modified"], reverse=True)
+        result[name] = files
 
-    results.sort(key=lambda r: r["created"], reverse=True)
-    return {
-        "hours": hours,
-        "total": len(results),
-        "files": results,
-    }
+    return result
 
 
 def read_file(path: str) -> dict:
@@ -1469,9 +1354,12 @@ TOOL_SCHEMAS = [
     {
         "name": "list_folder",
         "description": (
-            "List files in one or all Minkowski source folders. "
-            "Use this to understand what material is available before searching or reading. "
-            "Folders: 01_Proposals, 02_Tools, 03_Pricing, 04_Experts, 05_Venues, 06_Marketing."
+            "List files in one or all Minkowski source folders, with full metadata per file: "
+            "name, path, created date, modified date, size, and mime type. "
+            "Results are sorted by modified date (newest first). "
+            "Use this to understand what material is available, find recent additions, "
+            "compare versions, or answer questions about when files were added or changed. "
+            "Folders: 01_Proposals, 02_Tools, 03_Pricing, 04_Experts, 05_Venues, 06_Marketing, 07_Feedback."
         ),
         "input_schema": {
             "type": "object",
@@ -1483,38 +1371,6 @@ TOOL_SCHEMAS = [
                         "Omit to list all folders."
                     ),
                 }
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "list_recent_files",
-        "description": (
-            "List files added or modified in the Minkowski source layer within the last N hours. "
-            "Use this to answer questions like 'what was added recently?', 'what changed today?', "
-            "or 'are there new expert profiles?' — whenever recency is relevant."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "hours": {
-                    "type": "integer",
-                    "description": "Look-back window in hours. Default 24.",
-                },
-                "folder": {
-                    "type": "string",
-                    "description": (
-                        "Optional. Restrict to a specific folder, e.g. '04_Experts'. "
-                        "Omit to scan all folders."
-                    ),
-                },
-                "include_modified": {
-                    "type": "boolean",
-                    "description": (
-                        "If true, also include files whose content was modified (not just newly created). "
-                        "Default false."
-                    ),
-                },
             },
             "required": [],
         },
@@ -1779,13 +1635,7 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
     """Dispatch a tool call and return result as string."""
     import json
 
-    if tool_name == "list_recent_files":
-        result = list_recent_files(
-            hours=tool_input.get("hours", 24),
-            folder=tool_input.get("folder"),
-            include_modified=tool_input.get("include_modified", False),
-        )
-    elif tool_name == "list_folder":
+    if tool_name == "list_folder":
         result = list_folder(tool_input.get("folder"))
     elif tool_name == "read_file":
         result = read_file(tool_input["path"])

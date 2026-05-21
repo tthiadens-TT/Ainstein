@@ -166,7 +166,11 @@ def run_agent(
             "type": "text",
             "text": SYSTEM_PROMPT,
             "cache_control": {"type": "ephemeral"},
-        }
+        },
+        {
+            "type": "text",
+            "text": f"Today's date is {datetime.now(timezone.utc).strftime('%Y-%m-%d')} (UTC).",
+        },
     ]
     if skill and skill in SKILL_PROMPTS:
         system.append({

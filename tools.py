@@ -1268,17 +1268,21 @@ def web_search(query: str, max_results: int = 5) -> dict:
 # ---------------------------------------------------------------------------
 
 def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") -> dict:
-    """Save notes as a Google Doc using the existing Drive API service.
+    """Save notes by appending to a shared Google Doc owned by Thomas.
 
-    Uses _get_drive_service() which already works on the VM via service account.
-    Creates the doc via Drive API (no Docs API needed) then writes content as plain text.
-    Falls back to saving as .md file in the source layer if Drive API unavailable.
+    Uses AINSTEIN_NOTES_DOC_ID from .env — a Google Doc created by Thomas and
+    shared with the service account (editor). Appending to an existing file
+    avoids the service account quota issue (owner pays storage, not editor).
+
+    Falls back to local .md file if Drive API or doc ID unavailable.
     """
+    from datetime import datetime
+
+    notes_doc_id = os.environ.get("AINSTEIN_NOTES_DOC_ID")
     drive = _get_drive_service()
 
-    if drive is None:
+    if not notes_doc_id or drive is None:
         # Fallback: save as .md in local source layer
-        from datetime import datetime
         date_str = datetime.now().strftime("%y%m%d")
         safe_title = re.sub(r"[^a-zA-Z0-9_-]", "_", title)[:60]
         filename = f"{date_str}_{safe_title}.md"
@@ -1289,59 +1293,46 @@ def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") ->
         logger.info("save_note fallback: saved to %s", filepath)
         return {"saved_as": "markdown", "path": str(filepath), "title": title}
 
-    # Find or create 00_Werkdocumenten folder in Drive root
-    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
-    folder_name = "00_Werkdocumenten"
-    q = (
-        f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' "
-        f"and '{root_id}' in parents and trashed=false"
-    )
-    res = drive.files().list(
-        q=q,
-        fields="files(id,name)",
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True,
-    ).execute()
-    files = res.get("files", [])
-    if files:
-        folder_id = files[0]["id"]
+    # Append to existing Google Doc via Docs API
+    # This avoids quota issues: Thomas owns the doc, service account is editor.
+    from googleapiclient.discovery import build as gapi_build
+
+    sa_creds = _get_drive_service.__wrapped__ if hasattr(_get_drive_service, "__wrapped__") else None
+    # Re-derive credentials from environment for Docs API
+    sa_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+    sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    from google.oauth2 import service_account as _sa_module
+    _SCOPES = [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/documents",
+    ]
+    if sa_file and os.path.exists(sa_file):
+        creds = _sa_module.Credentials.from_service_account_file(sa_file, scopes=_SCOPES)
+    elif sa_json_str:
+        import json as _json
+        creds = _sa_module.Credentials.from_service_account_info(_json.loads(sa_json_str), scopes=_SCOPES)
     else:
-        meta = {
-            "name": folder_name,
-            "mimeType": "application/vnd.google-apps.folder",
-            "parents": [root_id],
-        }
-        folder = drive.files().create(
-            body=meta,
-            fields="id",
-            supportsAllDrives=True,
-        ).execute()
-        folder_id = folder["id"]
-        logger.info("save_note: created %s folder %s", folder_name, folder_id)
+        logger.error("save_note: geen service account credentials gevonden")
+        return {"error": "geen credentials"}
 
-    # Create Google Doc via Drive API
-    file_meta = {
-        "name": title,
-        "mimeType": "application/vnd.google-apps.document",
-        "parents": [folder_id],
-    }
-    import io
-    from googleapiclient.http import MediaIoBaseUpload
-    media = MediaIoBaseUpload(
-        io.BytesIO(content.encode("utf-8")),
-        mimetype="text/plain",
-        resumable=False,
-    )
-    doc = drive.files().create(
-        body=file_meta,
-        media_body=media,
-        fields="id,webViewLink,name",
-        supportsAllDrives=True,
+    docs = gapi_build("docs", "v1", credentials=creds)
+
+    # Get current document end index
+    doc = docs.documents().get(documentId=notes_doc_id).execute()
+    end_index = doc["body"]["content"][-1]["endIndex"] - 1
+
+    # Build text to insert
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    separator = f"\n\n---\n\n## {title}\n_{date_str}_\n\n{content}\n"
+
+    docs.documents().batchUpdate(
+        documentId=notes_doc_id,
+        body={"requests": [{"insertText": {"location": {"index": end_index}, "text": separator}}]},
     ).execute()
 
-    url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")
-    logger.info("save_note: created Google Doc '%s' → %s", title, doc["id"])
-    return {"doc_id": doc["id"], "url": url, "title": title, "folder": folder_name}
+    url = f"https://docs.google.com/document/d/{notes_doc_id}/edit"
+    logger.info("save_note: appended '%s' to notes doc %s", title, notes_doc_id)
+    return {"doc_id": notes_doc_id, "url": url, "title": title, "folder": "Aantekeningen"}
 
 
 # ---------------------------------------------------------------------------

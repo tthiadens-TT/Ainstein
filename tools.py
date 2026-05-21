@@ -1277,14 +1277,14 @@ def _find_subfolder_by_hint(drive, root_id: str, hint: str) -> tuple[str, str] |
     if not hint_lower:
         return None
 
-    # Breadth-first search through the Shared Drive tree, max 3 levels deep
+    # Breadth-first search through the Shared Drive tree, max 5 levels deep
     queue: list[tuple[str, str, int]] = [(root_id, "", 0)]
     best_match: tuple[str, str] | None = None
 
     while queue and not best_match:
         next_queue: list[tuple[str, str, int]] = []
         for folder_id, path, depth in queue:
-            if depth >= 3:
+            if depth >= 5:
                 continue
             try:
                 res = drive.files().list(

@@ -18,6 +18,6 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /home/thomas/Ainstein
-            git pull origin dev
+            git pull origin main
             sudo systemctl restart ainstein
             echo "Deploy done — $(date)"

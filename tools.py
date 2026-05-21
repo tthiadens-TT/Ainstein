@@ -1296,7 +1296,12 @@ def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") ->
         f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' "
         f"and '{root_id}' in parents and trashed=false"
     )
-    res = drive.files().list(q=q, fields="files(id,name)").execute()
+    res = drive.files().list(
+        q=q,
+        fields="files(id,name)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
     files = res.get("files", [])
     if files:
         folder_id = files[0]["id"]
@@ -1306,7 +1311,11 @@ def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") ->
             "mimeType": "application/vnd.google-apps.folder",
             "parents": [root_id],
         }
-        folder = drive.files().create(body=meta, fields="id").execute()
+        folder = drive.files().create(
+            body=meta,
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
         folder_id = folder["id"]
         logger.info("save_note: created %s folder %s", folder_name, folder_id)
 
@@ -1327,6 +1336,7 @@ def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") ->
         body=file_meta,
         media_body=media,
         fields="id,webViewLink,name",
+        supportsAllDrives=True,
     ).execute()
 
     url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")

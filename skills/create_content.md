@@ -5,43 +5,90 @@ Use this skill to produce a specific content asset: a LinkedIn post, nurture ema
 
 The output is immediately usable — not a brief or outline, but the actual content.
 
+## When to Use
+Use this skill when the request explicitly names a content format:
+- LinkedIn post, artikel, one-pager, nurture email, nieuwsbrief, landingspagina
+- "schrijf", "maak", "genereer" + format-woord
+
+Do NOT trigger on "content" alone — that word appears in too many other contexts.
+
+## Inputs to Retrieve — Always Start Here
+
+**Verplicht ophalen vóór je begint:**
+- `06_Marketing/positioning.md` — kernbelofte, differentiators, wat Minkowski wel en niet is
+- `06_Marketing/verbal_identity.md` — toon, woordkeuze, wat te vermijden
+- `06_Marketing/brand_core.md` — brand DNA, waarden, missie
+
+**Conditioneel ophalen:**
+- `06_Marketing/one_pager_template.md` — bij one-pager verzoek: gebruik de structuur die er al is
+- `01_Proposals` — bij concrete cases of proof points: zoek vergelijkbare klantcontext
+- `04_Experts` — bij content over expertise of mensen: haal het echte profiel op, verzin niets
+
+Als de bronnenlaag te dun is voor het gevraagde claim: zeg dat expliciet. Schrijf nooit om dat te verbergen.
+
 ## Steps
-1. **Clarify the asset type and goal.** What format? Who is the audience? What should the reader do or think after reading it?
-2. **Pull relevant source material.** Positioning language, message pillars, expert profiles, relevant proposals.
-3. **Draft the content.** Follow the format contract for the asset type (see output formats below).
-4. **Apply Minkowski voice.** Specific, direct, human, no inflated agency language.
-5. **Flag proof gaps.** If a claim needs evidence that is not in the source layer, note it explicitly.
+
+### 1. Clarify the Asset
+Bepaal:
+- Welk format? (LinkedIn post / email / one-pager / artikel)
+- Voor wie? (Rol, sector, moment in de buyer journey)
+- Wat moet de lezer doen, denken of voelen na het lezen?
+- Is er een specifiek onderwerp of thema opgegeven, of kies je zelf?
+
+### 2. Retrieve Source Material
+Haal de verplichte bestanden op (zie boven). Lees ze écht — identificeer:
+- Welke claims zijn al gevestigd in Minkowski's eigen taal?
+- Welke voorbeelden of cases zijn er?
+- Wat is de toon die bij dit merk past?
+
+### 3. Draft the Content
+Volg het format-contract voor het gevraagde type (zie hieronder).
+Schrijf in Minkowski-taal: specifiek, direct, menselijk, geen inflated agency language.
+
+### 4. Apply Verbal Identity Check
+Controleer het concept tegen `verbal_identity.md`:
+- Klinkt dit als Minkowski, of als een willekeurig bureau?
+- Welke woorden moeten weg? Welke framing is te generiek?
+
+### 5. Flag Proof Gaps
+Als een claim bewijs nodig heeft dat niet in de bronnenlaag staat:
+- Zeg expliciet: "Dit claim heeft een concrete case of cijfer nodig — dat heb ik niet gevonden."
+- Schrijf er eerlijk omheen, of vraag Thomas om het bewijs aan te leveren.
 
 ## Output Formats
 
 ### LinkedIn Post
-Hook (1–2 lines that stop the scroll) +
-Body (insight, tension, or story — max 200 words) +
-Close (what to think, do, or feel — no "what do you think?" cop-outs)
-No more than 3 hashtags.
+Hook (1–2 regels die doen stoppen) +
+Body (inzicht, spanning, of verhaal — max 200 woorden) +
+Slot (wat te denken, doen of voelen — geen "wat denk jij?" uitwijkmanoeuvres)
+Max 3 hashtags. Geen bullet lists tenzij ze écht helpen.
 
 ### Nurture Email
-Subject line (specific, not clickbait) +
-Opening (human, not a template opening) +
-Body (one idea, one tension, one Minkowski angle) +
-CTA (one clear action, not three)
-Max 300 words.
+Onderwerpregel (specifiek, geen clickbait) +
+Opening (menselijk, geen template-opening als "In het huidige landschap...") +
+Body (één idee, één spanning, één Minkowski-hoek) +
+CTA (één duidelijke actie, niet drie)
+Max 300 woorden.
 
 ### One-Pager
-Challenge framing (what the reader is dealing with) +
-Minkowski angle (why their approach is different) +
-Program logic (what it looks like in practice) +
-Outcome framing (what changes) +
-Call to action
+Gebruik de structuur uit `06_Marketing/one_pager_template.md` als basis.
+Volgorde: uitdaging-framing → Minkowski-hoek → programmalogica → uitkomst-framing → call to action.
 
-### Article
-Title + subhead +
-Lede (the tension or insight in 2–3 sentences) +
-Body sections (3–4 points, each with a concrete example or observation) +
-Close (what to do with this thinking)
+### Artikel
+Titel + subkop +
+Lede (de spanning of het inzicht in 2–3 zinnen) +
+Body (3–4 punten, elk met een concreet voorbeeld of observatie) +
+Slot (wat te doen met dit denken)
 
-## Rules
-- Write for the reader, not for Minkowski's brand ego.
-- Every asset must have a clear point — not just a topic.
-- Never fabricate case results, client names, or outcomes.
-- If proof is missing, write around it honestly or flag the gap.
+## Operating Rules
+- Schrijf voor de lezer, niet voor Minkowski's merkego.
+- Elk asset heeft een scherp punt — niet alleen een onderwerp.
+- Verzin nooit case-resultaten, klantnamen of uitkomsten.
+- Als bewijs ontbreekt: schrijf er eerlijk omheen of benoem de gap.
+- Haal altijd de bronnenlaag op. Nooit blind schrijven zonder `06_Marketing` te hebben gelezen.
+
+## Quality Check
+Before finalizing, ask:
+- Zou een CHRO bij een van Minkowski's doelklanten dit stoppen met lezen na de eerste zin?
+- Is dit Minkowski, of is dit elk ander bureau?
+- Staan er claims in die we niet kunnen waarmaken?

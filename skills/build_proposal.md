@@ -95,6 +95,32 @@ Strengthen:
 - what this leads to
 - what happens next
 
+### 7. DVV-Toets (altijd uitvoeren vóór oplevering)
+
+Loop het voorstel door op drie assen. Corrigeer wat niet scoort — noteer in je output welke punten zijn aangepast.
+
+**D — Duidelijk**
+- Korte, actieve zinnen? Geen passieve constructies?
+- Geen jargon of afkortingen zonder uitleg?
+- Begrijpt iemand buiten Minkowski dit onmiddellijk?
+
+**V — Volledig**
+Beantwoordt het voorstel alle vijf beslissersvragen?
+1. Wat is de aanpak? (programmalogica, fasering)
+2. Wie doet wat? (team, experts, rollen)
+3. Hoe lang duurt het? (doorlooptijd, planning)
+4. Wat kost het? (investering, opbouw, aannames)
+5. Wat levert het op? (uitkomsten, gedragsverandering, volgende stap)
+
+Ontbreekt een van deze vijf: vul aan of leg expliciet uit waarom het er niet in zit.
+
+**V — Verleidelijk**
+- Staat de klant centraal? Meer "jij/jullie" dan "wij/ons"?
+- Begint het voorstel met de klantuitdaging, niet met wie Minkowski is?
+- Zijn uitkomsten concreet (welk gedrag of welke situatie na afloop) — niet abstract ("meer bewustzijn", "betere samenwerking")?
+
+Als een letter niet scoort: herstel die zwakte. Lever het voorstel niet op voordat de DVV-toets klopt.
+
 ## Output Format
 Use one of these depending on the request:
 - proposal outline

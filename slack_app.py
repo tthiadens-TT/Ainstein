@@ -182,7 +182,11 @@ def _detect_skill(text: str) -> str | None:
         return "client_discovery_debrief"
 
     # Marketing sub-skills (specificity first: asset words > action verbs > topic words)
-    if any(w in t for w in ["linkedin", "artikel", "article", "nurture", "newsletter", "one-pager", "onepager", "content"]):
+    # "content" is intentionally excluded — too generic (e.g. "content van dit voorstel").
+    # Trigger on explicit format words, or on "content" + an action verb.
+    if any(w in t for w in ["linkedin", "artikel", "article", "nurture", "newsletter", "one-pager", "onepager"]):
+        return "create_content"
+    if "content" in t and any(w in t for w in ["schrijf", "maak", "genereer", "create", "post", "publiceer"]):
         return "create_content"
     if any(w in t for w in ["adapt messaging", "vertaal naar", "sector messaging", "audience messaging"]):
         return "adapt_messaging"

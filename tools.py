@@ -282,13 +282,13 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
 
 
 def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
-    """List all files (not subfolders) in a Drive folder. Handles pagination."""
+    """List all files (not subfolders) in a Drive folder, recursively. Handles pagination."""
     files: list[dict] = []
     page_token = None
     while True:
         kwargs: dict = dict(
             q=(
-                f"'{folder_id}' in parents "
+                f"'{folder_id}' in ancestors "
                 "and mimeType != 'application/vnd.google-apps.folder' "
                 "and trashed=false"
             ),

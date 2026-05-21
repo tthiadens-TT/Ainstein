@@ -292,18 +292,10 @@ def run_agent(
             if name == "read_file" and "path" in inp:
                 trace["files_read"].append(inp["path"])
 
-            # Large results (expert indices, full documents) get cache_control so
-            # subsequent turns in the same conversation can read them from cache.
-            if len(result) >= 2000:
-                content: str | list = [
-                    {"type": "text", "text": result, "cache_control": {"type": "ephemeral"}}
-                ]
-            else:
-                content = result
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": tool_use.id,
-                "content": content,
+                "content": result,
             })
 
         messages.append({"role": "user", "content": tool_results})

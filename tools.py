@@ -877,6 +877,7 @@ def _drive_list_folder(folder: str | None = None) -> dict:
                 "size_kb": round(int(f["size"]) / 1024, 1) if f.get("size") else None,
             }
             for f in sorted(files, key=lambda x: x.get("modifiedTime", ""), reverse=True)
+            if not f["name"].startswith(".")
         ]
 
     return result

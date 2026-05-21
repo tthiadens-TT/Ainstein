@@ -1267,72 +1267,146 @@ def web_search(query: str, max_results: int = 5) -> dict:
 # save_note — Drive API implementation (bypasses gdoc_tools OAuth path)
 # ---------------------------------------------------------------------------
 
+def _find_subfolder_by_hint(drive, root_id: str, hint: str) -> tuple[str, str] | None:
+    """Search the Shared Drive for a folder matching the hint.
+
+    Returns (folder_id, full_path) if a match is found, otherwise None.
+    Walks the tree breadth-first up to 3 levels deep to keep it bounded.
+    """
+    hint_lower = hint.lower().strip()
+    if not hint_lower:
+        return None
+
+    # Breadth-first search through the Shared Drive tree, max 3 levels deep
+    queue: list[tuple[str, str, int]] = [(root_id, "", 0)]
+    best_match: tuple[str, str] | None = None
+
+    while queue and not best_match:
+        next_queue: list[tuple[str, str, int]] = []
+        for folder_id, path, depth in queue:
+            if depth >= 3:
+                continue
+            try:
+                res = drive.files().list(
+                    q=f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                    fields="files(id,name)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                    pageSize=100,
+                ).execute()
+            except Exception as e:
+                logger.warning("save_note: subfolder search failed at %s: %s", path or "root", e)
+                continue
+            for f in res.get("files", []):
+                fname = f["name"]
+                full_path = f"{path}/{fname}" if path else fname
+                # Match: exact name, or hint appears in folder name
+                if hint_lower == fname.lower() or hint_lower in fname.lower().replace(" ", ""):
+                    best_match = (f["id"], full_path)
+                    break
+                next_queue.append((f["id"], full_path, depth + 1))
+            if best_match:
+                break
+        queue = next_queue
+
+    return best_match
+
+
 def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") -> dict:
-    """Save notes by appending to a shared Google Doc owned by Thomas.
+    """Save a note as a new standalone Google Doc in the Shared Drive.
 
-    Uses AINSTEIN_NOTES_DOC_ID from .env — a Google Doc created by Thomas and
-    shared with the service account (editor). Appending to an existing file
-    avoids the service account quota issue (owner pays storage, not editor).
+    Default location: 00_Werkdocumenten.
+    If folder_hint matches a folder somewhere in the Shared Drive tree
+    (e.g., "LEAD3" → 01_Proposals/NN Group/LEAD 3/), the doc lands there.
 
-    Falls back to local .md file if Drive API or doc ID unavailable.
+    Doc name: YYMMDD_<title>.gdoc.
+
+    Falls back to a local markdown file if the Drive API is unavailable.
     """
     from datetime import datetime
 
-    notes_doc_id = os.environ.get("AINSTEIN_NOTES_DOC_ID")
     drive = _get_drive_service()
+    date_str = datetime.now().strftime("%y%m%d")
+    safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", title).strip()[:80]
+    doc_name = f"{date_str}_{safe_title}" if not safe_title.startswith(date_str) else safe_title
 
-    if not notes_doc_id or drive is None:
-        # Fallback: save as .md in local source layer
-        date_str = datetime.now().strftime("%y%m%d")
-        safe_title = re.sub(r"[^a-zA-Z0-9_-]", "_", title)[:60]
-        filename = f"{date_str}_{safe_title}.md"
+    if drive is None:
+        # Fallback: local markdown
+        filename = f"{doc_name}.md"
         dest = SOURCE_ROOT / "00_Werkdocumenten" if (SOURCE_ROOT / "00_Werkdocumenten").exists() else SOURCE_ROOT
         dest.mkdir(parents=True, exist_ok=True)
         filepath = dest / filename
         filepath.write_text(f"# {title}\n\n{content}", encoding="utf-8")
         logger.info("save_note fallback: saved to %s", filepath)
-        return {"saved_as": "markdown", "path": str(filepath), "title": title}
+        return {"saved_as": "markdown", "path": str(filepath), "title": doc_name}
 
-    # Append to existing Google Doc via Docs API
-    # This avoids quota issues: Thomas owns the doc, service account is editor.
-    from googleapiclient.discovery import build as gapi_build
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
 
-    sa_creds = _get_drive_service.__wrapped__ if hasattr(_get_drive_service, "__wrapped__") else None
-    # Re-derive credentials from environment for Docs API
-    sa_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
-    sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    from google.oauth2 import service_account as _sa_module
-    _SCOPES = [
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/documents",
-    ]
-    if sa_file and os.path.exists(sa_file):
-        creds = _sa_module.Credentials.from_service_account_file(sa_file, scopes=_SCOPES)
-    elif sa_json_str:
-        import json as _json
-        creds = _sa_module.Credentials.from_service_account_info(_json.loads(sa_json_str), scopes=_SCOPES)
-    else:
-        logger.error("save_note: geen service account credentials gevonden")
-        return {"error": "geen credentials"}
+    # Step 1 — pick target folder
+    folder_id: str | None = None
+    folder_path = "00_Werkdocumenten"
 
-    docs = gapi_build("docs", "v1", credentials=creds)
+    if folder_hint:
+        match = _find_subfolder_by_hint(drive, root_id, folder_hint)
+        if match:
+            folder_id, folder_path = match
+            logger.info("save_note: folder hint '%s' → %s", folder_hint, folder_path)
+        else:
+            logger.info("save_note: folder hint '%s' not found, falling back to 00_Werkdocumenten", folder_hint)
 
-    # Get current document end index
-    doc = docs.documents().get(documentId=notes_doc_id).execute()
-    end_index = doc["body"]["content"][-1]["endIndex"] - 1
+    if folder_id is None:
+        # Find or create 00_Werkdocumenten in the Shared Drive root
+        q = (
+            f"name='00_Werkdocumenten' and mimeType='application/vnd.google-apps.folder' "
+            f"and '{root_id}' in parents and trashed=false"
+        )
+        res = drive.files().list(
+            q=q,
+            fields="files(id,name)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+        files = res.get("files", [])
+        if files:
+            folder_id = files[0]["id"]
+        else:
+            meta = {
+                "name": "00_Werkdocumenten",
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [root_id],
+            }
+            folder = drive.files().create(
+                body=meta,
+                fields="id",
+                supportsAllDrives=True,
+            ).execute()
+            folder_id = folder["id"]
+            logger.info("save_note: created 00_Werkdocumenten folder %s", folder_id)
 
-    # Build text to insert
-    date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    separator = f"\n\n---\n\n## {title}\n_{date_str}_\n\n{content}\n"
+    # Step 2 — create the Google Doc with content
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
 
-    docs.documents().batchUpdate(
-        documentId=notes_doc_id,
-        body={"requests": [{"insertText": {"location": {"index": end_index}, "text": separator}}]},
+    file_meta = {
+        "name": doc_name,
+        "mimeType": "application/vnd.google-apps.document",
+        "parents": [folder_id],
+    }
+    media = MediaIoBaseUpload(
+        io.BytesIO(content.encode("utf-8")),
+        mimetype="text/plain",
+        resumable=False,
+    )
+    doc = drive.files().create(
+        body=file_meta,
+        media_body=media,
+        fields="id,webViewLink,name",
+        supportsAllDrives=True,
     ).execute()
 
-    url = f"https://docs.google.com/document/d/{notes_doc_id}/edit"
-    logger.info("save_note: appended '%s' to notes doc %s", title, notes_doc_id)
-    return {"doc_id": notes_doc_id, "url": url, "title": title, "folder": "Aantekeningen"}
+    url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")
+    logger.info("save_note: created '%s' in %s → %s", doc_name, folder_path, doc["id"])
+    return {"doc_id": doc["id"], "url": url, "title": doc_name, "folder": folder_path}
 
 
 # ---------------------------------------------------------------------------

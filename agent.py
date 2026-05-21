@@ -14,6 +14,9 @@ import argparse
 import textwrap
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+_AMS = ZoneInfo("Europe/Amsterdam")
 from pathlib import Path
 
 import anthropic
@@ -169,7 +172,7 @@ def run_agent(
         },
         {
             "type": "text",
-            "text": f"Today's date is {datetime.now(timezone.utc).strftime('%Y-%m-%d')} (UTC).",
+            "text": datetime.now(_AMS).strftime("Today's date is %Y-%m-%d. Current time: %H:%M %Z (Amsterdam)."),
         },
     ]
     if skill and skill in SKILL_PROMPTS:

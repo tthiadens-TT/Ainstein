@@ -84,7 +84,7 @@ TEXT_EXTENSIONS = {
 # Also set AINSTEIN_DRIVE_ROOT_ID to override the default root folder ID.
 # ---------------------------------------------------------------------------
 
-_DEFAULT_DRIVE_ROOT_ID = "1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e"
+_DEFAULT_DRIVE_ROOT_ID = "0AFvBEDYKrnHbUk9PVA"  # Workspace Shared Drive "Minkowski AInstein"
 _DRIVE_FILE_PREFIX = "drive://"
 
 _DRIVE_SERVICE = None                    # cached Drive v3 API client

@@ -282,33 +282,43 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
 
 
 def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
-    """List all files (not subfolders) in a Drive folder, recursively. Handles pagination."""
-    files: list[dict] = []
-    page_token = None
-    while True:
-        kwargs: dict = dict(
-            q=(
-                f"'{folder_id}' in ancestors "
-                "and mimeType != 'application/vnd.google-apps.folder' "
-                "and trashed=false"
-            ),
-            fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime, size)",
-            pageSize=100,
-            supportsAllDrives=True,
-            includeItemsFromAllDrives=True,
-        )
-        if page_token:
-            kwargs["pageToken"] = page_token
-        try:
-            result = service.files().list(**kwargs).execute()
-        except Exception as e:
-            logger.error("Drive list failed for %s: %s", folder_id, e)
-            break
-        files.extend(result.get("files", []))
-        page_token = result.get("nextPageToken")
-        if not page_token:
-            break
-    return files
+    """List all files in a Drive folder, recursively via BFS. Handles pagination."""
+    all_files: list[dict] = []
+    queue = [folder_id]
+    visited: set[str] = set()
+
+    while queue:
+        current_id = queue.pop(0)
+        if current_id in visited:
+            continue
+        visited.add(current_id)
+
+        page_token = None
+        while True:
+            kwargs: dict = dict(
+                q=f"'{current_id}' in parents and trashed=false",
+                fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime, size)",
+                pageSize=100,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+            if page_token:
+                kwargs["pageToken"] = page_token
+            try:
+                result = service.files().list(**kwargs).execute()
+            except Exception as e:
+                logger.error("Drive list failed for %s: %s", current_id, e)
+                break
+            for f in result.get("files", []):
+                if f["mimeType"] == "application/vnd.google-apps.folder":
+                    queue.append(f["id"])
+                else:
+                    all_files.append(f)
+            page_token = result.get("nextPageToken")
+            if not page_token:
+                break
+
+    return all_files
 
 
 def drive_append_feedback(entry: str, header: str = "") -> None:

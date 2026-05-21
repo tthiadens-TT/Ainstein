@@ -6,6 +6,17 @@ Use this skill to read a Client Discovery Debrief (produced by `client_discovery
 This is not a proposal summary. This is market intelligence work.
 The job is to translate what was heard in a sales conversation into assets that make Minkowski's marketing smarter and more resonant.
 
+## Input Vereiste
+
+**Deze skill heeft een Client Discovery Debrief als input nodig.**
+De debrief wordt geproduceerd door de `client_discovery_debrief` skill (11 vaste secties).
+
+Als er geen debrief aanwezig is — alleen ruwe gespreksaantekeningen — run dan eerst `client_discovery_debrief` en gebruik die output hier als input. Nooit direct van ruwe notes naar marketing-intelligentie springen.
+
+**Haal ook op:**
+- `06_Marketing/positioning.md` — om te beoordelen waar de klantframing wél en niet aansluit bij de huidige positionering (dit is wat de "Messaging Gaps" sectie voedt)
+- `06_Marketing/verbal_identity.md` — als referentie voor de Minkowski-vertaling in het glossary
+
 ## What This Skill Must Not Do
 - Rewrite or second-guess the commercial assessment in the debrief
 - Produce a proposal or proposal outline
@@ -63,8 +74,9 @@ Identify where Minkowski's existing messaging would have failed this client.
 1. Work only from the debrief content. Do not invent client details not present in it.
 2. Anonymize client-specific references in any external-facing output. Use sector/role framing instead.
 3. Flag content opportunities where proof is missing — do not produce content that overclaims.
-4. The output of this skill feeds back into `06_Marketing` as a living intelligence layer.
+4. The output of this skill feeds back into `06_Marketing` as a living intelligence layer. Sla de output op als note in `00_Werkdocumenten` met titel "Messaging Intelligence — [sector/rol] — [datum]" zodat patronen over tijd zichtbaar worden.
 5. If the debrief is weak (thin notes, missing diagnosis), say so — and name what would make the translation stronger.
+6. Koppel terug naar de keten: na deze skill is `create_content` de logische volgende stap als een content opportunity concreet uitgewerkt moet worden. Benoem dit expliciet in je output.
 
 ## Quality Check
 Before finalizing, ask:

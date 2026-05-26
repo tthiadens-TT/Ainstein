@@ -321,6 +321,116 @@ def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
     return all_files
 
 
+def _find_subfolder_by_hint(drive, root_id: str, hint: str) -> tuple[str, str] | None:
+    """Search the Shared Drive for a folder matching the hint (breadth-first, max 5 levels)."""
+    hint_lower = hint.lower().strip()
+    if not hint_lower:
+        return None
+    queue: list[tuple[str, str, int]] = [(root_id, "", 0)]
+    best_match: tuple[str, str] | None = None
+    while queue and not best_match:
+        next_queue: list[tuple[str, str, int]] = []
+        for folder_id, path, depth in queue:
+            if depth >= 5:
+                continue
+            try:
+                res = drive.files().list(
+                    q=f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                    fields="files(id,name)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                    pageSize=100,
+                ).execute()
+            except Exception as e:
+                logger.warning("save_note: subfolder search failed at %s: %s", path or "root", e)
+                continue
+            for f in res.get("files", []):
+                fname = f["name"]
+                full_path = f"{path}/{fname}" if path else fname
+                if hint_lower == fname.lower() or hint_lower in fname.lower().replace(" ", ""):
+                    best_match = (f["id"], full_path)
+                    break
+                next_queue.append((f["id"], full_path, depth + 1))
+            if best_match:
+                break
+        queue = next_queue
+    return best_match
+
+
+def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") -> dict:
+    """Create a Google Doc in the Shared Drive via service account.
+
+    Default destination: 00_Werkdocumenten.
+    Falls back to local markdown if Drive API is unavailable.
+    """
+    from datetime import datetime
+
+    drive = _get_drive_service()
+    logger.info("save_note: entry — title=%r drive_available=%s", title[:40], drive is not None)
+    date_str = datetime.now().strftime("%y%m%d")
+    safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", title).strip()[:80]
+    doc_name = f"{date_str}_{safe_title}" if not safe_title.startswith(date_str) else safe_title
+
+    if drive is None:
+        filename = f"{doc_name}.md"
+        dest = SOURCE_ROOT / "00_Werkdocumenten" if (SOURCE_ROOT / "00_Werkdocumenten").exists() else SOURCE_ROOT
+        dest.mkdir(parents=True, exist_ok=True)
+        filepath = dest / filename
+        filepath.write_text(f"# {title}\n\n{content}", encoding="utf-8")
+        logger.info("save_note fallback: saved to %s", filepath)
+        return {"saved_as": "markdown", "path": str(filepath), "title": doc_name}
+
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+    folder_id: str | None = None
+    folder_path = "00_Werkdocumenten"
+
+    if folder_hint:
+        match = _find_subfolder_by_hint(drive, root_id, folder_hint)
+        if match:
+            folder_id, folder_path = match
+            logger.info("save_note: folder hint '%s' → %s", folder_hint, folder_path)
+        else:
+            logger.info("save_note: hint '%s' not found, falling back to 00_Werkdocumenten", folder_hint)
+
+    if folder_id is None:
+        q = (
+            f"name='00_Werkdocumenten' and mimeType='application/vnd.google-apps.folder' "
+            f"and '{root_id}' in parents and trashed=false"
+        )
+        res = drive.files().list(
+            q=q, fields="files(id,name)", supportsAllDrives=True, includeItemsFromAllDrives=True,
+        ).execute()
+        files = res.get("files", [])
+        if files:
+            folder_id = files[0]["id"]
+        else:
+            meta = {
+                "name": "00_Werkdocumenten",
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [root_id],
+            }
+            folder = drive.files().create(body=meta, fields="id", supportsAllDrives=True).execute()
+            folder_id = folder["id"]
+            logger.info("save_note: created 00_Werkdocumenten folder %s", folder_id)
+
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
+
+    file_meta = {
+        "name": doc_name,
+        "mimeType": "application/vnd.google-apps.document",
+        "parents": [folder_id],
+    }
+    media = MediaIoBaseUpload(io.BytesIO(content.encode("utf-8")), mimetype="text/plain", resumable=False)
+    doc = drive.files().create(
+        body=file_meta, media_body=media, fields="id,webViewLink,name", supportsAllDrives=True,
+    ).execute()
+
+    url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")
+    logger.info("save_note: created '%s' in %s → %s", doc_name, folder_path, doc["id"])
+    return {"doc_id": doc["id"], "url": url, "title": doc_name, "folder": folder_path}
+
+
 def drive_append_feedback(entry: str, header: str = "") -> None:
     """Append a feedback entry to gaps.md on Drive.
 

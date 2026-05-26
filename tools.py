@@ -1676,10 +1676,21 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
         )
     elif tool_name == "create_gdoc":
         try:
-            from gdoc_tools import create_gdoc
-            result = create_gdoc(tool_input["title"], tool_input["content"])
+            # Use service-account Drive API path — bypasses expired OAuth token
+            result = _save_note_via_drive_api(
+                title=tool_input["title"],
+                content=tool_input["content"],
+            )
         except Exception as e:
-            result = {"error": str(e)}
+            import traceback as _tb
+            logger.error("create_gdoc failed: %s: %s", type(e).__name__, e)
+            logger.error("create_gdoc traceback: %s", _tb.format_exc()[-500:])
+            result = {
+                "error": (
+                    "Er ging iets mis bij het aanmaken van het document. "
+                    "Thomas, controleer de Drive-configuratie op de server."
+                )
+            }
     elif tool_name == "update_gdoc_section":
         try:
             from gdoc_tools import update_gdoc_section

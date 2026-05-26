@@ -278,6 +278,14 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
 
 def _send_chunked(say, text: str, channel: str, thread_ts: str, limit: int = 2900):
     """Split long responses into chunks so Slack never truncates them."""
+    if not text or not text.strip():
+        say(
+            text="_Ik kon geen antwoord formuleren. Controleer de logs of probeer de vraag opnieuw._",
+            thread_ts=thread_ts,
+            channel=channel,
+            mrkdwn=True,
+        )
+        return
     if len(text) <= limit:
         say(text=text, thread_ts=thread_ts, channel=channel, mrkdwn=True)
         return

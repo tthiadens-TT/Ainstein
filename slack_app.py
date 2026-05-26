@@ -749,7 +749,9 @@ if __name__ == "__main__":
 
     handler = SocketModeHandler(app, app_token)
     start_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+    status_channel = os.environ.get("AINSTEIN_STATUS_CHANNEL", "").strip()
     logger.info("Ainstein is running in Slack. Press Ctrl+C to stop.")
+    logger.info("Status notifications: channel=%s", status_channel or "(niet geconfigureerd — stel AINSTEIN_STATUS_CHANNEL in)")
     _notify_status(f"_Ainstein gestart om {start_time} (Amsterdam). Klaar voor gebruik._")
 
     def _on_shutdown(signum, frame):

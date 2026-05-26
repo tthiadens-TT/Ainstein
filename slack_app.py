@@ -227,13 +227,12 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
         response, trace = run_agent(messages, ANTHROPIC_CLIENT, skill=skill)
     except Exception as e:
         logger.exception("run_agent failed for thread=%s: %s", thread_ts, e)
+        # Keep thread history in the fallback so the agent knows what was asked.
+        fallback_messages = messages + [{"role": "user", "content": (
+            f"Er was een technisch probleem bij het beantwoorden: {e}\n\n"
+            "Reflecteer kort op wat er mis kan zijn gegaan en wat de gebruiker nu het best kan doen."
+        )}]
         try:
-            fallback_messages = [{"role": "user", "content": (
-                f"I tried to answer this question: '{user_text}'\n\n"
-                f"But ran into a technical issue: {e}\n\n"
-                "Please reflect on what you would need to answer this properly. "
-                "What is missing from the source layer? What would make you more useful here?"
-            )}]
             response, trace = run_agent(fallback_messages, ANTHROPIC_CLIENT)
         except Exception as fallback_err:
             logger.exception("fallback run_agent also failed: %s", fallback_err)
@@ -248,6 +247,8 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
     trace["user_id"] = user_id
     log_setup.append_decision_trace(trace)
 
+    # Persist bot response so future messages in this thread have full context.
+    messages.append({"role": "assistant", "content": response})
     mem_save(thread_ts, messages)
 
     # Upload any files queued by tools (e.g. export_proposal_deck)
@@ -719,10 +720,51 @@ def handle_reaction(event, client):
         logger.exception("reaction_added handler failed: %s: %s", type(e).__name__, e)
 
 
+def _notify_status(text: str) -> None:
+    """Post a status message to AINSTEIN_STATUS_CHANNEL if configured."""
+    channel = os.environ.get("AINSTEIN_STATUS_CHANNEL", "").strip()
+    if not channel:
+        return
+    try:
+        app.client.chat_postMessage(channel=channel, text=text, mrkdwn=True)
+    except Exception as e:
+        logger.warning("status notification failed: %s", e)
+
+
 if __name__ == "__main__":
     app_token = os.environ.get("SLACK_APP_TOKEN")
     if not app_token:
         raise SystemExit("SLACK_APP_TOKEN not set. See .env.example.")
+
+    import signal
+    from datetime import datetime
+
     handler = SocketModeHandler(app, app_token)
+    start_time = datetime.now().strftime("%Y-%m-%d %H:%M")
     logger.info("Ainstein is running in Slack. Press Ctrl+C to stop.")
-    handler.start()
+    _notify_status(f"_Ainstein gestart om {start_time} (Amsterdam). Klaar voor gebruik._")
+
+    def _on_shutdown(signum, frame):
+        shutdown_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        logger.info("Ainstein shutting down (signal %s)", signum)
+        _notify_status(
+            f"_Ainstein gestopt om {shutdown_time} (signaal {signum}). "
+            "Bot is tijdelijk offline — herstart volgt automatisch via systemd._"
+        )
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _on_shutdown)
+    signal.signal(signal.SIGINT, _on_shutdown)
+
+    try:
+        handler.start()
+    except SystemExit:
+        raise
+    except Exception as e:
+        crash_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        logger.exception("Ainstein crashed: %s", e)
+        _notify_status(
+            f"_Ainstein gecrasht om {crash_time}: `{type(e).__name__}: {e}`_\n"
+            "Controleer de logs op de VM. Systemd herstart de bot automatisch."
+        )
+        raise

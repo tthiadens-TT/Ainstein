@@ -34,9 +34,39 @@ Secrets staan in `/home/thomas/Ainstein/.env` (nooit in git).
 | `SLACK_APP_TOKEN` | Socket Mode (xapp-...) |
 | `GOOGLE_SERVICE_ACCOUNT_FILE` | Pad naar service account JSON op de VM |
 | `AINSTEIN_DRIVE_ROOT_ID` | ID van de Minkowski AInstein root-map in Drive |
+| `AINSTEIN_STATUS_CHANNEL` | Slack channel ID voor startup/crash-notificaties (optioneel) |
 
 **Service account JSON staat als bestand op de VM** (niet inline in de env var).
 Bewaar het buiten de repo, bijvoorbeeld: `/home/thomas/secrets/ainstein-sa.json`
+
+---
+
+## Deploy-checklist: "werkt het?"
+
+Drie lagen moeten alle drie kloppen — check altijd in deze volgorde:
+
+```bash
+# 1. Code: staat de juiste commit op de VM?
+git -C /home/thomas/Ainstein log --oneline -3
+
+# 2. Env vars: staan alle benodigde vars in .env?
+grep -E "AINSTEIN_STATUS_CHANNEL|DRIVE_ROOT_ID" /home/thomas/Ainstein/.env
+
+# 3. Service: draait de bot?
+systemctl is-active ainstein
+
+# 4. Opstartlog: is de env var opgepikt?
+journalctl -u ainstein -n 20 --no-pager | grep -E "Status notifications|running in Slack"
+```
+
+**Tip voor .env-aanpassingen:** gebruik `echo` in plaats van nano — minder kans op vergeten save:
+```bash
+echo "AINSTEIN_STATUS_CHANNEL=C07TBGSDRNX" >> /home/thomas/Ainstein/.env
+# Verifieer direct:
+grep AINSTEIN_STATUS_CHANNEL /home/thomas/Ainstein/.env
+# Dan herstarten:
+sudo systemctl restart ainstein
+```
 
 ---
 

@@ -1322,10 +1322,12 @@ def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") ->
     Doc name: YYMMDD_<title>.gdoc.
 
     Falls back to a local markdown file if the Drive API is unavailable.
+    DEBUG: logs drive availability at entry.
     """
     from datetime import datetime
 
     drive = _get_drive_service()
+    logger.info("save_note: entry — title=%r drive_available=%s", title[:40], drive is not None)
     date_str = datetime.now().strftime("%y%m%d")
     safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", title).strip()[:80]
     doc_name = f"{date_str}_{safe_title}" if not safe_title.startswith(date_str) else safe_title
@@ -1783,8 +1785,11 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
                 title=tool_input["title"],
                 content=tool_input["content"],
             )
+            logger.info("create_gdoc: result=%r", str(result)[:120])
         except Exception as e:
-            logger.error("create_gdoc failed: %s", e)
+            import traceback as _tb
+            logger.error("create_gdoc failed: %s: %s", type(e).__name__, e)
+            logger.error("create_gdoc traceback: %s", _tb.format_exc()[-500:])
             result = {
                 "error": (
                     "Er ging iets mis bij het aanmaken van het document. "

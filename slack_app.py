@@ -197,6 +197,11 @@ def _detect_skill(text: str) -> str | None:
     ):
         return "sharpen_positioning"
 
+    # DVV/AUB quality check — must come before proposal/content triggers to avoid false routing
+    if any(w in t for w in ["dvv", "check op dvv", "dvv check", "dvv-check", "beoordeel op dvv",
+                             "duidelijk volledig verleidelijk"]):
+        return "dvv_check"
+
     # Existing top-level skills
     if any(w in t for w in ["opportunity", "lead", "brief", "prospect", "client ask"]):
         return "analyse_opportunity"
@@ -378,6 +383,12 @@ def cmd_objections(body, ack, say):
 @app.command("/debrief")
 def cmd_debrief(body, ack, say):
     _slash_handler("client_discovery_debrief", body, ack, say)
+
+
+# Quality checks
+@app.command("/dvv")
+def cmd_dvv(body, ack, say):
+    _slash_handler("dvv_check", body, ack, say)
 
 
 # Marketing sub-skills

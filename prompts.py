@@ -42,6 +42,7 @@ SKILL_LABELS = {
     "adapt_messaging": "ADAPT_MESSAGING",
     "debrief_to_messaging": "DEBRIEF_TO_MESSAGING",
     "review_feedback": "REVIEW_FEEDBACK",
+    "dvv_check": "DVV_CHECK",
 }
 
 

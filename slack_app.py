@@ -224,9 +224,12 @@ def _detect_skill(text: str) -> str | None:
     return None
 
 
-def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str | None = None, user_id: str = ""):
+def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, skill: str | None = None, user_id: str = ""):
+    # When a slash command has no thread context, use channel as memory key so
+    # the conversation history is still persisted (one conversation per channel).
+    mem_key = thread_ts or channel
     with _lock:
-        messages = mem_load(thread_ts)
+        messages = mem_load(mem_key)
 
     messages.append({"role": "user", "content": user_text})
     if skill is None:
@@ -260,7 +263,7 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
 
     # Persist bot response so future messages in this thread have full context.
     messages.append({"role": "assistant", "content": response})
-    mem_save(thread_ts, messages)
+    mem_save(mem_key, messages)
 
     # Upload any files queued by tools (e.g. export_proposal_deck)
     from tools import get_pending_uploads
@@ -287,29 +290,30 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
     logger.info("reply done thread=%s", thread_ts)
 
 
-def _send_chunked(say, text: str, channel: str, thread_ts: str, limit: int = 2900):
+def _send_chunked(say, text: str, channel: str, thread_ts: str | None, limit: int = 2900):
     """Split long responses into chunks so Slack never truncates them."""
+    def _post(msg: str) -> None:
+        kwargs = dict(text=msg, channel=channel, mrkdwn=True)
+        if thread_ts:
+            kwargs["thread_ts"] = thread_ts
+        say(**kwargs)
+
     if not text or not text.strip():
-        say(
-            text="_Ik kon geen antwoord formuleren. Controleer de logs of probeer de vraag opnieuw._",
-            thread_ts=thread_ts,
-            channel=channel,
-            mrkdwn=True,
-        )
+        _post("_Ik kon geen antwoord formuleren. Controleer de logs of probeer de vraag opnieuw._")
         return
     if len(text) <= limit:
-        say(text=text, thread_ts=thread_ts, channel=channel, mrkdwn=True)
+        _post(text)
         return
     lines = text.split("\n")
     chunk = ""
     for line in lines:
         if len(chunk) + len(line) + 1 > limit:
-            say(text=chunk.strip(), thread_ts=thread_ts, channel=channel, mrkdwn=True)
+            _post(chunk.strip())
             chunk = line + "\n"
         else:
             chunk += line + "\n"
     if chunk.strip():
-        say(text=chunk.strip(), thread_ts=thread_ts, channel=channel, mrkdwn=True)
+        _post(chunk.strip())
 
 
 @app.event("app_mention")
@@ -341,7 +345,10 @@ def _slash_handler(skill: str, body, ack, say):
     ack()
     user_text = body.get("text", "").strip()
     channel = body["channel_id"]
-    thread_ts = body.get("thread_ts", body.get("ts", channel))
+    # Slash commands have no valid thread_ts — only use one if it looks like a
+    # real Slack timestamp (epoch.microseconds, e.g. "1748349600.123456").
+    _raw_ts = body.get("thread_ts") or body.get("ts")
+    thread_ts = _raw_ts if isinstance(_raw_ts, str) and "." in _raw_ts else None
     if not user_text:
         say(text=f"_Gebruik: `/{skill.replace('_',' ')} [jouw vraag of briefing]`_", channel=channel)
         return
@@ -501,7 +508,8 @@ def cmd_feedback_review(body, ack, say):
     ack()
     user_text = body.get("text", "").strip() or "Doe een feedback review."
     channel = body["channel_id"]
-    thread_ts = body.get("thread_ts", body.get("ts", channel))
+    _raw_ts = body.get("thread_ts") or body.get("ts")
+    thread_ts = _raw_ts if isinstance(_raw_ts, str) and "." in _raw_ts else None
     say(text="_Reviewing feedback patterns…_", channel=channel, mrkdwn=True)
     t = threading.Thread(
         target=_run_and_reply,

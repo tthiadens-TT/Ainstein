@@ -264,6 +264,32 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
 
     suffix = Path(filename).suffix.lower()
 
+    # .gdoc / .gsheet / .gslides stubs downloaded from Drive → parse JSON stub,
+    # extract doc_id, and export via the service account (NOT OAuth).
+    # This avoids _read_gdoc which requires OAuth credentials.
+    if suffix in {".gdoc", ".gsheet", ".gslides"}:
+        try:
+            stub = json.loads(raw.decode("utf-8", errors="replace"))
+            doc_id = stub.get("doc_id") or stub.get("id") or stub.get("docId")
+        except Exception:
+            doc_id = None
+        if doc_id:
+            export_mime = {
+                ".gdoc":   "text/plain",
+                ".gsheet": "text/csv",
+                ".gslides": "text/plain",
+            }.get(suffix, "text/plain")
+            try:
+                data = service.files().export(
+                    fileId=doc_id, mimeType=export_mime
+                ).execute()
+                if isinstance(data, bytes):
+                    return data.decode("utf-8", errors="replace")
+                return str(data) if data else "[empty document]"
+            except Exception as e:
+                return f"[Drive export via stub failed for {filename} (doc_id={doc_id}): {e}]"
+        return f"[.gdoc stub kon niet worden geparseerd — geen doc_id gevonden in: {raw[:200]}]"
+
     # Plain text → decode directly
     if suffix in {".txt", ".md", ".json", ".csv", ".rtf"}:
         return raw.decode("utf-8", errors="replace")

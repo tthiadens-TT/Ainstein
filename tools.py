@@ -540,7 +540,14 @@ def _check_drive_write_access(service) -> None:
         f = service.files().create(
             body=test_meta, media_body=media, fields="id", supportsAllDrives=True,
         ).execute()
-        service.files().delete(fileId=f["id"], supportsAllDrives=True).execute()
+        try:
+            service.files().delete(fileId=f["id"], supportsAllDrives=True).execute()
+        except Exception as del_err:
+            logger.warning(
+                "Drive write access: created test file but delete failed — "
+                "file ID %s may be left in Drive root. Error: %s",
+                f["id"], del_err,
+            )
         logger.info("Drive write access: OK ✓")
     except Exception as e:
         logger.error(

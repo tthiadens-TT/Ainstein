@@ -237,9 +237,11 @@ def _run_and_reply(channel: str, thread_ts: str, user_text: str, say, skill: str
     except Exception as e:
         logger.exception("run_agent failed for thread=%s: %s", thread_ts, e)
         # Keep thread history in the fallback so the agent knows what was asked.
+        # Do NOT include the raw exception in the prompt — brain.md: never expose
+        # technical error details to end users. The exception is already in server logs.
         fallback_messages = messages + [{"role": "user", "content": (
-            f"Er was een technisch probleem bij het beantwoorden: {e}\n\n"
-            "Reflecteer kort op wat er mis kan zijn gegaan en wat de gebruiker nu het best kan doen."
+            "Er was een technisch probleem bij het beantwoorden van de vorige vraag.\n\n"
+            "Laat de gebruiker weten dat er iets mis ging en wat ze nu het best kunnen doen."
         )}]
         try:
             response, trace = run_agent(fallback_messages, ANTHROPIC_CLIENT)

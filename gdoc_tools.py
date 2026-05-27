@@ -5,9 +5,11 @@ Provides: create_gdoc, update_gdoc_section, resolve_comment, get_doc_content.
 All functions raise RuntimeError on failure so callers can surface meaningful
 error messages rather than silently returning None.
 
-Credentials: imports get_creds() from update_gdoc.py (OAuth token with
-both drive + documents write scope). Run setup_gdrive_auth.py once to
-issue/refresh the token with the correct scopes.
+Credentials (SA-first, OAuth-fallback):
+- On the VM: set GOOGLE_SERVICE_ACCOUNT_FILE (path to JSON key) or
+  GOOGLE_SERVICE_ACCOUNT_JSON (inline JSON string). The service account
+  needs both drive and documents scope.
+- Locally: falls back to OAuth via update_gdoc.py / setup_gdrive_auth.py.
 """
 
 import logging
@@ -20,8 +22,9 @@ _DOCS_SERVICE = None
 _DRIVE_WRITE_SERVICE = None
 
 # Google Drive folder ID for the AInstein root (contains 01_Proposals … 07_Feedback)
+# Default points to the Workspace Shared Drive "Minkowski AInstein" — same as tools.py.
 _AINSTEIN_DRIVE_ROOT_ID = os.environ.get(
-    "AINSTEIN_DRIVE_ROOT_ID", "1ziMd8Zmhgpqq_iHyoz3-59_KwL7kbm7e"
+    "AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA"
 )
 # Cached working-folder ID — resolved lazily on first create_gdoc() call
 _WERKDOCUMENTEN_FOLDER_ID: str | None = None

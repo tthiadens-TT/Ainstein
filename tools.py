@@ -1118,6 +1118,15 @@ def _drive_read_file(path: str) -> dict:
         filename = meta.get("name", filename)
         mime_type = meta.get("mimeType", "")
     except Exception as e:
+        err_str = str(e)
+        if "404" in err_str:
+            return {
+                "error": (
+                    f"Bestand niet gevonden in Drive (ID: {file_id}). "
+                    "Dit is waarschijnlijk een verouderd bestand-ID uit een eerdere conversatie. "
+                    "Gebruik list_folder om de actuele bestanden opnieuw op te halen."
+                )
+            }
         return {"error": f"Could not get Drive file metadata: {e}"}
 
     content = _read_drive_file_content(service, file_id, filename, mime_type)

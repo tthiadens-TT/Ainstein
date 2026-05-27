@@ -3,11 +3,18 @@ name: Deploy to Ainstein VM
 on:
   push:
     branches:
-      - dev
       - main
 
 jobs:
+  approve:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Awaiting approval
+        run: echo "Approved — deploying to production"
+
   deploy:
+    needs: approve
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to VM

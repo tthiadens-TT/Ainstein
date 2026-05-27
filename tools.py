@@ -20,6 +20,7 @@ BASE_DIR = Path(__file__).parent
 #   Tier 2 — SQLite on disk: survives restarts, keyed by (abspath, mtime_ns)
 _READ_CACHE: dict[tuple[str, int], str] = {}
 _READ_CACHE_MAX = 256
+_READ_CACHE_LOCK = threading.Lock()
 
 # ---------------------------------------------------------------------------
 # Pending file uploads — set by export_proposal_deck dispatch, drained by
@@ -864,8 +865,9 @@ def _read_text(path: Path) -> str:
         cache_key = None
 
     if cache_key is not None:
-        # Tier 1: in-memory
-        cached = _READ_CACHE.get(cache_key)
+        # Tier 1: in-memory (thread-safe via lock)
+        with _READ_CACHE_LOCK:
+            cached = _READ_CACHE.get(cache_key)
         if cached is not None:
             return cached
 
@@ -878,9 +880,10 @@ def _read_text(path: Path) -> str:
             if row:
                 result = row[0]
                 # Warm in-memory cache
-                if len(_READ_CACHE) >= _READ_CACHE_MAX:
-                    _READ_CACHE.pop(next(iter(_READ_CACHE)))
-                _READ_CACHE[cache_key] = result
+                with _READ_CACHE_LOCK:
+                    if len(_READ_CACHE) >= _READ_CACHE_MAX:
+                        _READ_CACHE.pop(next(iter(_READ_CACHE)))
+                    _READ_CACHE[cache_key] = result
                 logger.debug("cache hit (sqlite): %s", path.name)
                 return result
         except Exception as exc:
@@ -890,9 +893,10 @@ def _read_text(path: Path) -> str:
 
     if cache_key is not None:
         # Store in both tiers
-        if len(_READ_CACHE) >= _READ_CACHE_MAX:
-            _READ_CACHE.pop(next(iter(_READ_CACHE)))
-        _READ_CACHE[cache_key] = result
+        with _READ_CACHE_LOCK:
+            if len(_READ_CACHE) >= _READ_CACHE_MAX:
+                _READ_CACHE.pop(next(iter(_READ_CACHE)))
+            _READ_CACHE[cache_key] = result
         try:
             db = _cache_db()
             db.execute(

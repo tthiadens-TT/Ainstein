@@ -69,13 +69,26 @@ def _get_docs_service():
         logger.info("gdoc_tools: Docs service via service account")
         return _DOCS_SERVICE
 
-    from update_gdoc import get_creds, CredentialsError
+    # OAuth fallback — alleen voor lokale ontwikkeling.
+    # Op de VM moet GOOGLE_SERVICE_ACCOUNT_FILE of GOOGLE_SERVICE_ACCOUNT_JSON zijn gezet.
+    # Als die ontbreken op de VM is er een configuratiefout — fail fast met duidelijke melding.
+    if os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON"):
+        raise RuntimeError(
+            "Service account env vars zijn gezet maar credentials konden niet worden geladen. "
+            "Controleer GOOGLE_SERVICE_ACCOUNT_FILE of GOOGLE_SERVICE_ACCOUNT_JSON."
+        )
+
     try:
+        from update_gdoc import get_creds, CredentialsError
         creds = get_creds(raise_on_error=True)
         _DOCS_SERVICE = build("docs", "v1", credentials=creds, cache_discovery=False)
+        logger.info("gdoc_tools: Docs service via OAuth (lokale modus)")
         return _DOCS_SERVICE
-    except CredentialsError as e:
-        raise RuntimeError(str(e)) from e
+    except Exception as e:
+        raise RuntimeError(
+            f"Geen geldige credentials voor Google Docs. "
+            f"Op de VM: zet GOOGLE_SERVICE_ACCOUNT_FILE. Lokaal: draai setup_gdrive_auth.py. Fout: {e}"
+        ) from e
 
 
 def _get_drive_write_service():
@@ -91,13 +104,24 @@ def _get_drive_write_service():
         logger.info("gdoc_tools: Drive write service via service account")
         return _DRIVE_WRITE_SERVICE
 
-    from update_gdoc import get_creds, CredentialsError
+    # OAuth fallback — alleen voor lokale ontwikkeling. Zie _get_docs_service() voor toelichting.
+    if os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON"):
+        raise RuntimeError(
+            "Service account env vars zijn gezet maar credentials konden niet worden geladen. "
+            "Controleer GOOGLE_SERVICE_ACCOUNT_FILE of GOOGLE_SERVICE_ACCOUNT_JSON."
+        )
+
     try:
+        from update_gdoc import get_creds, CredentialsError
         creds = get_creds(raise_on_error=True)
         _DRIVE_WRITE_SERVICE = build("drive", "v3", credentials=creds, cache_discovery=False)
+        logger.info("gdoc_tools: Drive write service via OAuth (lokale modus)")
         return _DRIVE_WRITE_SERVICE
-    except CredentialsError as e:
-        raise RuntimeError(str(e)) from e
+    except Exception as e:
+        raise RuntimeError(
+            f"Geen geldige credentials voor Google Drive. "
+            f"Op de VM: zet GOOGLE_SERVICE_ACCOUNT_FILE. Lokaal: draai setup_gdrive_auth.py. Fout: {e}"
+        ) from e
 
 
 def _get_or_create_werkdocumenten_folder() -> str:
@@ -120,7 +144,10 @@ def _get_or_create_werkdocumenten_folder() -> str:
         f"and '{_AINSTEIN_DRIVE_ROOT_ID}' in parents "
         f"and trashed=false"
     )
-    results = service.files().list(q=q, fields="files(id,name)").execute()
+    results = service.files().list(
+        q=q, fields="files(id,name)",
+        supportsAllDrives=True, includeItemsFromAllDrives=True,
+    ).execute()
     files = results.get("files", [])
     if files:
         _WERKDOCUMENTEN_FOLDER_ID = files[0]["id"]
@@ -133,7 +160,7 @@ def _get_or_create_werkdocumenten_folder() -> str:
         "mimeType": "application/vnd.google-apps.folder",
         "parents": [_AINSTEIN_DRIVE_ROOT_ID],
     }
-    folder = service.files().create(body=meta, fields="id").execute()
+    folder = service.files().create(body=meta, fields="id", supportsAllDrives=True).execute()
     _WERKDOCUMENTEN_FOLDER_ID = folder["id"]
     logger.info("_get_or_create_werkdocumenten_folder: created %s", _WERKDOCUMENTEN_FOLDER_ID)
     return _WERKDOCUMENTEN_FOLDER_ID
@@ -248,13 +275,14 @@ def create_gdoc(title: str, content: str, parent_folder_id: str | None = "werkdo
 
     if resolved_folder_id:
         try:
-            file_meta = drive_service.files().get(fileId=doc_id, fields="parents").execute()
+            file_meta = drive_service.files().get(fileId=doc_id, fields="parents", supportsAllDrives=True).execute()
             previous_parents = ",".join(file_meta.get("parents", []))
             drive_service.files().update(
                 fileId=doc_id,
                 addParents=resolved_folder_id,
                 removeParents=previous_parents,
                 fields="id,parents",
+                supportsAllDrives=True,
             ).execute()
             logger.info("create_gdoc: moved %s → folder %s", doc_id, resolved_folder_id)
         except Exception as e:

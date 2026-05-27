@@ -48,6 +48,9 @@ import anthropic
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+import time
+from collections import defaultdict, deque
+
 import log_setup
 from agent import run_agent
 from memory import load as mem_load, save as mem_save
@@ -94,6 +97,34 @@ logger.info("SLACK_BOT_TOKEN loaded: %s... (length %d)", _slack_bot_token[:10], 
 app = App(token=_slack_bot_token)
 
 _lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Rate limiting — max calls per user per hour
+# ---------------------------------------------------------------------------
+_RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "10"))
+_RATE_LIMIT_WINDOW = 3600  # seconden (1 uur)
+_user_call_times: dict[str, deque] = defaultdict(lambda: deque())
+_rate_lock = threading.Lock()
+
+
+def _is_rate_limited(user_id: str) -> bool:
+    """Geeft True als de user het limiet heeft bereikt, anders False.
+
+    Bijwerking: logt de huidige call-timestamp voor de user.
+    """
+    if not user_id:
+        return False
+    now = time.monotonic()
+    with _rate_lock:
+        timestamps = _user_call_times[user_id]
+        # Verwijder calls buiten het tijdvenster
+        while timestamps and now - timestamps[0] > _RATE_LIMIT_WINDOW:
+            timestamps.popleft()
+        if len(timestamps) >= _RATE_LIMIT_MAX:
+            return True
+        timestamps.append(now)
+        return False
+
 
 ANTHROPIC_CLIENT = anthropic.Anthropic(api_key=_anthropic_key, max_retries=1)
 
@@ -225,6 +256,17 @@ def _detect_skill(text: str) -> str | None:
 
 
 def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, skill: str | None = None, user_id: str = ""):
+    # Rate limiting — geef vriendelijke melding als user limiet bereikt heeft
+    if _is_rate_limited(user_id):
+        logger.warning("Rate limit bereikt voor user=%s", user_id)
+        _send_chunked(
+            say,
+            f"_Je hebt het maximum van {_RATE_LIMIT_MAX} verzoeken per uur bereikt. Probeer het over een tijdje opnieuw._",
+            channel,
+            thread_ts,
+        )
+        return
+
     # When a slash command has no thread context, use channel as memory key so
     # the conversation history is still persisted (one conversation per channel).
     mem_key = thread_ts or channel

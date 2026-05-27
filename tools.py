@@ -1112,7 +1112,7 @@ def _drive_read_file(path: str) -> dict:
     try:
         meta = service.files().get(
             fileId=file_id,
-            fields="id, name, mimeType",
+            fields="id, name, mimeType, shortcutDetails",
             supportsAllDrives=True,
         ).execute()
         filename = meta.get("name", filename)
@@ -1128,6 +1128,28 @@ def _drive_read_file(path: str) -> dict:
                 )
             }
         return {"error": f"Could not get Drive file metadata: {e}"}
+
+    # Resolve Drive shortcuts → read the actual target file instead
+    if mime_type == "application/vnd.google-apps.shortcut":
+        shortcut_details = meta.get("shortcutDetails", {})
+        target_id = shortcut_details.get("targetId")
+        target_mime = shortcut_details.get("targetMimeType", "")
+        if not target_id:
+            return {"error": f"Drive shortcut heeft geen targetId: {filename}"}
+        logger.info("Drive shortcut resolved: %s → %s (%s)", filename, target_id, target_mime)
+        try:
+            target_meta = service.files().get(
+                fileId=target_id,
+                fields="id, name, mimeType",
+                supportsAllDrives=True,
+            ).execute()
+            mime_type = target_meta.get("mimeType", target_mime)
+            filename = target_meta.get("name", filename)
+        except Exception as e:
+            # Target may be in another Drive — try with the mime from shortcutDetails
+            logger.warning("Could not get shortcut target metadata for %s: %s", target_id, e)
+            mime_type = target_mime
+        file_id = target_id
 
     content = _read_drive_file_content(service, file_id, filename, mime_type)
     return {

@@ -89,6 +89,8 @@ Use for:
 - reusable prompts
 - operational templates
 
+Key document: `02_Tools_Agent_README.md` — the canonical tool landscape. Contains SCOPE for Change, EDIT, Futures Cone, Wheel of Reasoning, Scenario Building, 7 Practices, 21 capacities, and how Jörgen explains each tool in his own words. Read this before describing Minkowski's methodology in any proposal or client conversation.
+
 ### 03_Pricing
 Use for:
 - pricing structures
@@ -119,6 +121,14 @@ Use for:
 - external messaging
 - marketing concepts
 - visibility and growth logic
+
+Key documents in 06_Marketing (read directly by name when relevant):
+- `brand_core.md` — Minkowski's name, purpose, origin story, and founding context. Read when you need verified brand facts.
+- `positioning.md` — Internal, sales-sharp positioning. One-line positioning, what Minkowski is and is not, for whom. Read when framing Minkowski's offer in a proposal or pitch.
+- `verbal_identity.md` — Tone of voice, taglines, forbidden words, channel principles, Jörgen's writing patterns, vocabulary pairs (Minkowski vs. generic), and directly quotable lines for proposals. Read when reviewing whether draft language sounds like Minkowski.
+- `Minkowski_Programmas_en_Referenties` — Actual programs, partners, sectors, and outcome language from public Minkowski content: Columbia DSL, UEFA Academy, AMSIB, Lego Serious Play. Read during opportunity analysis (sector fit) and proposal drafting (proof points).
+
+Note: Raw source material (LinkedIn scrapes, Substack export) is archived in `06_Marketing/_bronmateriaal/` — not a primary retrieval target, but available if you need to trace back to original content.
 
 ### 07_Feedback
 Use for:
@@ -152,6 +162,10 @@ When you receive a request, work in this order:
 
 2. Retrieve before generating.
    Search relevant source material first. Reuse before rewriting.
+
+   **For Minkowski's methodology and how to explain it:** read `02_Tools/02_Tools_Agent_README.md` — it contains the full tool landscape (SCOPE, Futures Cone, Wheel of Reasoning, 7 Practices, experiential learning) including how Jörgen explains these tools in his own words.
+   **For Minkowski's voice, tone, and proposal language:** read `06_Marketing/verbal_identity.md` — it contains writing patterns, vocabulary pairs, and directly quotable lines.
+   **For proof points and sector fit:** read `06_Marketing/Minkowski_Programmas_en_Referenties`.
 
    **For dossier status queries** (e.g. "wat is de status van LEAD3?", "where do we stand on [project]?", "what are the open actions for [dossier]?"): a single `search_files` call is not sufficient. Run at least one additional query targeting the specific subfolder path directly, and where possible read the most recent dated file explicitly. Every relevant document for that dossier must be consulted — not just the top search result.
 

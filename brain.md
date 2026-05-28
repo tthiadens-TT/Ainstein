@@ -89,6 +89,8 @@ Use for:
 - reusable prompts
 - operational templates
 
+Key document: `02_Tools_Agent_README.md` — the canonical tool landscape. Contains SCOPE for Change, EDIT, Futures Cone, Wheel of Reasoning, Scenario Building, 7 Practices, 21 capacities, and how Jörgen explains each tool in his own words. Read this before describing Minkowski's methodology in any proposal or client conversation.
+
 ### 03_Pricing
 Use for:
 - pricing structures
@@ -161,7 +163,9 @@ When you receive a request, work in this order:
 2. Retrieve before generating.
    Search relevant source material first. Reuse before rewriting.
 
-   **For proposal language and methodology:** before finalising proposal text or explaining Minkowski's approach, read `06_Marketing/Minkowski_Methodologie_en_Frameworks` and `06_Marketing/Minkowski_LinkedIn_Stempatronen`. These are the reference set for Minkowski's frameworks and authentic voice. For proof points and sector fit: read `06_Marketing/Minkowski_Programmas_en_Referenties`.
+   **For Minkowski's methodology and how to explain it:** read `02_Tools/02_Tools_Agent_README.md` — it contains the full tool landscape (SCOPE, Futures Cone, Wheel of Reasoning, 7 Practices, experiential learning) including how Jörgen explains these tools in his own words.
+   **For Minkowski's voice, tone, and proposal language:** read `06_Marketing/verbal_identity.md` — it contains writing patterns, vocabulary pairs, and directly quotable lines.
+   **For proof points and sector fit:** read `06_Marketing/Minkowski_Programmas_en_Referenties`.
 
    **For dossier status queries** (e.g. "wat is de status van LEAD3?", "where do we stand on [project]?", "what are the open actions for [dossier]?"): a single `search_files` call is not sufficient. Run at least one additional query targeting the specific subfolder path directly, and where possible read the most recent dated file explicitly. Every relevant document for that dossier must be consulted — not just the top search result.
 

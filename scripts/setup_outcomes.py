@@ -24,11 +24,10 @@ def _get_service():
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     creds = service_account.Credentials.from_service_account_file(
-        sa_file, scopes=["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/documents"]
+        sa_file, scopes=["https://www.googleapis.com/auth/drive"]
     )
     drive = build("drive", "v3", credentials=creds, cache_discovery=False)
-    docs  = build("docs",  "v1", credentials=creds, cache_discovery=False)
-    return drive, docs
+    return drive
 
 DRIVE_ROOT = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
 FOLDER_NAME = "08_Outcomes"
@@ -74,7 +73,7 @@ Bestandsnaam: JJJJMMDD_[Klant]_[Voorstel]_[WON|VERLOREN|NO_DECISION].md
 """
 
 def main():
-    drive, docs = _get_service()
+    drive = _get_service()
 
     # 1. Check of 08_Outcomes al bestaat
     res = drive.files().list(
@@ -96,25 +95,26 @@ def main():
         folder_id = folder["id"]
         print(f"✅ Folder '{FOLDER_NAME}' aangemaakt (ID: {folder_id})")
 
-    # 2. Maak template Google Doc aan
-    doc = docs.documents().create(body={"title": "00_TEMPLATE — Outcome registratie"}).execute()
-    doc_id = doc["documentId"]
-
-    docs.documents().batchUpdate(
-        documentId=doc_id,
-        body={"requests": [{"insertText": {"location": {"index": 1}, "text": TEMPLATE_CONTENT}}]},
-    ).execute()
-
-    # Verplaats naar 08_Outcomes
-    file_meta = drive.files().get(fileId=doc_id, fields="parents", supportsAllDrives=True).execute()
-    prev_parents = ",".join(file_meta.get("parents", []))
-    drive.files().update(
-        fileId=doc_id,
-        addParents=folder_id,
-        removeParents=prev_parents,
-        fields="id,parents",
+    # 2. Maak template aan via Drive API (plain text upload → converteert naar Google Doc)
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
+    media = MediaIoBaseUpload(
+        io.BytesIO(TEMPLATE_CONTENT.encode("utf-8")),
+        mimetype="text/plain",
+        resumable=False,
+    )
+    file_meta_body = {
+        "name": "00_TEMPLATE — Outcome registratie",
+        "mimeType": "application/vnd.google-apps.document",
+        "parents": [folder_id],
+    }
+    created = drive.files().create(
+        body=file_meta_body,
+        media_body=media,
+        fields="id",
         supportsAllDrives=True,
     ).execute()
+    doc_id = created["id"]
 
     url = f"https://docs.google.com/document/d/{doc_id}/edit"
     print(f"✅ Template aangemaakt: {url}")

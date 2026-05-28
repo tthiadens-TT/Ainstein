@@ -88,6 +88,7 @@ _FOLDER_NAMES = [
     "05_Venues",
     "06_Marketing",
     "07_Feedback",
+    "08_Outcomes",
 ]
 
 SOURCE_FOLDERS = {name: SOURCE_ROOT / name for name in _FOLDER_NAMES}
@@ -1578,7 +1579,7 @@ TOOL_SCHEMAS = [
             "Results are sorted by modified date (newest first). "
             "Use this to understand what material is available, find recent additions, "
             "compare versions, or answer questions about when files were added or changed. "
-            "Folders: 01_Proposals, 02_Tools, 03_Pricing, 04_Experts, 05_Venues, 06_Marketing, 07_Feedback."
+            "Folders: 01_Proposals, 02_Tools, 03_Pricing, 04_Experts, 05_Venues, 06_Marketing, 07_Feedback, 08_Outcomes."
         ),
         "input_schema": {
             "type": "object",

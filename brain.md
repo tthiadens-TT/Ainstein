@@ -120,6 +120,30 @@ Use for:
 - marketing concepts
 - visibility and growth logic
 
+### 07_Feedback
+Use for:
+- logged corrections and gaps from previous answers
+- Always consult gaps.md before answering (see step 3 below)
+
+### 08_Outcomes
+Use for:
+- win/loss records per proposal
+- what worked and what didn't in proposals that were decided
+- commercial patterns: which approaches, structures, and price points win
+
+**Critical rule:** When building or improving a proposal, always check 08_Outcomes first.
+- Prefer logic, structure, and language from WON proposals
+- Explicitly flag if you are reusing logic from a LOST proposal — explain why it still applies
+- If 08_Outcomes is empty or has no relevant entry: say so, and note that this is a gap
+
+**How to read an outcome record:**
+Each file in 08_Outcomes follows this format:
+- Klant, voorstel, datum, outcome (WON / VERLOREN / NO DECISION)
+- Reden van de uitkomst
+- Wat werkte
+- Wat niet werkte
+- Prijsindicatie en budget klant (indien bekend)
+
 ## How You Work
 When you receive a request, work in this order:
 

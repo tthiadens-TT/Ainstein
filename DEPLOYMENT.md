@@ -136,6 +136,18 @@ Controleer dat `DEPLOY_HOST`, `DEPLOY_SSH_KEY` aanwezig zijn en niet verlopen.
 
 ---
 
+## Bekende beperkingen
+
+### Gedeeld geheugen bij slash-commands in hetzelfde kanaal
+
+Ainstein slaat gespreksgeheugen op per `thread_ts`. Slash-commands die buiten een thread worden uitgevoerd, vallen terug op de **channel ID** als sleutel (`mem_key = thread_ts or channel`). Dit is een bewuste keuze: één gesprekscontext per kanaal.
+
+**Gevolg:** als twee gebruikers binnen seconden van elkaar `/proposal` of een andere slash-command uitvoeren in hetzelfde kanaal, overschrijft de tweede de gesprekscontext van de eerste. Bij laag verkeer (één actieve gebruiker per kanaal) is dit geen probleem. Bij multi-user gebruik in drukke kanalen kan dit verwarring geven.
+
+**Tijdelijke workaround:** laat gebruikers slash-commands uitvoeren vanuit een Slack-thread, zodat `thread_ts` altijd beschikbaar is.
+
+---
+
 ## Terugkijken op Drive-schrijfacties
 
 ```bash

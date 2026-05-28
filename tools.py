@@ -59,15 +59,16 @@ _CACHE_DB: sqlite3.Connection | None = None
 
 def _cache_db() -> sqlite3.Connection:
     global _CACHE_DB
-    if _CACHE_DB is None:
-        _CACHE_DB = sqlite3.connect(_CACHE_DB_PATH, check_same_thread=False)
-        _CACHE_DB.execute("PRAGMA journal_mode=WAL")
-        _CACHE_DB.execute(
-            "CREATE TABLE IF NOT EXISTS file_cache "
-            "(path TEXT, mtime_ns INTEGER, content TEXT, "
-            "PRIMARY KEY (path, mtime_ns))"
-        )
-        _CACHE_DB.commit()
+    with _READ_CACHE_LOCK:
+        if _CACHE_DB is None:
+            _CACHE_DB = sqlite3.connect(_CACHE_DB_PATH, check_same_thread=False)
+            _CACHE_DB.execute("PRAGMA journal_mode=WAL")
+            _CACHE_DB.execute(
+                "CREATE TABLE IF NOT EXISTS file_cache "
+                "(path TEXT, mtime_ns INTEGER, content TEXT, "
+                "PRIMARY KEY (path, mtime_ns))"
+            )
+            _CACHE_DB.commit()
     return _CACHE_DB
 
 # Source layer = Google Drive (multi-user, single source of truth).
@@ -1229,7 +1230,7 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
     if not terms:
         return {"error": "Empty search query"}
 
-    folder_conditions = " or ".join(f"'{fid}' in parents" for fid in scan.values())
+    folder_conditions = " or ".join(f"'{fid}' in ancestors" for fid in scan.values())
 
     # Drive API fullText: search for files containing ALL terms
     # `fullText contains 'term'` searches both name and content

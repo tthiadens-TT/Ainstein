@@ -48,25 +48,30 @@ def _get_service():
     sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     sa_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
 
+    _tmp_path = None
     if sa_json:
         import tempfile
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-        tmp.write(sa_json)
-        tmp.flush()
-        sa_file = tmp.name
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            tmp.write(sa_json)
+            _tmp_path = tmp.name
+        sa_file = _tmp_path
 
     if not sa_file or not Path(sa_file).exists():
         log.error("Geen service account gevonden. Zet GOOGLE_SERVICE_ACCOUNT_FILE of GOOGLE_SERVICE_ACCOUNT_JSON.")
         sys.exit(1)
 
-    from google.oauth2 import service_account
-    from googleapiclient.discovery import build
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
 
-    creds = service_account.Credentials.from_service_account_file(
-        sa_file,
-        scopes=["https://www.googleapis.com/auth/drive"],
-    )
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
+        creds = service_account.Credentials.from_service_account_file(
+            sa_file,
+            scopes=["https://www.googleapis.com/auth/drive"],
+        )
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+    finally:
+        if _tmp_path:
+            os.unlink(_tmp_path)
 
 
 def _list_top_folders(service):

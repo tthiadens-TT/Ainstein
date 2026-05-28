@@ -481,21 +481,44 @@ def handle_mention(event, say, client):
 
     raw_text = event.get("text", "")
     user_text = _clean_text(raw_text, bot_user_id)
-    if not user_text:
+    files = event.get("files", [])
+
+    # Nothing to process if there's no text and no files
+    if not user_text and not files:
         return
 
     channel = event["channel"]
     thread_ts = event.get("thread_ts", event["ts"])
+    user_id = event.get("user", "")
 
-    # Acknowledge immediately
-    say(text="_Searching source layer…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
+    if files:
+        # Acknowledge with file-specific message so user knows it's being read
+        say(text="_Bestand ontvangen, even lezen…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
 
-    t = threading.Thread(
-        target=_run_and_reply,
-        args=(channel, thread_ts, user_text, say),
-        kwargs={"user_id": event.get("user", "")},
-        daemon=True,
-    )
+        def process_with_files():
+            file_content = _download_files(files)
+            combined = f"{user_text}\n\n{file_content}".strip() if user_text else file_content
+            if not combined:
+                say(
+                    text="_Kon het bijgevoegde bestand niet lezen. Kun je de inhoud plakken?_",
+                    thread_ts=thread_ts,
+                    channel=channel,
+                    mrkdwn=True,
+                )
+                return
+            _run_and_reply(channel, thread_ts, combined, say, user_id=user_id)
+
+        t = threading.Thread(target=process_with_files, daemon=True)
+    else:
+        # Acknowledge immediately
+        say(text="_Searching source layer…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
+
+        t = threading.Thread(
+            target=_run_and_reply,
+            args=(channel, thread_ts, user_text, say),
+            kwargs={"user_id": user_id},
+            daemon=True,
+        )
     t.start()
 
 

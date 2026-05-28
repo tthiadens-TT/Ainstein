@@ -3,7 +3,8 @@
 backup_drive.py — Wekelijkse backup van de Minkowski AInstein bronnenlaag.
 
 Wat het doet:
-- Kopieert alle bestanden uit folders 01–07 naar 09_Backup/<datum> in dezelfde Shared Drive
+- Kopieert alle bestanden uit folders 01–07 naar een EXTERNE Shared Drive (Minkowski AInstein_Backup)
+- Backup staat bewust BUITEN de bronnenlaag — aparte Shared Drive als tweede locatie
 - Gebruikt de service account (geen OAuth nodig)
 - Bewaart de laatste 4 wekelijkse snapshots, verwijdert oudere
 - Logt naar stdout (geschikt voor cron + journald)
@@ -11,13 +12,16 @@ Wat het doet:
 Gebruik:
     python3 scripts/backup_drive.py
 
-Cron (wekelijks, zondag 03:00):
-    0 3 * * 0 /home/thomas/Ainstein/.venv311/bin/python3 /home/thomas/Ainstein/scripts/backup_drive.py >> /home/thomas/Ainstein/logs/backup.log 2>&1
+Cron (wekelijks, maandag 03:00):
+    0 3 * * 1 /home/thomas/Ainstein/scripts/run_backup.sh
+
+Vereiste env var:
+    AINSTEIN_BACKUP_DEST_ID  — Drive ID van de externe backup Shared Drive (Minkowski AInstein_Backup)
+    AINSTEIN_DRIVE_ROOT_ID   — Drive ID van de bronnenlaag (Minkowski AInstein)
 """
 
 import os
 import sys
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,7 +38,7 @@ log = logging.getLogger("backup_drive")
 # ---------------------------------------------------------------------------
 
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
-BACKUP_FOLDER_NAME = "09_Backup"
+BACKUP_DEST_ID = os.environ.get("AINSTEIN_BACKUP_DEST_ID", "")  # externe Shared Drive
 SOURCE_FOLDER_PREFIXES = ("01_", "02_", "03_", "04_", "05_", "06_", "07_")
 KEEP_SNAPSHOTS = 4  # bewaar de laatste N wekelijkse snapshots
 
@@ -163,14 +167,21 @@ def _cleanup_old_snapshots(service, backup_root_id, keep=KEEP_SNAPSHOTS):
 
 def main():
     log.info("=== Ainstein Drive Backup gestart ===")
+
+    if not BACKUP_DEST_ID:
+        log.error("AINSTEIN_BACKUP_DEST_ID is niet gezet in .env — backup afgebroken.")
+        log.error("Voeg toe: AINSTEIN_BACKUP_DEST_ID=<ID van Minkowski AInstein_Backup drive>")
+        return 1
+
     service = _get_service()
 
-    # Stap 1: haal alle top-level mappen op
+    # Stap 1: haal alle top-level mappen op uit de bronnenlaag
     top_folders = _list_top_folders(service)
-    log.info("Top-level mappen gevonden: %s", list(top_folders.keys()))
+    log.info("Bronnenlaag mappen gevonden: %s", list(top_folders.keys()))
 
-    # Stap 2: zorg dat 09_Backup bestaat
-    backup_root_id = _get_or_create_folder(service, BACKUP_FOLDER_NAME, SHARED_DRIVE_ID)
+    # Stap 2: schrijf naar de EXTERNE backup Shared Drive (niet de bronnenlaag zelf)
+    backup_root_id = BACKUP_DEST_ID
+    log.info("Backup bestemming: externe Shared Drive (ID: %s)", backup_root_id)
 
     # Stap 3: maak een snapshot-map aan met de huidige datum
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")

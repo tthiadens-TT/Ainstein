@@ -12,8 +12,8 @@ Wat het doet:
 Gebruik:
     python3 scripts/backup_drive.py
 
-Cron (wekelijks, maandag 03:00):
-    0 3 * * 1 /home/thomas/Ainstein/scripts/run_backup.sh
+Cron (wekelijks, zondag 03:00):
+    0 3 * * 0 /home/thomas/Ainstein/scripts/run_backup.sh
 
 Vereiste env var:
     AINSTEIN_BACKUP_DEST_ID  — Drive ID van de externe backup Shared Drive (Minkowski AInstein_Backup)

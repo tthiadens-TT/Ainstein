@@ -138,9 +138,6 @@ def capture_feedback(
     category:      one of TECHNICAL_CATEGORIES / QUALITATIVE_CATEGORIES
     source:        "slack" | "inline" | "cli" | "web" — capture channel
     """
-    gaps_file.parent.mkdir(parents=True, exist_ok=True)
-    fresh = not gaps_file.exists() or gaps_file.stat().st_size == 0
-
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     who = f"{user_name} ({user_id})" if user_name else user_id
     skill_line = f"- **Skill:** {skill}\n" if skill else ""
@@ -165,11 +162,13 @@ def capture_feedback(
     with _lock:
         from tools import _is_drive_mode, drive_append_feedback
         if _is_drive_mode():
-            # Drive API mode: upload via service account (no local filesystem write)
-            drive_append_feedback(entry=entry, header=_HEADER if fresh else "")
+            # Drive API mode: always pass _HEADER — drive_append_feedback only uses
+            # it when the file doesn't exist yet on Drive (handles freshness itself)
+            drive_append_feedback(entry=entry, header=_HEADER)
         else:
             # Filesystem mode: append directly to local gaps.md
             gaps_file.parent.mkdir(parents=True, exist_ok=True)
+            fresh = not gaps_file.exists() or gaps_file.stat().st_size == 0
             with gaps_file.open("a", encoding="utf-8") as f:
                 if fresh:
                     f.write(_HEADER)

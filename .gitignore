@@ -38,5 +38,5 @@ venv/
 logs/
 *.log
 
-# Generated review output — canonical copy lives locally, not in git
-reviews/
+# Review output is tracked — history builds over time
+# reviews/

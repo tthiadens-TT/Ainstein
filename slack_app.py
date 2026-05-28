@@ -16,6 +16,7 @@ Usage in Slack:
     DM Ainstein directly             — private conversation
 """
 
+import io
 import os
 import re
 import ssl
@@ -645,16 +646,16 @@ def _build_and_upload_deck(doc_id_or_url: str, client_name: str, channel: str) -
 
         app.client.files_upload_v2(
             channel=channel,
-            content=pptx_bytes,
+            file=io.BytesIO(pptx_bytes),
             filename=filename,
             title=f"Voorstel {client_name} — Minkowski",
         )
 
     except Exception as e:
-        import traceback as _tb
+        logger.error("PPTX export failed: %s", e, exc_info=True)
         app.client.chat_postMessage(
             channel=channel,
-            text=f"⚠️ PPTX genereren mislukt: {e}\n```{_tb.format_exc()[-800:]}```",
+            text="⚠️ Exporteren mislukt. Controleer het document-ID en probeer opnieuw.",
         )
 
 
@@ -671,6 +672,7 @@ def cmd_feedback_review(body, ack, say):
     t = threading.Thread(
         target=_run_and_reply,
         args=(channel, thread_ts, user_text, say, "review_feedback"),
+        kwargs={"user_id": body.get("user_id", "")},
         daemon=True,
     )
     t.start()

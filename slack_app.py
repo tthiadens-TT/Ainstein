@@ -332,30 +332,145 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
     logger.info("reply done thread=%s", thread_ts)
 
 
+def _md_to_mrkdwn(text: str) -> str:
+    """Convert markdown inline formatting to Slack mrkdwn."""
+    # Protect bold markers before processing italic
+    text = re.sub(r'\*\*(.+?)\*\*', lambda m: f'\x00B\x00{m.group(1)}\x00/B\x00', text, flags=re.DOTALL)
+    text = re.sub(r'__(.+?)__', lambda m: f'\x00B\x00{m.group(1)}\x00/B\x00', text, flags=re.DOTALL)
+    # Italic: single * not adjacent to another *
+    text = re.sub(r'(?<![*_])\*([^*\n]+)\*(?![*_])', r'_\1_', text)
+    # Restore bold
+    text = text.replace('\x00B\x00', '*').replace('\x00/B\x00', '*')
+    # Strikethrough
+    text = re.sub(r'~~(.+?)~~', r'~\1~', text, flags=re.DOTALL)
+    # Hyperlinks: [label](url) → <url|label>
+    text = re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)', r'<\2|\1>', text)
+    return text
+
+
+def _split_mrkdwn(text: str, limit: int = 3000) -> list[str]:
+    """Split mrkdwn text into chunks ≤ limit, breaking on newlines."""
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    while text:
+        if len(text) <= limit:
+            chunks.append(text)
+            break
+        cut = text.rfind('\n', 0, limit)
+        if cut <= 0:
+            cut = limit
+        chunks.append(text[:cut])
+        text = text[cut:].lstrip('\n')
+    return chunks
+
+
+def _md_to_blocks(text: str) -> list[dict]:
+    """Convert markdown to Slack Block Kit blocks."""
+    blocks: list[dict] = []
+    pending: list[str] = []
+
+    def flush() -> None:
+        if not pending:
+            return
+        content = '\n'.join(pending).strip()
+        pending.clear()
+        if not content:
+            return
+        content = _md_to_mrkdwn(content)
+        for chunk in _split_mrkdwn(content):
+            blocks.append({'type': 'section', 'text': {'type': 'mrkdwn', 'text': chunk}})
+
+    for line in text.split('\n'):
+        # H1 / H2 → header block
+        m = re.match(r'^#{1,2} (.+)$', line)
+        if m:
+            flush()
+            raw = re.sub(r'\*+(.+?)\*+', r'\1', m.group(1)).strip()
+            blocks.append({
+                'type': 'header',
+                'text': {'type': 'plain_text', 'text': raw[:150], 'emoji': True},
+            })
+            continue
+
+        # H3 → own bold section block (flush first to keep sections clean)
+        m = re.match(r'^### (.+)$', line)
+        if m:
+            flush()
+            blocks.append({'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*{m.group(1).strip()}*'}})
+            continue
+
+        # Horizontal rule → divider
+        if re.match(r'^[-*_]{3,}\s*$', line.strip()):
+            flush()
+            blocks.append({'type': 'divider'})
+            continue
+
+        # Table separator → skip
+        if re.match(r'^\|[\s\-:|]+\|', line):
+            continue
+
+        # Table data row → inline bullets
+        if re.match(r'^\|.+\|', line):
+            cells = [c.strip() for c in line.strip('|').split('|') if c.strip()]
+            pending.append('• ' + ' · '.join(cells))
+            continue
+
+        pending.append(line)
+
+    flush()
+    return blocks or [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': text[:3000]}}]
+
+
+def _is_structured(text: str) -> bool:
+    """True when text has markdown structure worth converting to Block Kit."""
+    return bool(
+        re.search(r'^#{1,3} ', text, re.MULTILINE)
+        or re.search(r'^\|.+\|', text, re.MULTILINE)
+        or (len(text) > 600 and re.search(r'\*\*.+\*\*', text))
+    )
+
+
 def _send_chunked(say, text: str, channel: str, thread_ts: str | None, limit: int = 2900):
-    """Split long responses into chunks so Slack never truncates them."""
-    def _post(msg: str) -> None:
+    """Post response to Slack. Uses Block Kit for structured content."""
+
+    def _post_raw(msg: str) -> None:
         kwargs = dict(text=msg, channel=channel, mrkdwn=True)
         if thread_ts:
             kwargs["thread_ts"] = thread_ts
         say(**kwargs)
 
+    def _post_blocks(blocks: list[dict]) -> None:
+        # Keep first 1500 chars as plain fallback (used for feedback excerpts)
+        fallback = re.sub(r'#+ |[*_~`|]', '', text)[:1500].strip()
+        for i in range(0, len(blocks), 50):  # Slack max = 50 blocks per message
+            kwargs = dict(blocks=blocks[i:i + 50], text=fallback, channel=channel)
+            if thread_ts:
+                kwargs["thread_ts"] = thread_ts
+            say(**kwargs)
+
     if not text or not text.strip():
-        _post("_Ik kon geen antwoord formuleren. Controleer de logs of probeer de vraag opnieuw._")
+        _post_raw("_Ik kon geen antwoord formuleren. Controleer de logs of probeer de vraag opnieuw._")
         return
+
+    if _is_structured(text):
+        _post_blocks(_md_to_blocks(text))
+        return
+
+    # Plain text path for short / unstructured messages
     if len(text) <= limit:
-        _post(text)
+        _post_raw(text)
         return
     lines = text.split("\n")
     chunk = ""
     for line in lines:
         if len(chunk) + len(line) + 1 > limit:
-            _post(chunk.strip())
+            _post_raw(chunk.strip())
             chunk = line + "\n"
         else:
             chunk += line + "\n"
     if chunk.strip():
-        _post(chunk.strip())
+        _post_raw(chunk.strip())
 
 
 @app.event("app_mention")

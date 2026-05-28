@@ -545,46 +545,6 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
             logger.error("Drive: failed to update gaps.md: %s", e)
 
 
-# ---------------------------------------------------------------------------
-# Source health logging (called at import time)
-# ---------------------------------------------------------------------------
-
-def _check_drive_write_access(service) -> None:
-    """Create and immediately delete a tiny test file to verify write access.
-
-    Logs a clear OK or ERROR at startup so permission problems surface immediately
-    instead of only when a user tries to save a document.
-    """
-    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
-    try:
-        import io as _io
-        from googleapiclient.http import MediaIoBaseUpload
-        test_meta = {
-            "name": "_ainstein_write_test",
-            "mimeType": "text/plain",
-            "parents": [root_id],
-        }
-        media = MediaIoBaseUpload(_io.BytesIO(b"ok"), mimetype="text/plain", resumable=False)
-        f = service.files().create(
-            body=test_meta, media_body=media, fields="id", supportsAllDrives=True,
-        ).execute()
-        try:
-            service.files().delete(fileId=f["id"], supportsAllDrives=True).execute()
-        except Exception as del_err:
-            logger.warning(
-                "Drive write access: created test file but delete failed — "
-                "file ID %s may be left in Drive root. Error: %s",
-                f["id"], del_err,
-            )
-        logger.info("Drive write access: OK ✓")
-    except Exception as e:
-        logger.error(
-            "Drive write access: FAILED — %s: %s | "
-            "Controleer of ainstein-bot Contributor-rol heeft op de Shared Drive.",
-            type(e).__name__, e,
-        )
-
-
 def _log_source_health() -> None:
     """Log source layer health at import time and snapshot Drive metadata."""
     if _is_drive_mode():
@@ -594,7 +554,6 @@ def _log_source_health() -> None:
             found = len(folder_ids)
             total = len(_FOLDER_NAMES)
             logger.info("Drive API mode — %d/%d subfolders discovered", found, total)
-            _check_drive_write_access(service)
         else:
             logger.error("Drive API mode — service account init FAILED")
     else:

@@ -6,7 +6,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import log_setup
@@ -1527,6 +1527,145 @@ def web_search(query: str, max_results: int = 5) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Recent files by user
+# ---------------------------------------------------------------------------
+
+def list_recent_files(hours: int = 48, user: str | None = None) -> dict:
+    """
+    List files added to the Minkowski Drive in the last N hours.
+    Optionally filter by creator/modifier name or email (partial, case-insensitive).
+
+    Args:
+        hours: Look-back window in hours. Default 48.
+        user:  Optional name or email fragment to filter by, e.g. 'Charlotte' or 'charlotte@'.
+    """
+    if _is_drive_mode():
+        return _drive_list_recent_files(hours, user)
+    return _fs_list_recent_files(hours, user)
+
+
+def _drive_list_recent_files(hours: int, user: str | None) -> dict:
+    service = _get_drive_service()
+    if not service:
+        return {"error": "Drive API not available — check GOOGLE_SERVICE_ACCOUNT_JSON"}
+
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
+        "%Y-%m-%dT%H:%M:%S"
+    )
+
+    drive_query = f"createdTime > '{cutoff}' and trashed = false"
+
+    files: list[dict] = []
+    page_token = None
+
+    while True:
+        kwargs: dict = dict(
+            q=drive_query,
+            corpora="drive",
+            driveId=root_id,
+            includeItemsFromAllDrives=True,
+            supportsAllDrives=True,
+            fields=(
+                "nextPageToken, "
+                "files(id, name, mimeType, createdTime, modifiedTime, parents, "
+                "lastModifyingUser(displayName, emailAddress), "
+                "sharingUser(displayName, emailAddress))"
+            ),
+            pageSize=100,
+            orderBy="createdTime desc",
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+        try:
+            result = service.files().list(**kwargs).execute()
+        except Exception as e:
+            logger.error("list_recent_files Drive query failed: %s", e)
+            return {"error": f"Drive query failed: {e}"}
+
+        for f in result.get("files", []):
+            if f.get("mimeType") == "application/vnd.google-apps.folder":
+                continue
+            modifier = f.get("lastModifyingUser") or {}
+            creator_name = modifier.get("displayName", "")
+            creator_email = modifier.get("emailAddress", "")
+            sharing = f.get("sharingUser") or {}
+            sharing_name = sharing.get("displayName", "")
+            sharing_email = sharing.get("emailAddress", "")
+
+            if user:
+                needle = user.lower()
+                haystack = " ".join([
+                    creator_name.lower(), creator_email.lower(),
+                    sharing_name.lower(), sharing_email.lower(),
+                ])
+                if needle not in haystack:
+                    continue
+
+            files.append({
+                "name": f["name"],
+                "path": _make_drive_path(f["id"], f["name"]),
+                "mime_type": f.get("mimeType", ""),
+                "created": (f.get("createdTime") or "")[:16],
+                "modified": (f.get("modifiedTime") or "")[:16],
+                "added_by": creator_name,
+                "added_by_email": creator_email,
+            })
+
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    return {
+        "hours": hours,
+        "user_filter": user,
+        "total": len(files),
+        "files": files,
+    }
+
+
+def _fs_list_recent_files(hours: int, user: str | None) -> dict:
+    """Filesystem fallback — filters by mtime only (no user metadata available)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    files: list[dict] = []
+
+    for folder_name, folder_path in SOURCE_FOLDERS.items():
+        if not folder_path.exists():
+            continue
+        for f in folder_path.rglob("*"):
+            if not f.is_file() or f.name.startswith("."):
+                continue
+            try:
+                st = f.stat()
+                created = datetime.fromtimestamp(
+                    getattr(st, "st_birthtime", st.st_mtime), timezone.utc
+                )
+                if created < cutoff:
+                    continue
+                files.append({
+                    "name": f.name,
+                    "path": str(f),
+                    "mime_type": "",
+                    "created": created.isoformat()[:16],
+                    "modified": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat()[:16],
+                    "added_by": "",
+                    "added_by_email": "",
+                })
+            except OSError:
+                pass
+
+    files.sort(key=lambda x: x["created"], reverse=True)
+    note = "Filesystem mode: user metadata not available." if user else ""
+    return {
+        "hours": hours,
+        "user_filter": user,
+        "total": len(files),
+        "files": files,
+        **({"note": note} if note else {}),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Tool schemas for the Anthropic API
 # ---------------------------------------------------------------------------
 
@@ -1778,6 +1917,35 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "list_recent_files",
+        "description": (
+            "List files recently added to the Minkowski Drive, optionally filtered by the person who added them. "
+            "Use this when someone asks 'what did Charlotte add this week?', 'welke documenten heeft X toegevoegd?', "
+            "'recent uploads', or 'what's new in the Drive?'. "
+            "Returns file names, paths, creation dates, and the person who added each file."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "hours": {
+                    "type": "integer",
+                    "description": (
+                        "How far back to look, in hours. Default 48 (= past 2 days). "
+                        "Use 168 for a week, 720 for a month."
+                    ),
+                },
+                "user": {
+                    "type": "string",
+                    "description": (
+                        "Optional. Filter by the name or email of the person who added the files. "
+                        "Partial match, case-insensitive. E.g. 'Charlotte', 'thomas', 'charlotte@minkowski.org'."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "export_proposal_deck",
         "description": (
             "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal "
@@ -1823,6 +1991,11 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
         result = search_files(
             tool_input["query"],
             tool_input.get("folders"),
+        )
+    elif tool_name == "list_recent_files":
+        result = list_recent_files(
+            hours=tool_input.get("hours", 48),
+            user=tool_input.get("user"),
         )
     elif tool_name == "record_correction":
         result = record_correction(

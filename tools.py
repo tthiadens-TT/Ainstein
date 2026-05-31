@@ -1530,13 +1530,13 @@ def web_search(query: str, max_results: int = 5) -> dict:
 # Recent files by user
 # ---------------------------------------------------------------------------
 
-def list_recent_files(hours: int = 48, user: str | None = None) -> dict:
+def list_recent_files(hours: int = 72, user: str | None = None) -> dict:
     """
     List files added to the Minkowski Drive in the last N hours.
     Optionally filter by creator/modifier name or email (partial, case-insensitive).
 
     Args:
-        hours: Look-back window in hours. Default 48.
+        hours: Look-back window in hours. Default 72.
         user:  Optional name or email fragment to filter by, e.g. 'Charlotte' or 'charlotte@'.
     """
     if _is_drive_mode():
@@ -1609,7 +1609,6 @@ def _drive_list_recent_files(hours: int, user: str | None) -> dict:
                 "created": (f.get("createdTime") or "")[:16],
                 "modified": (f.get("modifiedTime") or "")[:16],
                 "added_by": creator_name,
-                "added_by_email": creator_email,
             })
 
         page_token = result.get("nextPageToken")
@@ -1649,7 +1648,6 @@ def _fs_list_recent_files(hours: int, user: str | None) -> dict:
                     "created": created.isoformat()[:16],
                     "modified": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat()[:16],
                     "added_by": "",
-                    "added_by_email": "",
                 })
             except OSError:
                 pass
@@ -1930,7 +1928,7 @@ TOOL_SCHEMAS = [
                 "hours": {
                     "type": "integer",
                     "description": (
-                        "How far back to look, in hours. Default 48 (= past 2 days). "
+                        "How far back to look, in hours. Default 72 (= past 3 days). "
                         "Use 168 for a week, 720 for a month."
                     ),
                 },

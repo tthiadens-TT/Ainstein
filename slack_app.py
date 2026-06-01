@@ -298,6 +298,7 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
                 "Controleer of de juiste bestanden in de bronmappen staan en probeer het opnieuw."
             )
             trace = {}
+            _notify_failure(fallback_err, channel, thread_ts)
 
     trace["thread_ts"] = thread_ts
     trace["channel"] = channel
@@ -944,6 +945,41 @@ def _notify_status(text: str) -> None:
         app.client.chat_postMessage(channel=channel, text=text, mrkdwn=True)
     except Exception as e:
         logger.warning("status notification failed: %s", e)
+
+
+def _notify_failure(err: Exception, channel: str, thread_ts: str | None) -> None:
+    """Stuur een foutmelding naar AINSTEIN_STATUS_CHANNEL als een request volledig faalt."""
+    status_channel = os.environ.get("AINSTEIN_STATUS_CHANNEL", "").strip()
+    if not status_channel:
+        return
+
+    err_str = str(err).lower()
+    if "credit balance" in err_str or "too low" in err_str:
+        soort = "💳 Credits op"
+        actie = "Ga naar *console.anthropic.com → Billing → Add funds*"
+    elif "invalid api key" in err_str or "authentication" in err_str:
+        soort = "🔑 Ongeldige API key"
+        actie = "Ga naar *console.anthropic.com → API Keys* en maak een nieuwe key aan. Zet hem in `.env` op de VM en herstart de service."
+    elif "rate limit" in err_str:
+        soort = "⏱ Rate limit bereikt"
+        actie = "Even wachten — Ainstein probeert automatisch opnieuw. Als het aanhoudt, check de Anthropic Console."
+    else:
+        soort = f"⚠️ Onverwachte fout: `{type(err).__name__}`"
+        actie = "Check `logs/ainstein.log` op de VM voor details."
+
+    thread_link = f"thread `{thread_ts}`" if thread_ts else "onbekende thread"
+    in_channel = f"channel `{channel}`" if channel else ""
+    location = f"{in_channel} / {thread_link}".strip(" /")
+
+    tekst = (
+        f"*Ainstein kon niet reageren* — {soort}\n"
+        f"*Locatie:* {location}\n"
+        f"*Actie:* {actie}"
+    )
+    try:
+        app.client.chat_postMessage(channel=status_channel, text=tekst, mrkdwn=True)
+    except Exception as notify_err:
+        logger.warning("failure notification kon niet worden verstuurd: %s", notify_err)
 
 
 if __name__ == "__main__":

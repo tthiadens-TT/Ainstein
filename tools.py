@@ -1530,7 +1530,7 @@ def web_search(query: str, max_results: int = 5) -> dict:
 # Recent files by user
 # ---------------------------------------------------------------------------
 
-def list_recent_files(hours: int = 72, user: str | None = None) -> dict:
+def list_recent_files(hours: int = 72, user: str | None = None, limit: int = 50) -> dict:
     """
     List files added to the Minkowski Drive in the last N hours.
     Optionally filter by creator/modifier name or email (partial, case-insensitive).
@@ -1538,20 +1538,21 @@ def list_recent_files(hours: int = 72, user: str | None = None) -> dict:
     Args:
         hours: Look-back window in hours. Default 72.
         user:  Optional name or email fragment to filter by, e.g. 'Charlotte' or 'charlotte@'.
+        limit: Maximum number of files to return. Default 50.
     """
     if _is_drive_mode():
-        return _drive_list_recent_files(hours, user)
-    return _fs_list_recent_files(hours, user)
+        return _drive_list_recent_files(hours, user, limit)
+    return _fs_list_recent_files(hours, user, limit)
 
 
-def _drive_list_recent_files(hours: int, user: str | None) -> dict:
+def _drive_list_recent_files(hours: int, user: str | None, limit: int) -> dict:
     service = _get_drive_service()
     if not service:
         return {"error": "Drive API not available — check GOOGLE_SERVICE_ACCOUNT_JSON"}
 
     root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
-        "%Y-%m-%dT%H:%M:%S"
+        "%Y-%m-%dT%H:%M:%SZ"
     )
 
     drive_query = f"createdTime > '{cutoff}' and trashed = false"
@@ -1559,7 +1560,7 @@ def _drive_list_recent_files(hours: int, user: str | None) -> dict:
     files: list[dict] = []
     page_token = None
 
-    while True:
+    while len(files) < limit:
         kwargs: dict = dict(
             q=drive_query,
             corpora="drive",
@@ -1572,7 +1573,7 @@ def _drive_list_recent_files(hours: int, user: str | None) -> dict:
                 "lastModifyingUser(displayName, emailAddress), "
                 "sharingUser(displayName, emailAddress))"
             ),
-            pageSize=100,
+            pageSize=min(100, limit),
             orderBy="createdTime desc",
         )
         if page_token:
@@ -1584,6 +1585,8 @@ def _drive_list_recent_files(hours: int, user: str | None) -> dict:
             return {"error": f"Drive query failed: {e}"}
 
         for f in result.get("files", []):
+            if len(files) >= limit:
+                break
             if f.get("mimeType") == "application/vnd.google-apps.folder":
                 continue
             modifier = f.get("lastModifyingUser") or {}
@@ -1623,7 +1626,7 @@ def _drive_list_recent_files(hours: int, user: str | None) -> dict:
     }
 
 
-def _fs_list_recent_files(hours: int, user: str | None) -> dict:
+def _fs_list_recent_files(hours: int, user: str | None, limit: int) -> dict:
     """Filesystem fallback — filters by mtime only (no user metadata available)."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     files: list[dict] = []
@@ -1653,6 +1656,7 @@ def _fs_list_recent_files(hours: int, user: str | None) -> dict:
                 pass
 
     files.sort(key=lambda x: x["created"], reverse=True)
+    files = files[:limit]
     note = "Filesystem mode: user metadata not available." if user else ""
     return {
         "hours": hours,
@@ -1939,6 +1943,13 @@ TOOL_SCHEMAS = [
                         "Partial match, case-insensitive. E.g. 'Charlotte', 'thomas', 'charlotte@minkowski.org'."
                     ),
                 },
+                "limit": {
+                    "type": "integer",
+                    "description": (
+                        "Maximum number of files to return. Default 50. "
+                        "Increase only when explicitly asked for a full overview."
+                    ),
+                },
             },
             "required": [],
         },
@@ -1992,8 +2003,9 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
         )
     elif tool_name == "list_recent_files":
         result = list_recent_files(
-            hours=tool_input.get("hours", 48),
+            hours=tool_input.get("hours", 72),
             user=tool_input.get("user"),
+            limit=tool_input.get("limit", 50),
         )
     elif tool_name == "record_correction":
         result = record_correction(

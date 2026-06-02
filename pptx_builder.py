@@ -4,10 +4,10 @@ Minkowski-branded PPTX builder for Ainstein.
 Converts a proposal (as sections dict or Google Doc text) into a
 Minkowski-styled PowerPoint deck using python-pptx.
 
-Brand values are hard-coded from confirmed Minkowski decks:
-  Navy:   #001C40    Cyan:  #53E4FF
-  Yellow: #FEEC00    Light: #F7F7F7
-  Font:   Arial      Slide: 13.33" × 7.5" (16:9)
+Brand values extracted from real Minkowski decks (2026-06):
+  Navy:   #001C40    Navy2:  #002864
+  Yellow: #FFE433    Light:  #F2F2F2
+  Font:   Work Sans (Light / Medium / Black)  Slide: 13.33" × 7.5" (16:9)
 
 Usage:
     sections = parse_proposal_sections(doc_text)
@@ -32,20 +32,23 @@ from pptx.util import Inches, Pt
 BRAND = {
     "slide_width": Inches(13.33),
     "slide_height": Inches(7.5),
-    "color_dark": RGBColor(0x00, 0x1C, 0x40),       # #001C40 deep navy
-    "color_light": RGBColor(0xF7, 0xF7, 0xF7),       # #F7F7F7 near-white
+    "color_dark": RGBColor(0x00, 0x1C, 0x40),       # #001C40 primary navy
+    "color_dark2": RGBColor(0x00, 0x28, 0x64),      # #002864 secondary navy (headings)
+    "color_light": RGBColor(0xF2, 0xF2, 0xF2),      # #F2F2F2 near-white background
     "color_white": RGBColor(0xFF, 0xFF, 0xFF),
-    "color_accent": RGBColor(0x53, 0xE4, 0xFF),       # #53E4FF cyan
-    "color_yellow": RGBColor(0xFE, 0xEC, 0x00),       # #FEEC00
-    "color_gray": RGBColor(0x99, 0x99, 0x99),
-    "font": "Arial",
+    "color_accent": RGBColor(0xFF, 0xE4, 0x33),     # #FFE433 gold/yellow (real brand)
+    "color_gray": RGBColor(0x7F, 0x7F, 0x7F),
+    "font": "Work Sans Medium",
+    "font_light": "Work Sans Light",
+    "font_bold": "Work Sans Black",
+    "font_serif": "Libre Baskerville",
     "pt_title": Pt(36),
-    "pt_heading": Pt(22),
-    "pt_body": Pt(13),
-    "pt_small": Pt(9),
-    "pt_label": Pt(11),
-    "margin": Inches(0.7),
-    "accent_bar_h": Inches(0.06),
+    "pt_heading": Pt(28),
+    "pt_body": Pt(12),
+    "pt_small": Pt(10),
+    "pt_label": Pt(14),
+    "margin": Inches(0.8),
+    "accent_bar_h": Inches(0.07),
 }
 
 # Sections that get a dark (navy) background
@@ -163,6 +166,7 @@ def _add_text_box(
     bold: bool = False,
     align=PP_ALIGN.LEFT,
     wrap: bool = True,
+    font_name: str | None = None,
 ) -> None:
     txBox = slide.shapes.add_textbox(left, top, width, height)
     tf = txBox.text_frame
@@ -171,7 +175,7 @@ def _add_text_box(
     p.alignment = align
     run = p.add_run()
     run.text = text
-    run.font.name = BRAND["font"]
+    run.font.name = font_name or BRAND["font"]
     run.font.size = font_size
     run.font.color.rgb = color
     run.font.bold = bold
@@ -190,11 +194,12 @@ def _add_brand_footer(slide, prs: Presentation):
         font_size=BRAND["pt_small"],
         color=BRAND["color_gray"],
         align=PP_ALIGN.RIGHT,
+        font_name=BRAND["font_light"],
     )
 
 
-def _add_cyan_accent_bar(slide, prs: Presentation):
-    """Add a thin cyan horizontal bar at the top of content slides."""
+def _add_accent_bar(slide, prs: Presentation):
+    """Add a thin gold horizontal bar at the top of content slides."""
     from pptx.util import Emu
     bar = slide.shapes.add_shape(
         1,  # MSO_SHAPE_TYPE.RECTANGLE
@@ -216,22 +221,21 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
     h = prs.slide_height
     margin = BRAND["margin"]
 
-    # Cyan accent bar at top
-    _add_cyan_accent_bar(slide, prs)
+    _add_accent_bar(slide, prs)
 
-    # Main title
+    # Main title — Work Sans Black, white
     _add_text_box(
         slide, title,
         left=margin,
-        top=Inches(2.2),
+        top=Inches(2.0),
         width=w - 2 * margin,
-        height=Inches(1.6),
+        height=Inches(1.8),
         font_size=BRAND["pt_title"],
         color=BRAND["color_white"],
-        bold=True,
+        font_name=BRAND["font_bold"],
     )
 
-    # Client name / subtitle
+    # Client name / subtitle — Work Sans Light, gold
     _add_text_box(
         slide, client_name,
         left=margin,
@@ -240,6 +244,7 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
         height=Inches(0.6),
         font_size=BRAND["pt_label"],
         color=BRAND["color_accent"],
+        font_name=BRAND["font_light"],
     )
 
     _add_brand_footer(slide, prs)
@@ -247,9 +252,9 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
 
 def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool = False):
     """Add one or more content slides for a section, splitting at ~1200 chars."""
-    bg_color = BRAND["color_dark"] if dark else BRAND["color_light"]
+    bg_color = BRAND["color_dark"] if dark else BRAND["color_white"]
     text_color = BRAND["color_white"] if dark else BRAND["color_dark"]
-    heading_color = BRAND["color_accent"] if dark else BRAND["color_dark"]
+    heading_color = BRAND["color_accent"] if dark else BRAND["color_dark2"]
 
     # Split body into chunks of ~1200 chars at paragraph boundaries
     chunks = _split_body(body, max_chars=1200)
@@ -262,31 +267,31 @@ def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool =
         h = prs.slide_height
         margin = BRAND["margin"]
 
-        if not dark:
-            _add_cyan_accent_bar(slide, prs)
+        _add_accent_bar(slide, prs)
 
-        # Section heading (first slide shows full heading, continuations add "vervolg")
+        # Section heading — Work Sans Medium
         label = heading if i == 0 else f"{heading} (vervolg)"
         _add_text_box(
             slide, label,
             left=margin,
-            top=Inches(0.25) if not dark else Inches(0.7),
+            top=Inches(0.3),
             width=w - 2 * margin,
-            height=Inches(0.65),
+            height=Inches(0.75),
             font_size=BRAND["pt_heading"],
             color=heading_color,
-            bold=True,
+            font_name=BRAND["font"],
         )
 
-        # Body text
+        # Body text — Work Sans Light
         _add_text_box(
             slide, chunk,
             left=margin,
-            top=Inches(1.1),
+            top=Inches(1.25),
             width=w - 2 * margin,
-            height=h - Inches(1.8),
+            height=h - Inches(1.9),
             font_size=BRAND["pt_body"],
             color=text_color,
+            font_name=BRAND["font_light"],
         )
 
         _add_brand_footer(slide, prs)
@@ -300,7 +305,7 @@ def _add_back_slide(prs: Presentation):
     h = prs.slide_height
     margin = BRAND["margin"]
 
-    _add_cyan_accent_bar(slide, prs)
+    _add_accent_bar(slide, prs)
 
     _add_text_box(
         slide, "Minkowski",
@@ -310,7 +315,7 @@ def _add_back_slide(prs: Presentation):
         height=Inches(0.9),
         font_size=BRAND["pt_title"],
         color=BRAND["color_white"],
-        bold=True,
+        font_name=BRAND["font_bold"],
         align=PP_ALIGN.CENTER,
     )
 
@@ -322,6 +327,7 @@ def _add_back_slide(prs: Presentation):
         height=Inches(0.5),
         font_size=BRAND["pt_label"],
         color=BRAND["color_accent"],
+        font_name=BRAND["font_light"],
         align=PP_ALIGN.CENTER,
     )
 

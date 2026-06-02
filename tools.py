@@ -1957,10 +1957,12 @@ TOOL_SCHEMAS = [
     {
         "name": "export_proposal_deck",
         "description": (
-            "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal "
-            "and upload it to Slack. Reads the doc, splits it on # headings into slides, "
-            "and builds a navy/cyan branded 16:9 deck. Use this whenever the user asks "
-            "for a PPTX, slidedeck, presentatie, or PowerPoint for a proposal."
+            "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal. "
+            "Reads the doc, splits it on # headings into slides, and builds a navy/cyan "
+            "branded 16:9 deck. Saves the file to 00_Werkdocumenten in Google Drive and "
+            "returns a 'url' field with the direct Drive link. Also uploads to Slack. "
+            "Use this whenever the user asks for a PPTX, slidedeck, presentatie, or "
+            "PowerPoint. Always share the 'url' from the result with the user."
         ),
         "input_schema": {
             "type": "object",
@@ -2092,8 +2094,58 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
                     )
                     filename = f"Voorstel_{client_name.replace(' ', '_')}.pptx"
                     title_label = f"Voorstel {client_name} — Minkowski"
+                    _PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
-                    # Save to temp file; slack_app drains this queue after run_agent()
+                    # Upload to Drive (00_Werkdocumenten) so the agent can return a real link.
+                    drive_url = None
+                    drive_id = None
+                    try:
+                        drive = _get_drive_service()
+                        if drive:
+                            root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+                            folder_id = _get_drive_folder_ids().get("00_Werkdocumenten")
+                            if not folder_id:
+                                res = drive.files().list(
+                                    q=(
+                                        f"name='00_Werkdocumenten' and "
+                                        f"mimeType='application/vnd.google-apps.folder' and "
+                                        f"'{root_id}' in parents and trashed=false"
+                                    ),
+                                    fields="files(id)",
+                                    supportsAllDrives=True,
+                                    includeItemsFromAllDrives=True,
+                                ).execute()
+                                files_found = res.get("files", [])
+                                if files_found:
+                                    folder_id = files_found[0]["id"]
+                            if folder_id:
+                                from googleapiclient.http import MediaIoBaseUpload
+                                file_meta = {
+                                    "name": filename,
+                                    "mimeType": _PPTX_MIME,
+                                    "parents": [folder_id],
+                                }
+                                media = MediaIoBaseUpload(
+                                    io.BytesIO(pptx_bytes),
+                                    mimetype=_PPTX_MIME,
+                                    resumable=False,
+                                )
+                                doc = drive.files().create(
+                                    body=file_meta,
+                                    media_body=media,
+                                    fields="id,webViewLink",
+                                    supportsAllDrives=True,
+                                ).execute()
+                                drive_url = doc.get("webViewLink")
+                                drive_id = doc.get("id")
+                                logger.info(
+                                    "export_proposal_deck: uploaded %s to Drive → %s",
+                                    filename, drive_id,
+                                )
+                    except Exception as _de:
+                        logger.warning("export_proposal_deck: Drive upload failed: %s", _de)
+
+                    # Also queue Slack file upload (posted to thread after agent loop).
                     tmp = tempfile.NamedTemporaryFile(
                         suffix=".pptx", delete=False, prefix="minkowski_deck_"
                     )
@@ -2107,6 +2159,9 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
                         "slides": len(sections) + 2,  # content + cover + back
                         "size_kb": round(len(pptx_bytes) / 1024),
                     }
+                    if drive_url:
+                        result["url"] = drive_url
+                        result["drive_id"] = drive_id
         except Exception as e:
             import traceback as _tb
             result = {"error": str(e), "traceback": _tb.format_exc()[-600:]}

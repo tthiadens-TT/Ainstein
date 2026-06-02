@@ -5,12 +5,18 @@ Converts a proposal (as sections dict or Google Doc text) into a
 Minkowski-styled PowerPoint deck using python-pptx.
 
 Brand values from MK-new-brandbook.pptx (Charlotte, 2026):
-  Text:    #090E0E (near-black)    White: #FFFFFF
-  Accent:  #98D2CF (teal light)    Dark:  #287093 (teal dark)
-  Font:    Helvetica Neue Light (body) / Play (display titles)
-  Slide:   13.33" × 7.5" (16:9)
+  Text:     #090E0E (near-black)      Background: #FFFFFF white
+  Wordmark: Sen ExtraBold, #A4B187   Accent bar: #98D2CF (aqua light)
+  Heading:  #287093 (blue dark)
+  Fonts:    Helvetica Neue Light (14pt body) / Helvetica Neue (25pt headings)
+            Helvetica Neue (50pt display) / Sen ExtraBold (wordmark)
+  Scale:    14pt / 25pt / 50pt
+  Slide:    13.33" × 7.5" (16:9)
 
-Teal family chosen for LEAD 3: fits futures thinking + leadership theme.
+Color palette (choose per program context):
+  olive  #EBE982 / #A4B187   rood  #F5D1D4 / #E43D26
+  aqua   #98D2CF / #5F9393   paars #CFAAE1 / #7165A9
+  blue   #6AC6EF / #287093
 
 Usage:
     sections = parse_proposal_sections(doc_text)
@@ -35,20 +41,23 @@ from pptx.util import Inches, Pt
 BRAND = {
     "slide_width": Inches(13.33),
     "slide_height": Inches(7.5),
-    "color_dark": RGBColor(0x28, 0x70, 0x93),       # #287093 teal dark (headings, cover bg)
-    "color_dark2": RGBColor(0x28, 0x70, 0x93),      # same — used in heading calls
-    "color_text": RGBColor(0x09, 0x0E, 0x0E),       # #090E0E near-black (body text)
+    # Colors — from MK-new-brandbook.pptx
+    "color_text": RGBColor(0x09, 0x0E, 0x0E),       # #090E0E near-black body text
+    "color_heading": RGBColor(0x28, 0x70, 0x93),     # #287093 blue dark (headings)
     "color_white": RGBColor(0xFF, 0xFF, 0xFF),
-    "color_accent": RGBColor(0x98, 0xD2, 0xCF),     # #98D2CF teal light (accent bar)
+    "color_accent": RGBColor(0x98, 0xD2, 0xCF),     # #98D2CF aqua light (accent bar)
+    "color_wordmark": RGBColor(0xA4, 0xB1, 0x87),   # #A4B187 olive (Minkowski wordmark)
     "color_gray": RGBColor(0x75, 0x75, 0x75),
-    "font": "Helvetica Neue",
-    "font_light": "Helvetica Neue Light",
-    "font_bold": "Play",
-    "pt_title": Pt(36),
+    # Fonts — from MK-new-brandbook.pptx
+    "font_body": "Helvetica Neue Light",             # 14pt — body, dates, captions
+    "font_heading": "Helvetica Neue",                # 25pt — titles, session names
+    "font_display": "Helvetica Neue",                # 50pt — hero/display
+    "font_wordmark": "Sen ExtraBold",                # Minkowski wordmark
+    # Font size scale: 14 / 25 / 50
+    "pt_display": Pt(50),
     "pt_heading": Pt(25),
     "pt_body": Pt(14),
     "pt_small": Pt(10),
-    "pt_label": Pt(14),
     "margin": Inches(0.8),
     "accent_bar_h": Inches(0.07),
 }
@@ -177,34 +186,34 @@ def _add_text_box(
     p.alignment = align
     run = p.add_run()
     run.text = text
-    run.font.name = font_name or BRAND["font"]
+    run.font.name = font_name or BRAND["font_body"]
     run.font.size = font_size
     run.font.color.rgb = color
     run.font.bold = bold
 
 
 def _add_brand_footer(slide, prs: Presentation):
-    """Add small 'Minkowski' wordmark at bottom-right of every slide."""
+    """Minkowski wordmark: Sen ExtraBold, olive #A4B187, bottom-right."""
     w = prs.slide_width
     h = prs.slide_height
     _add_text_box(
         slide, "Minkowski",
-        left=w - Inches(1.8),
-        top=h - Inches(0.35),
-        width=Inches(1.6),
-        height=Inches(0.3),
-        font_size=BRAND["pt_small"],
-        color=BRAND["color_gray"],
+        left=w - Inches(2.0),
+        top=h - Inches(0.4),
+        width=Inches(1.8),
+        height=Inches(0.35),
+        font_size=BRAND["pt_body"],
+        color=BRAND["color_wordmark"],
         align=PP_ALIGN.RIGHT,
-        font_name=BRAND["font_light"],
+        font_name=BRAND["font_wordmark"],
     )
 
 
 def _add_accent_bar(slide, prs: Presentation):
-    """Add a thin gold horizontal bar at the top of content slides."""
+    """Thin aqua horizontal bar at top of every slide."""
     from pptx.util import Emu
     bar = slide.shapes.add_shape(
-        1,  # MSO_SHAPE_TYPE.RECTANGLE
+        1,
         left=Emu(0),
         top=Emu(0),
         width=prs.slide_width,
@@ -217,7 +226,7 @@ def _add_accent_bar(slide, prs: Presentation):
 
 def _add_cover_slide(prs: Presentation, title: str, client_name: str):
     slide = _blank_slide(prs)
-    _fill_background(slide, BRAND["color_dark"])
+    _fill_background(slide, BRAND["color_white"])
 
     w = prs.slide_width
     h = prs.slide_height
@@ -225,28 +234,28 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
 
     _add_accent_bar(slide, prs)
 
-    # Main title — Work Sans Black, white
+    # Programme title — 50pt display, heading color
     _add_text_box(
         slide, title,
         left=margin,
-        top=Inches(2.0),
+        top=Inches(1.8),
         width=w - 2 * margin,
-        height=Inches(1.8),
-        font_size=BRAND["pt_title"],
-        color=BRAND["color_white"],
-        font_name=BRAND["font_bold"],
+        height=Inches(2.2),
+        font_size=BRAND["pt_display"],
+        color=BRAND["color_heading"],
+        font_name=BRAND["font_display"],
     )
 
-    # Client name / subtitle — Work Sans Light, gold
+    # Client name — 25pt, near-black
     _add_text_box(
         slide, client_name,
         left=margin,
-        top=Inches(3.9),
+        top=Inches(4.2),
         width=w - 2 * margin,
-        height=Inches(0.6),
-        font_size=BRAND["pt_label"],
-        color=BRAND["color_accent"],
-        font_name=BRAND["font_light"],
+        height=Inches(0.5),
+        font_size=BRAND["pt_heading"],
+        color=BRAND["color_text"],
+        font_name=BRAND["font_body"],
     )
 
     _add_brand_footer(slide, prs)
@@ -254,16 +263,12 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
 
 def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool = False):
     """Add one or more content slides for a section, splitting at ~1200 chars."""
-    bg_color = BRAND["color_dark"] if dark else BRAND["color_white"]
-    text_color = BRAND["color_white"] if dark else BRAND["color_text"]
-    heading_color = BRAND["color_accent"] if dark else BRAND["color_dark2"]
-
-    # Split body into chunks of ~1200 chars at paragraph boundaries
+    # All slides: white background, near-black text. Accent bar carries the color.
     chunks = _split_body(body, max_chars=1200)
 
     for i, chunk in enumerate(chunks):
         slide = _blank_slide(prs)
-        _fill_background(slide, bg_color)
+        _fill_background(slide, BRAND["color_white"])
 
         w = prs.slide_width
         h = prs.slide_height
@@ -271,7 +276,7 @@ def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool =
 
         _add_accent_bar(slide, prs)
 
-        # Section heading — Work Sans Medium
+        # Section heading — 25pt Helvetica Neue, heading color
         label = heading if i == 0 else f"{heading} (vervolg)"
         _add_text_box(
             slide, label,
@@ -280,11 +285,11 @@ def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool =
             width=w - 2 * margin,
             height=Inches(0.75),
             font_size=BRAND["pt_heading"],
-            color=heading_color,
-            font_name=BRAND["font"],
+            color=BRAND["color_heading"],
+            font_name=BRAND["font_heading"],
         )
 
-        # Body text — Work Sans Light
+        # Body text — 14pt Helvetica Neue Light, near-black
         _add_text_box(
             slide, chunk,
             left=margin,
@@ -292,8 +297,8 @@ def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool =
             width=w - 2 * margin,
             height=h - Inches(1.9),
             font_size=BRAND["pt_body"],
-            color=text_color,
-            font_name=BRAND["font_light"],
+            color=BRAND["color_text"],
+            font_name=BRAND["font_body"],
         )
 
         _add_brand_footer(slide, prs)
@@ -301,7 +306,7 @@ def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool =
 
 def _add_back_slide(prs: Presentation):
     slide = _blank_slide(prs)
-    _fill_background(slide, BRAND["color_dark"])
+    _fill_background(slide, BRAND["color_white"])
 
     w = prs.slide_width
     h = prs.slide_height
@@ -309,27 +314,29 @@ def _add_back_slide(prs: Presentation):
 
     _add_accent_bar(slide, prs)
 
+    # "Minkowski" — 50pt display
     _add_text_box(
         slide, "Minkowski",
         left=margin,
-        top=Inches(2.8),
+        top=Inches(2.5),
         width=w - 2 * margin,
-        height=Inches(0.9),
-        font_size=BRAND["pt_title"],
-        color=BRAND["color_white"],
-        font_name=BRAND["font_bold"],
+        height=Inches(1.2),
+        font_size=BRAND["pt_display"],
+        color=BRAND["color_heading"],
+        font_name=BRAND["font_wordmark"],
         align=PP_ALIGN.CENTER,
     )
 
+    # Descriptor — 25pt body font
     _add_text_box(
         slide, "Agency for Applied Futures",
         left=margin,
-        top=Inches(3.7),
+        top=Inches(3.8),
         width=w - 2 * margin,
         height=Inches(0.5),
-        font_size=BRAND["pt_label"],
-        color=BRAND["color_accent"],
-        font_name=BRAND["font_light"],
+        font_size=BRAND["pt_heading"],
+        color=BRAND["color_text"],
+        font_name=BRAND["font_body"],
         align=PP_ALIGN.CENTER,
     )
 

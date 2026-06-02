@@ -4,10 +4,13 @@ Minkowski-branded PPTX builder for Ainstein.
 Converts a proposal (as sections dict or Google Doc text) into a
 Minkowski-styled PowerPoint deck using python-pptx.
 
-Brand values extracted from real Minkowski decks (2026-06):
-  Navy:   #001C40    Navy2:  #002864
-  Yellow: #FFE433    Light:  #F2F2F2
-  Font:   Work Sans (Light / Medium / Black)  Slide: 13.33" × 7.5" (16:9)
+Brand values from MK-new-brandbook.pptx (Charlotte, 2026):
+  Text:    #090E0E (near-black)    White: #FFFFFF
+  Accent:  #98D2CF (teal light)    Dark:  #287093 (teal dark)
+  Font:    Helvetica Neue Light (body) / Play (display titles)
+  Slide:   13.33" × 7.5" (16:9)
+
+Teal family chosen for LEAD 3: fits futures thinking + leadership theme.
 
 Usage:
     sections = parse_proposal_sections(doc_text)
@@ -32,19 +35,18 @@ from pptx.util import Inches, Pt
 BRAND = {
     "slide_width": Inches(13.33),
     "slide_height": Inches(7.5),
-    "color_dark": RGBColor(0x00, 0x1C, 0x40),       # #001C40 primary navy
-    "color_dark2": RGBColor(0x00, 0x28, 0x64),      # #002864 secondary navy (headings)
-    "color_light": RGBColor(0xF2, 0xF2, 0xF2),      # #F2F2F2 near-white background
+    "color_dark": RGBColor(0x28, 0x70, 0x93),       # #287093 teal dark (headings, cover bg)
+    "color_dark2": RGBColor(0x28, 0x70, 0x93),      # same — used in heading calls
+    "color_text": RGBColor(0x09, 0x0E, 0x0E),       # #090E0E near-black (body text)
     "color_white": RGBColor(0xFF, 0xFF, 0xFF),
-    "color_accent": RGBColor(0xFF, 0xE4, 0x33),     # #FFE433 gold/yellow (real brand)
-    "color_gray": RGBColor(0x7F, 0x7F, 0x7F),
-    "font": "Work Sans Medium",
-    "font_light": "Work Sans Light",
-    "font_bold": "Work Sans Black",
-    "font_serif": "Libre Baskerville",
+    "color_accent": RGBColor(0x98, 0xD2, 0xCF),     # #98D2CF teal light (accent bar)
+    "color_gray": RGBColor(0x75, 0x75, 0x75),
+    "font": "Helvetica Neue",
+    "font_light": "Helvetica Neue Light",
+    "font_bold": "Play",
     "pt_title": Pt(36),
-    "pt_heading": Pt(28),
-    "pt_body": Pt(12),
+    "pt_heading": Pt(25),
+    "pt_body": Pt(14),
     "pt_small": Pt(10),
     "pt_label": Pt(14),
     "margin": Inches(0.8),
@@ -253,7 +255,7 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
 def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool = False):
     """Add one or more content slides for a section, splitting at ~1200 chars."""
     bg_color = BRAND["color_dark"] if dark else BRAND["color_white"]
-    text_color = BRAND["color_white"] if dark else BRAND["color_dark"]
+    text_color = BRAND["color_white"] if dark else BRAND["color_text"]
     heading_color = BRAND["color_accent"] if dark else BRAND["color_dark2"]
 
     # Split body into chunks of ~1200 chars at paragraph boundaries

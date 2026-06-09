@@ -324,6 +324,11 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
 
     # Persist bot response so future messages in this thread have full context.
     messages.append({"role": "assistant", "content": response})
+    # Trim before saving so the DB doesn't accumulate bloated tool-result history.
+    from agent import _estimate_chars, _trim_messages, _MAX_INPUT_CHARS
+    if _estimate_chars(messages) > _MAX_INPUT_CHARS:
+        messages = _trim_messages(messages)
+        logger.info("trimmed history before mem_save for thread=%s", mem_key)
     mem_save(mem_key, messages)
 
     # Upload any files queued by tools (e.g. export_proposal_deck)

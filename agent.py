@@ -104,7 +104,9 @@ def print_tool_use(name: str, input_preview: str):
     print(f"\033[2m  [{name}] {input_preview}\033[0m")
 
 
-_MAX_INPUT_CHARS = 2_800_000  # ≈ 800k tokens @ 3.5 chars/token — leaves headroom for system + output
+_MAX_INPUT_CHARS = 1_000_000  # empirically ~700k tokens @ ~1.4 chars/token (JSON tool results skew low)
+# Note: 3.5 chars/token holds for plain prose; serialised tool results + JSON overhead
+# bring the actual ratio to ~1.4. Observed: 2.4M chars → 1.7M tokens (2026-06-09).
 
 
 def _estimate_chars(messages: list) -> int:

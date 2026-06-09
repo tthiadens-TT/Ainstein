@@ -104,6 +104,62 @@ def print_tool_use(name: str, input_preview: str):
     print(f"\033[2m  [{name}] {input_preview}\033[0m")
 
 
+_MAX_INPUT_CHARS = 2_800_000  # ≈ 800k tokens @ 3.5 chars/token — leaves headroom for system + output
+
+
+def _estimate_chars(messages: list) -> int:
+    total = 0
+    for m in messages:
+        c = m.get("content", "")
+        if isinstance(c, str):
+            total += len(c)
+        elif isinstance(c, list):
+            for block in c:
+                if isinstance(block, dict):
+                    total += len(str(block.get("text", "") or block.get("content", "")))
+    return total
+
+
+def _trim_messages(messages: list) -> list:
+    """Trim messages so the estimated char count stays under _MAX_INPUT_CHARS.
+
+    Strategy (in order):
+    1. Truncate large tool_result content blocks (> 50k chars) to a summary.
+    2. Drop oldest user+assistant pairs from the front (preserve at least the
+       last user message so the agent always has the current question).
+    """
+    import copy
+    msgs = copy.deepcopy(messages)
+
+    # Step 1: truncate oversized tool results
+    _TOOL_RESULT_CAP = 50_000
+    for msg in msgs:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") != "tool_result":
+                continue
+            inner = block.get("content", "")
+            if isinstance(inner, str) and len(inner) > _TOOL_RESULT_CAP:
+                block["content"] = inner[:_TOOL_RESULT_CAP] + f"\n\n[... {len(inner) - _TOOL_RESULT_CAP} chars truncated to stay within context limit ...]"
+
+    # Step 2: drop oldest pairs until we're under budget
+    while _estimate_chars(msgs) > _MAX_INPUT_CHARS and len(msgs) > 1:
+        # Always keep the last message (current user question)
+        # Remove from the front in user+assistant pairs
+        if msgs[0]["role"] == "user" and len(msgs) > 1:
+            msgs.pop(0)
+            if msgs and msgs[0]["role"] == "assistant":
+                msgs.pop(0)
+        else:
+            msgs.pop(0)
+
+    return msgs
+
+
 def _apply_cache_breakpoint(messages: list) -> None:
     """Mark ONLY the last user message with cache_control.
 
@@ -212,8 +268,12 @@ def run_agent(
             return _finish(text or "Ik kon geen sluitend antwoord formuleren — probeer de vraag specifieker te stellen.")
 
         _api_t0 = time.time()
-        input_chars = sum(len(str(m.get("content", ""))) for m in messages)
+        input_chars = _estimate_chars(messages)
         logger.info("iteration %d — calling API (input ≈%d chars)", iteration, input_chars)
+        if input_chars > _MAX_INPUT_CHARS:
+            logger.warning("context too large (%d chars) — trimming before API call", input_chars)
+            messages[:] = _trim_messages(messages)
+            logger.info("after trim: %d chars", _estimate_chars(messages))
         _apply_cache_breakpoint(messages)
 
         # Retry up to 3× on rate-limit (429) with exponential backoff

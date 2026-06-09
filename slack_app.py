@@ -282,13 +282,23 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
         response, trace = run_agent(messages, ANTHROPIC_CLIENT, skill=skill)
     except Exception as e:
         logger.exception("run_agent failed for thread=%s: %s", thread_ts, e)
-        # Keep thread history in the fallback so the agent knows what was asked.
-        # Do NOT include the raw exception in the prompt — brain.md: never expose
-        # technical error details to end users. The exception is already in server logs.
-        fallback_messages = messages + [{"role": "user", "content": (
-            "Er was een technisch probleem bij het beantwoorden van de vorige vraag.\n\n"
-            "Laat de gebruiker weten dat er iets mis ging en wat ze nu het best kunnen doen."
-        )}]
+        # Context-too-long: the history itself is the problem — don't append more to it.
+        # Reset to just the current question so the fallback can at least respond.
+        _is_context_overflow = (
+            isinstance(e, anthropic.BadRequestError)
+            and "prompt is too long" in str(e)
+        )
+        if _is_context_overflow:
+            logger.warning("context overflow — resetting to bare question for fallback (thread=%s)", thread_ts)
+            fallback_messages = [{"role": "user", "content": user_text}]
+        else:
+            # Keep thread history in the fallback so the agent knows what was asked.
+            # Do NOT include the raw exception in the prompt — brain.md: never expose
+            # technical error details to end users. The exception is already in server logs.
+            fallback_messages = messages + [{"role": "user", "content": (
+                "Er was een technisch probleem bij het beantwoorden van de vorige vraag.\n\n"
+                "Laat de gebruiker weten dat er iets mis ging en wat ze nu het best kunnen doen."
+            )}]
         try:
             response, trace = run_agent(fallback_messages, ANTHROPIC_CLIENT)
         except Exception as fallback_err:

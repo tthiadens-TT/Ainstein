@@ -579,6 +579,11 @@ def cmd_debrief(body, ack, say):
     _slash_handler("client_discovery_debrief", body, ack, say)
 
 
+@app.command("/transcript")
+def cmd_transcript(body, ack, say):
+    _slash_handler("client_discovery_debrief", body, ack, say)
+
+
 # Quality checks
 @app.command("/dvv")
 def cmd_dvv(body, ack, say):
@@ -972,6 +977,18 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, _on_shutdown)
     signal.signal(signal.SIGINT, _on_shutdown)
+
+    if os.environ.get("JAMIE_WEBHOOK_SECRET"):
+        from webhook_server import start_webhook_server
+        webhook_port = int(os.environ.get("JAMIE_WEBHOOK_PORT", "8080"))
+        threading.Thread(
+            target=start_webhook_server,
+            args=(webhook_port, app.client, ANTHROPIC_CLIENT),
+            daemon=True,
+        ).start()
+        logger.info("Jamie webhook server gestart op poort %s", webhook_port)
+    else:
+        logger.info("JAMIE_WEBHOOK_SECRET niet ingesteld — webhook server uitgeschakeld")
 
     try:
         handler.start()

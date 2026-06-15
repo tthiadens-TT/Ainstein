@@ -1507,9 +1507,35 @@ def read_doc_comments(doc_id: str, include_resolved: bool = False) -> dict:
 
 def web_search(query: str, max_results: int = 5) -> dict:
     """
-    Search the web using DuckDuckGo. Use for live company research,
-    market context, competitive landscape, and recent news.
+    Search the web. Uses Tavily when TAVILY_API_KEY is set (richer results,
+    official API), falls back to DuckDuckGo otherwise.
+    Use for live company research, market context, competitive landscape, and recent news.
     """
+    api_key = os.environ.get("TAVILY_API_KEY")
+    if api_key:
+        return _web_search_tavily(query, max_results, api_key)
+    return _web_search_ddgs(query, max_results)
+
+
+def _web_search_tavily(query: str, max_results: int, api_key: str) -> dict:
+    try:
+        from tavily import TavilyClient
+        client = TavilyClient(api_key=api_key)
+        response = client.search(query, max_results=max_results, search_depth="advanced")
+        results = [
+            {"title": r.get("title"), "url": r.get("url"), "snippet": r.get("content")}
+            for r in response.get("results", [])
+        ]
+        out = {"query": query, "results": results}
+        if response.get("answer"):
+            out["answer"] = response["answer"]
+        return out
+    except Exception as e:
+        logger.error("web_search (Tavily) FAILED: %s: %s — falling back to DuckDuckGo", type(e).__name__, e)
+        return _web_search_ddgs(query, max_results)
+
+
+def _web_search_ddgs(query: str, max_results: int) -> dict:
     try:
         from ddgs import DDGS
         with DDGS() as ddgs:
@@ -1522,7 +1548,7 @@ def web_search(query: str, max_results: int = 5) -> dict:
             ],
         }
     except Exception as e:
-        logger.error("web_search FAILED: %s: %s", type(e).__name__, e)
+        logger.error("web_search (DDGS) FAILED: %s: %s", type(e).__name__, e)
         return {"error": f"Web search failed: {e}", "results": []}
 
 

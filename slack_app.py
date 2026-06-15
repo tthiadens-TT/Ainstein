@@ -1024,7 +1024,7 @@ def _notify_failure(err: Exception, channel: str, thread_ts: str | None) -> None
         actie = "Ga naar *console.anthropic.com → API Keys* en maak een nieuwe key aan. Zet hem in `.env` op de VM en herstart de service."
     elif "rate limit" in err_str:
         soort = "⏱ Rate limit bereikt"
-        actie = "Even wachten — Ainstein probeert automatisch opnieuw. Als het aanhoudt, check de Anthropic Console."
+        actie = "Ainstein kon dit verzoek niet verwerken. Stuur het opnieuw als de rate limit is afgelopen."
     else:
         soort = f"⚠️ Onverwachte fout: `{type(err).__name__}`"
         actie = "Check `logs/ainstein.log` op de VM voor details."

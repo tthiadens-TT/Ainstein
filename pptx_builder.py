@@ -27,8 +27,12 @@ Usage:
 import io
 import re
 import textwrap
+import uuid
+import zipfile
+from pathlib import Path
 from typing import Optional
 
+from lxml import etree
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
@@ -62,9 +66,6 @@ BRAND = {
     "accent_bar_h": Inches(0.07),
 }
 
-# Sections that get a dark (navy) background
-DARK_SECTIONS = {"commercial notes", "commerciële notities", "risks / weak spots", "risico's"}
-
 # Ordered slide layout for a standard Minkowski proposal
 SECTION_ORDER = [
     "context",
@@ -75,6 +76,103 @@ SECTION_ORDER = [
     "risks / weak spots",
     "draft text",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Font embedding — OOXML ECMA-376 §22.4.2.3
+# ---------------------------------------------------------------------------
+
+_FONT_ASSET = Path(__file__).parent / "assets" / "fonts" / "Sen-ExtraBold.ttf"
+_PPTX_FONT_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font"
+)
+_PKG_CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+_PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_PML_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
+_R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+
+def _ooxml_obfuscate(font_data: bytes, guid_hex: str) -> bytes:
+    """XOR first 32 font bytes with the GUID key (ECMA-376 §22.4.2.3).
+
+    guid_hex: 32 uppercase hex chars without dashes.
+    The key uses COM little-endian byte ordering for the first three fields.
+    """
+    raw = bytes.fromhex(guid_hex)
+    key = bytes([
+        raw[3], raw[2], raw[1], raw[0],
+        raw[5], raw[4],
+        raw[7], raw[6],
+        raw[8], raw[9], raw[10], raw[11],
+        raw[12], raw[13], raw[14], raw[15],
+    ])
+    result = bytearray(font_data)
+    for i in range(min(32, len(result))):
+        result[i] ^= key[i % 16]
+    return bytes(result)
+
+
+def _embed_sen_extrabold(pptx_bytes: bytes) -> bytes:
+    """Post-process PPTX bytes to embed Sen ExtraBold so it renders on any machine."""
+    if not _FONT_ASSET.exists():
+        return pptx_bytes
+
+    font_raw = _FONT_ASSET.read_bytes()
+    guid_hex = uuid.uuid4().hex.upper()
+    font_filename = f"font{guid_hex[:8]}.fntdata"
+    rid = "rIdSenEB"
+
+    with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as zin:
+        files = {name: zin.read(name) for name in zin.namelist()}
+
+    # Add obfuscated font binary
+    files[f"ppt/fonts/{font_filename}"] = _ooxml_obfuscate(font_raw, guid_hex)
+
+    # [Content_Types].xml — register font part
+    ct_root = etree.fromstring(files["[Content_Types].xml"])
+    part_name = f"/ppt/fonts/{font_filename}"
+    if not any(el.get("PartName") == part_name for el in ct_root):
+        el = etree.SubElement(ct_root, f"{{{_PKG_CT_NS}}}Override")
+        el.set("PartName", part_name)
+        el.set("ContentType",
+               "application/vnd.openxmlformats-officedocument.obfuscatedFont")
+    files["[Content_Types].xml"] = etree.tostring(
+        ct_root, xml_declaration=True, encoding="UTF-8", standalone=True
+    )
+
+    # ppt/_rels/presentation.xml.rels — add font relationship
+    rels_key = "ppt/_rels/presentation.xml.rels"
+    rels_root = etree.fromstring(files[rels_key])
+    rel_el = etree.SubElement(rels_root, f"{{{_PKG_REL_NS}}}Relationship")
+    rel_el.set("Id", rid)
+    rel_el.set("Type", _PPTX_FONT_REL_TYPE)
+    rel_el.set("Target", f"fonts/{font_filename}")
+    files[rels_key] = etree.tostring(
+        rels_root, xml_declaration=True, encoding="UTF-8", standalone=True
+    )
+
+    # ppt/presentation.xml — add <p:embeddedFontLst>
+    prs_xml_root = etree.fromstring(files["ppt/presentation.xml"])
+    font_lst = prs_xml_root.find(f"{{{_PML_NS}}}embeddedFontLst")
+    if font_lst is None:
+        font_lst = etree.SubElement(prs_xml_root, f"{{{_PML_NS}}}embeddedFontLst")
+    emb = etree.SubElement(font_lst, f"{{{_PML_NS}}}embeddedFont")
+    font_el = etree.SubElement(emb, f"{{{_PML_NS}}}font")
+    font_el.set("typeface", "Sen ExtraBold")
+    font_el.set("panose", "00000000000000000000")
+    font_el.set("pitchFamily", "0")
+    font_el.set("charset", "0")
+    regular_el = etree.SubElement(emb, f"{{{_PML_NS}}}regular")
+    regular_el.set(f"{{{_R_NS}}}id", rid)
+    files["ppt/presentation.xml"] = etree.tostring(
+        prs_xml_root, xml_declaration=True, encoding="UTF-8", standalone=True
+    )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name, data in files.items():
+            zout.writestr(name, data)
+    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -103,21 +201,20 @@ def build_proposal_deck(
             if sec_name.lower().strip() == key:
                 if not sec_body.strip():
                     break
-                dark = key in DARK_SECTIONS
-                _add_content_slides(prs, sec_name, sec_body, dark=dark)
+                _add_content_slides(prs, sec_name, sec_body)
                 break
 
     # Any sections not in the standard order go at the end (light bg)
     ordered_lower = {k.lower().strip() for k in SECTION_ORDER}
     for sec_name, sec_body in sections.items():
         if sec_name.lower().strip() not in ordered_lower and sec_body.strip():
-            _add_content_slides(prs, sec_name, sec_body, dark=False)
+            _add_content_slides(prs, sec_name, sec_body)
 
     _add_back_slide(prs)
 
     buf = io.BytesIO()
     prs.save(buf)
-    return buf.getvalue()
+    return _embed_sen_extrabold(buf.getvalue())
 
 
 def parse_proposal_sections(text: str) -> dict[str, str]:
@@ -261,7 +358,7 @@ def _add_cover_slide(prs: Presentation, title: str, client_name: str):
     _add_brand_footer(slide, prs)
 
 
-def _add_content_slides(prs: Presentation, heading: str, body: str, dark: bool = False):
+def _add_content_slides(prs: Presentation, heading: str, body: str):
     """Add one or more content slides for a section, splitting at ~1200 chars."""
     # All slides: white background, near-black text. Accent bar carries the color.
     chunks = _split_body(body, max_chars=1200)

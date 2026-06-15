@@ -85,6 +85,10 @@ Dit zijn alle schrijfpaden. Alles buiten deze lijst kan de agent niet wijzigen.
 **De bronnenlaag (01_Proposals t/m 06_Marketing) is volledig read-only.**
 De agent heeft geen enkel tool om Drive-bestanden te verwijderen, hernoemen of overschrijven.
 
+### Bekende beperking: channel-scoped geheugen
+
+Conversatiegeheugen is gescopet op thread of channel (`mem_key = thread_ts or channel`). Als twee gebruikers tegelijk in hetzelfde Slack-channel een vraag stellen (buiten een thread), kunnen ze elkaars conversatiecontext overschrijven. In de praktijk is dit zelden een probleem — Minkowski gebruikt Ainstein overwegend in threads. Wil je dit oplossen: gebruik altijd threads (thread-ts heeft voorrang op channel-key).
+
 ---
 
 ## Beveiligingschecklist

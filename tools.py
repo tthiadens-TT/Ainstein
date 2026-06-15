@@ -1960,9 +1960,10 @@ TOOL_SCHEMAS = [
             "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal. "
             "Reads the doc, splits it on # headings into slides, and builds a navy/cyan "
             "branded 16:9 deck. Saves the file to 00_Werkdocumenten in Google Drive and "
-            "returns a 'url' field with the direct Drive link. Also uploads to Slack. "
+            "returns a 'url' field with the direct Drive link if the upload succeeds. "
+            "Also uploads to Slack. "
             "Use this whenever the user asks for a PPTX, slidedeck, presentatie, or "
-            "PowerPoint. Always share the 'url' from the result with the user."
+            "PowerPoint. Share the 'url' from the result with the user if present."
         ),
         "input_schema": {
             "type": "object",

@@ -127,14 +127,18 @@ def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
 
     return (
         f"{lang_instruction}\n\n"
-        f"Analyseer het volgende klantgesprek en maak een volledige debrief.\n\n"
+        f"Je rol: Ainstein — proactieve denkpartner, geen notulist (dat is Jamie's taak).\n"
+        f"Jouw waarde zit in wat je TOEVOEGT aan dit gesprek, niet in wat er gezegd is.\n\n"
         f"**Meeting:** {event.title}\n"
         f"**Klant:** {client_name}\n"
         f"**Datum:** {event.started_at}\n"
         f"**Deelnemers:** {participants_str}\n"
         f"**Type:** {type_hint}\n\n"
-        f"Gebruik de 11 secties van de client_discovery_debrief skill.\n"
-        f"Identificeer expliciet in sectie 11 (Recommended Next Step): wie doet wat, en wanneer.\n\n"
+        f"Analyseer dit gesprek met de 11 secties van client_discovery_debrief. Maar doe actief meer:\n"
+        f"- DAAG UIT: welke aannames zijn gemaakt die het bevragen waard zijn?\n"
+        f"- VOEG TOE: wat weet je vanuit de Minkowski bronnenlaag dat relevant is maar niet ter sprake kwam?\n"
+        f"- DENK VERDER: welke richting of aanpak zou beter werken dan besproken?\n\n"
+        f"Voeg na sectie 11 de sectie 'Proactieve Voorstellen' toe zoals beschreven in de skill.\n\n"
         f"---\n{transcript_text}"
     )
 
@@ -193,17 +197,26 @@ def _post_slack_notification(
         except Exception as exc:
             logger.error("Failed to post to transcript channel: %s", exc)
 
+    proposals = _extract_proactive_proposals(debrief_text)
+
     # 2. DM per Minkowski-deelnemer in this meeting
     for name, slack_id in participant_slack_ids.items():
         try:
-            if has_actions:
+            first_name = name.split()[0] if name else "daar"
+            if proposals:
                 dm_text = (
-                    f":wave: Hoi {name.split()[0] if name else 'daar'}, ik heb *{event.title}* verwerkt.\n\n"
+                    f":wave: Hoi {first_name}, ik heb *{event.title}* verwerkt.\n\n"
+                    + (f"Aanbevolen volgende stap:\n{actions}\n\n" if has_actions else "")
+                    + f"{proposals}\n\nWat wil je dat ik oppak?"
+                )
+            elif has_actions:
+                dm_text = (
+                    f":wave: Hoi {first_name}, ik heb *{event.title}* verwerkt.\n\n"
                     f"Aanbevolen volgende stap:\n{actions}"
                 )
             else:
                 dm_text = (
-                    f":wave: Hoi {name.split()[0] if name else 'daar'}, ik heb *{event.title}* verwerkt. "
+                    f":wave: Hoi {first_name}, ik heb *{event.title}* verwerkt. "
                     f"Ik vond geen concrete vervolgacties — klopt dat?"
                 )
             slack_client.chat_postMessage(
@@ -217,14 +230,25 @@ def _post_slack_notification(
 
 def _extract_next_step(debrief_text: str) -> str:
     """Extract section 11 (Recommended Next Step) from a debrief."""
-    # Match "## 11." or "### 11." or "**11." patterns, case-insensitive
     pattern = re.compile(
-        r"(?:#{1,3}\s*11[.\s]|(?:\*{1,2})11[.\s]).*?(?=(?:#{1,3}\s*\d+|$))",
+        r"(?:#{1,3}\s*11[.\s]|(?:\*{1,2})11[.\s]).*?(?=(?:#{1,3}\s*(?:Proactieve|12|\d+)|$))",
         re.IGNORECASE | re.DOTALL,
     )
     match = pattern.search(debrief_text)
     if match:
         return match.group(0).strip()[:1000]
+    return ""
+
+
+def _extract_proactive_proposals(debrief_text: str) -> str:
+    """Extract the Proactieve Voorstellen section from a debrief."""
+    pattern = re.compile(
+        r"(?:#{1,3}\s*Proactieve Voorstellen|Proactieve Voorstellen\b).*?(?=(?:#{1,3}\s*[A-Z]|\Z))",
+        re.IGNORECASE | re.DOTALL,
+    )
+    match = pattern.search(debrief_text)
+    if match:
+        return match.group(0).strip()[:800]
     return ""
 
 

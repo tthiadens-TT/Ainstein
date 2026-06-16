@@ -28,14 +28,22 @@ def detect_language(text: str) -> str:
 
 
 def verify_jamie_signature(raw_body: bytes, header: str, secret: str) -> bool:
-    """Verify HMAC-SHA256 signature sent by Jamie in X-Jamie-Signature header."""
+    """Verify HMAC-SHA256 signature sent by Jamie in x-jamie-signature header.
+
+    Jamie uses the format: t=<timestamp>,v0=<hex_signature>
+    The signed payload is: f"{timestamp}.{raw_body_as_string}"
+    """
     if not header or not secret:
         return False
     try:
-        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        # Jamie may send "sha256=<hex>" or just "<hex>"
-        received = header.removeprefix("sha256=")
-        return hmac.compare_digest(expected, received)
+        parts = dict(part.split("=", 1) for part in header.split(",") if "=" in part)
+        timestamp = parts.get("t", "")
+        received_sig = parts.get("v0", "")
+        if not timestamp or not received_sig:
+            return False
+        signed_payload = f"{timestamp}.".encode() + raw_body
+        expected = hmac.new(secret.encode(), signed_payload, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, received_sig)
     except Exception:
         return False
 
@@ -43,20 +51,45 @@ def verify_jamie_signature(raw_body: bytes, header: str, secret: str) -> bool:
 def parse_jamie_payload(body: dict) -> TranscriptEvent | None:
     """Parse a Jamie webhook payload into a TranscriptEvent.
 
+    Jamie payload structure (from docs):
+      data.event.title, data.event.id, data.event.startTime
+      data.summary.markdown
+      data.tasks[].content
+      data.participants[].name / .email
+
     Returns None on any parse error — caller is responsible for
     posting the raw payload to Slack so it can be inspected.
     """
     try:
-        # Jamie's payload shape is inferred from their public docs.
-        # Field names may need adjustment after the first real webhook arrives.
-        meeting_id = str(body["id"])
-        title = body.get("title") or body.get("name") or "Naamloos gesprek"
-        started_at = body.get("startedAt") or body.get("started_at") or ""
-        participants = _parse_participants(body)
-        transcript = _extract_transcript(body)
-        summary = body.get("summary") or body.get("shortSummary") or ""
-        recording_url = body.get("recordingUrl") or body.get("recording_url")
-        language = body.get("language") or body.get("lang") or ""
+        data = body.get("data") or body  # handle both wrapped and flat payloads
+        metadata = body.get("metadata") or {}
+
+        # Jamie payload: ID lives at metadata.id, title/times at data.*
+        meeting_id = str(
+            metadata.get("id") or data.get("id") or body.get("id") or "unknown"
+        )
+        title = (data.get("title") or body.get("title")
+                 or body.get("name") or "Naamloos gesprek")
+        started_at = data.get("startTime") or data.get("startedAt") or ""
+
+        participants = _parse_participants(data)
+        transcript = _extract_transcript(data)
+
+        # Jamie sends summary as markdown under data.summary.markdown
+        summary_obj = data.get("summary") or {}
+        if isinstance(summary_obj, dict):
+            summary = summary_obj.get("markdown") or summary_obj.get("text") or ""
+        else:
+            summary = str(summary_obj) if summary_obj else ""
+
+        # Append tasks to summary so the agent sees them
+        tasks = data.get("tasks") or []
+        if tasks:
+            task_lines = "\n".join(f"- {t.get('content', t)}" for t in tasks if t)
+            summary = f"{summary}\n\n**Taken:**\n{task_lines}".strip()
+
+        recording_url = data.get("recordingUrl") or body.get("recordingUrl")
+        language = data.get("language") or body.get("language") or ""
         if not language and transcript:
             language = detect_language(transcript)
         elif not language and summary:
@@ -81,7 +114,8 @@ def parse_jamie_payload(body: dict) -> TranscriptEvent | None:
 
 def _parse_participants(body: dict) -> list[dict]:
     """Extract participants list, normalising to [{"name": str, "email": str}]."""
-    raw = body.get("participants") or body.get("attendees") or []
+    raw = (body.get("participants") or body.get("attendees")
+           or (body.get("data") or {}).get("participants") or [])
     result = []
     for p in raw:
         if isinstance(p, dict):
@@ -104,7 +138,7 @@ def _extract_transcript(body: dict) -> str:
         lines = []
         for seg in segments:
             if isinstance(seg, dict):
-                speaker = seg.get("speaker") or seg.get("name") or ""
+                speaker = seg.get("speakerName") or seg.get("speaker") or seg.get("name") or ""
                 text = seg.get("text") or seg.get("content") or ""
                 lines.append(f"{speaker}: {text}" if speaker else text)
             elif isinstance(seg, str):

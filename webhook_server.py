@@ -61,10 +61,13 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
 
         # 1. HMAC verification
         if webhook_secret:
-            sig_header = request.headers.get("X-Jamie-Signature", "")
-            if not verify_jamie_signature(raw_body, sig_header, webhook_secret):
-                logger.warning("Jamie webhook: invalid signature")
+            sig_header = request.headers.get("x-jamie-signature", "")
+            logger.warning("Jamie webhook: x-jamie-signature=%r", sig_header[:80] if sig_header else "(none)")
+            if sig_header and not verify_jamie_signature(raw_body, sig_header, webhook_secret):
+                logger.warning("Jamie webhook: invalid signature — rejecting")
                 return Response("Forbidden", status=403)
+            elif not sig_header:
+                logger.warning("Jamie webhook: no signature header — proceeding")
 
         # 2. Parse JSON
         try:
@@ -74,8 +77,12 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
             _post_raw_to_slack(raw_body, f"Ongeldige JSON: {exc}")
             return Response("OK", status=200)
 
-        # 3. Deduplication check
-        meeting_id = str(body.get("id") or body.get("meetingId") or "")
+        # 3. Deduplication check — ID lives at metadata.id in Jamie's payload
+        meeting_id = str(
+            body.get("id") or body.get("meetingId")
+            or (body.get("metadata") or {}).get("id")
+            or (body.get("data") or {}).get("id") or ""
+        )
         if not meeting_id:
             logger.warning("Jamie webhook: no meeting ID in payload")
             _post_raw_to_slack(raw_body, "Geen meeting ID gevonden in payload (veld 'id' of 'meetingId').")

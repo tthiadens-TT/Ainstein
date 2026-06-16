@@ -14,7 +14,7 @@ import re
 import traceback
 
 from agent import run_agent
-from jamie import infer_client_name, infer_participant_slack_ids
+from jamie import infer_client_name, lookup_participant_slack_ids
 from models import TranscriptEvent
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,6 @@ def process_transcript(
     event: TranscriptEvent,
     slack_client,
     anthropic_client,
-    staff_map: dict[str, str],
 ) -> None:
     """Full processing pipeline. Catches all exceptions so the daemon never silently dies."""
     transcript_channel = os.environ.get("AINSTEIN_TRANSCRIPT_CHANNEL", "").strip()
@@ -48,7 +47,7 @@ def process_transcript(
         )
 
         debrief_text, _trace = run_agent(messages, anthropic_client, skill=skill)
-        participant_slack_ids = infer_participant_slack_ids(event.participants, staff_map)
+        participant_slack_ids = lookup_participant_slack_ids(event.participants, slack_client)
         _post_slack_notification(
             event, debrief_text, participant_slack_ids, meeting_type, slack_client, transcript_channel
         )

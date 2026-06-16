@@ -6,9 +6,7 @@ Everything else in the codebase works with TranscriptEvent from models.py.
 
 import hashlib
 import hmac
-import json
 import logging
-import os
 
 from models import TranscriptEvent
 
@@ -115,14 +113,15 @@ def _extract_transcript(body: dict) -> str:
     return ""
 
 
-def infer_participant_slack_ids(
+def lookup_participant_slack_ids(
     participants: list[dict],
-    staff_map: dict[str, str],
+    slack_client,
 ) -> dict[str, str]:
     """Return {name: slack_id} for Minkowski staff who were in this meeting.
 
-    staff_map = {email: slack_id} loaded from MINKOWSKI_STAFF_MAP env var.
-    Client participants (non-Minkowski email domains) are filtered out.
+    Queries Slack directly via users.lookupByEmail — no static mapping needed.
+    Requires the users:read.email OAuth scope on the Slack app.
+    Client participants (non-Minkowski email domains) are skipped silently.
     """
     result = {}
     for p in participants:
@@ -133,9 +132,12 @@ def infer_participant_slack_ids(
         domain = email.split("@")[-1] if "@" in email else ""
         if domain not in _MINKOWSKI_DOMAINS:
             continue
-        slack_id = staff_map.get(email)
-        if slack_id:
+        try:
+            resp = slack_client.users_lookupByEmail(email=email)
+            slack_id = resp["user"]["id"]
             result[name] = slack_id
+        except Exception as exc:
+            logger.warning("Could not resolve Slack ID for %s: %s", email, exc)
     return result
 
 
@@ -151,15 +153,3 @@ def infer_client_name(event: TranscriptEvent) -> str:
     return " ".join(words[:3]) if words else "Onbekende klant"
 
 
-def load_staff_map() -> dict[str, str]:
-    """Load MINKOWSKI_STAFF_MAP from env var. Returns empty dict on error."""
-    raw = os.environ.get("MINKOWSKI_STAFF_MAP", "").strip()
-    if not raw:
-        return {}
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, dict):
-            return {k.lower(): v for k, v in parsed.items()}
-    except json.JSONDecodeError as exc:
-        logger.warning("MINKOWSKI_STAFF_MAP is not valid JSON: %s", exc)
-    return {}

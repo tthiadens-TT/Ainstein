@@ -11,7 +11,7 @@ import threading
 
 from flask import Flask, Response, request
 
-from jamie import load_staff_map, parse_jamie_payload, verify_jamie_signature
+from jamie import parse_jamie_payload, verify_jamie_signature
 from models import TranscriptEvent
 
 logger = logging.getLogger(__name__)
@@ -95,10 +95,9 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
             return Response("OK", status=200)
 
         # 5. Return 200 immediately, then process in background
-        staff_map = load_staff_map()
         t = threading.Thread(
             target=process_transcript,
-            args=(event, slack_client, anthropic_client, staff_map),
+            args=(event, slack_client, anthropic_client),
             daemon=True,
         )
         t.start()

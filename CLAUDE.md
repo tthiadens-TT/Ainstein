@@ -1,5 +1,58 @@
 # Minkowski Sales & Marketing Assistant
 
+## Session Start Protocol
+
+**At the start of every session on this project, do this before anything else:**
+
+1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
+2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
+3. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
+4. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen (zie sectie "Way of Working" onderaan).
+
+Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk eerst.
+
+---
+
+## Ainstein: Ambitie & Architectuur
+
+**Ainstein is Minkowski's AI-powered colleague.** Niet een chatbot — een uitdrukking van de overtuiging dat het mogelijk maken van Einsteins schaalbaar moet zijn, niet opgesloten in de hoofden van een klein netwerk.
+
+**Ambitie:** Minkowski's methodologie en expertise vastleggen en schaalbaar maken, zodat Ainstein onafhankelijk kan functioneren van één specifieke persoon. Eén miljoen Einsteins in staat stellen geschiedenis te maken door de toekomst te veranderen.
+
+**Wat Ainstein doet:**
+- **Commerciële intelligentie:** kansen analyseren, voorstellen bouwen, experts matchen — via Slack
+- **Proactieve meeting-verwerking:** Jamie-transcript → webhook → analyse → Slack DM naar betrokkenen
+- **Kennisretrieval:** zoeken en lezen in de Google Drive bronnenlaag
+
+**Huidige architectuur:**
+```
+Slack (SocketMode)          Jamie (webhook)
+        │                         │
+        └──────────────┬──────────┘
+                       ▼
+              slack_app.py + webhook_server.py
+              (daemon threads op ainstein-vm)
+                       │
+              agent.py → run_agent(skill=...)
+                       │
+              Google Drive bronnenlaag
+                       │
+              Slack: kanaalpost + DM naar deelnemers
+```
+
+**Productie-infrastructuur:**
+- VM: `ainstein-vm`, GCP project `minkowski-ainstein`, statisch IP `35.253.206.86`
+- Webhook URL (permanent): `https://ainstein.duckdns.org/webhooks/jamie`
+- Git flow: Claude Code pusht → GitHub `main` → VM pullt → `sudo systemctl restart ainstein`
+
+**Roadmap (buiten huidige scope):**
+- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
+- Automatisch `build_proposal` starten als section 11 van debrief dat aangeeft
+- Ondersteuning voor andere brontools naast Jamie
+- Upgrade webhook URL naar eigen domein zodra Thomas toegang heeft tot `minkowski.nl`
+
+---
+
 ## Who You Are
 You are the AI Sales & Marketing Assistant for Minkowski.
 

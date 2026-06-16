@@ -77,8 +77,12 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
             _post_raw_to_slack(raw_body, f"Ongeldige JSON: {exc}")
             return Response("OK", status=200)
 
-        # 3. Deduplication check
-        meeting_id = str(body.get("id") or body.get("meetingId") or "")
+        # 3. Deduplication check — ID lives at metadata.id in Jamie's payload
+        meeting_id = str(
+            body.get("id") or body.get("meetingId")
+            or (body.get("metadata") or {}).get("id")
+            or (body.get("data") or {}).get("id") or ""
+        )
         if not meeting_id:
             logger.warning("Jamie webhook: no meeting ID in payload")
             _post_raw_to_slack(raw_body, "Geen meeting ID gevonden in payload (veld 'id' of 'meetingId').")

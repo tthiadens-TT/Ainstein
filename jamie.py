@@ -62,13 +62,15 @@ def parse_jamie_payload(body: dict) -> TranscriptEvent | None:
     """
     try:
         data = body.get("data") or body  # handle both wrapped and flat payloads
-        event = data.get("event") or {}
+        metadata = body.get("metadata") or {}
 
-        meeting_id = str(event.get("id") or data.get("id") or body.get("id") or "unknown")
-        title = (event.get("title") or data.get("title") or body.get("title")
+        # Jamie payload: ID lives at metadata.id, title/times at data.*
+        meeting_id = str(
+            metadata.get("id") or data.get("id") or body.get("id") or "unknown"
+        )
+        title = (data.get("title") or body.get("title")
                  or body.get("name") or "Naamloos gesprek")
-        started_at = (event.get("startTime") or event.get("startedAt")
-                      or data.get("startedAt") or "")
+        started_at = data.get("startTime") or data.get("startedAt") or ""
 
         participants = _parse_participants(data)
         transcript = _extract_transcript(data)
@@ -138,7 +140,7 @@ def _extract_transcript(body: dict) -> str:
         lines = []
         for seg in segments:
             if isinstance(seg, dict):
-                speaker = seg.get("speaker") or seg.get("name") or ""
+                speaker = seg.get("speakerName") or seg.get("speaker") or seg.get("name") or ""
                 text = seg.get("text") or seg.get("content") or ""
                 lines.append(f"{speaker}: {text}" if speaker else text)
             elif isinstance(seg, str):

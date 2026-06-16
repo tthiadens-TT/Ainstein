@@ -6,10 +6,32 @@
 
 1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
 2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
-3. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
-4. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen (zie sectie "Way of Working" onderaan).
+3. **Lees de Current State sectie** — weet wat live is, wat pending is, en wat de volgende prioriteit is.
+4. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
+5. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen (zie sectie "Way of Working" onderaan) en de account-checklist.
 
 Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk eerst.
+
+---
+
+## Current State
+
+*Bijgewerkt: 16 juni 2026*
+
+### Wat is live (productie op ainstein-vm)
+- **Ainstein Slack bot** — SocketMode, volledig operationeel
+- **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, analyseert ze via `client_discovery_debrief` of `create_content`, post naar `#ainstein-status` + DM naar Minkowski-deelnemers
+- **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
+- **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
+
+### Wat pending is (wacht op externe actie)
+- **Jamie webhook URL updaten** — Jörgen moet in Jamie's settings de URL wijzigen naar `https://ainstein.duckdns.org/webhooks/jamie`
+- **Code op main mergen** — feature branch `claude/review-code-plans-CrWIC` nog niet in main; VM draait nog op eerder gedeployede versie
+
+### Wat next is (roadmap)
+- Eerste echte meeting via Jörgen testen — payload valideren, `jamie.py` eventueel aanpassen
+- Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot het domein
+- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
 
 ---
 
@@ -220,17 +242,31 @@ Claude Code → git push → GitHub (main) → VM: git pull origin main → sudo
 
 ## Way of Working: Building External-Facing Services
 
-**Before writing a single line of code for any external-facing service, answer these four questions:**
+**Harde blokkade: geen code schrijven voor deze vragen beantwoord zijn.**
 
-1. **Bereikbaarheid** — Wat is de permanente, stabiele URL? Tijdelijke adressen (quick tunnels, localhost) zijn nooit acceptabel in productie.
-2. **HTTPS** — Externe webhooks vereisen HTTPS. Regel dit upfront via certbot + domein, of DuckDNS als tussenoplossing.
-3. **Herstelbaarheid** — Wat gebeurt er bij een VM-herstart? Alles moet automatisch herstarten via systemd. Geen handmatige ingreep nodig.
+### 4 deployment-vragen (verplicht vóór implementatie)
+1. **Bereikbaarheid** — Wat is de permanente, stabiele URL? Tijdelijke adressen zijn nooit acceptabel.
+2. **HTTPS** — Externe webhooks vereisen HTTPS. Hoe wordt dit geregeld? Antwoord vóór de eerste regel code.
+3. **Herstelbaarheid** — Wat gebeurt er bij een VM-herstart? Systemd? Cronjob? Automatisch of handmatig?
 4. **Schaalbaarheid** — Is de oplossing onafhankelijk van één persoon die iets configureert?
 
-**Voorkeursvolgorde voor permanente HTTPS (geen nieuw account of CC nodig):**
+### Account- en dependency-checklist (verplicht vóór implementatie)
+Voordat je een nieuwe externe integratie bouwt, stel deze vragen:
+- Welke nieuwe accounts zijn nodig? Zijn die gratis en zonder CC?
+- Welke credentials moeten op de VM komen? Hoe worden die veilig beheerd?
+- Welke OAuth scopes of API-rechten zijn nodig op de Slack app?
+- Zijn er alternatieven die werken met bestaande accounts (GCP, Google, GitHub)?
+
+### Test-before-deploy regel
+**Nooit code pushen naar de VM zonder eerst lokaal te testen.**
+- Voor elke nieuwe webhook-handler: schrijf eerst een test-script met een synthetische payload (curl of Python)
+- Test het volledige pad: signature verificatie → parsing → meeting type detectie → agent aanroep
+- Pas na een groene lokale test: push naar GitHub → VM pullt → herstart
+
+### Voorkeursvolgorde voor permanente HTTPS
 1. Eigen domein (minkowski.nl / minkowski.org) + certbot/Let's Encrypt — meest professioneel, volledig gratis
-2. DuckDNS + certbot — gratis, Google-login, geen CC (huidige oplossing voor ainstein.duckdns.org)
+2. DuckDNS + certbot — gratis, Google-login, geen CC (huidige oplossing)
 3. Named Cloudflare Tunnel — gratis maar vereist Cloudflare Zero Trust account
 4. ❌ Quick tunnel / tijdelijk adres — nooit in productie
 
-**Upgrade pad:** zodra Thomas toegang heeft tot het Minkowski domein, een A-record toevoegen (`webhook.minkowski.nl → 35.253.206.86`) en certbot opnieuw uitvoeren voor het eigen domein. DuckDNS kan dan als backup blijven staan.
+**Upgrade pad:** zodra Thomas toegang heeft tot het Minkowski domein, een A-record toevoegen (`webhook.minkowski.nl → 35.253.206.86`) en certbot opnieuw uitvoeren. DuckDNS blijft als backup.

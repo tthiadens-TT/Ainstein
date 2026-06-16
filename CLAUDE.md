@@ -7,8 +7,9 @@
 1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
 2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
 3. **Lees de Current State sectie** — weet wat live is, wat pending is, en wat de volgende prioriteit is.
-4. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
-5. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen (zie sectie "Way of Working" onderaan) en de account-checklist.
+4. **Lees de Verified Configurations sectie** — weet wat al bevestigd en werkend is. Markeer dit NOOIT als risico of onbekend.
+5. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
+6. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen (zie sectie "Way of Working" onderaan) en de account-checklist.
 
 Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk eerst.
 
@@ -26,12 +27,33 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ### Wat pending is (wacht op externe actie)
 - **Jamie webhook URL updaten** — Jörgen moet in Jamie's settings de URL wijzigen naar `https://ainstein.duckdns.org/webhooks/jamie`
-- **Code op main mergen** — feature branch `claude/review-code-plans-CrWIC` nog niet in main; VM draait nog op eerder gedeployede versie
+- **PR #27 mergen naar main** — daarna op VM: `git pull origin main && sudo systemctl restart ainstein`
+- **Signature hardening** — na bevestiging dat Jamie altijd een handtekening stuurt: `elif not sig_header:` in `webhook_server.py` aanpassen naar 403
 
 ### Wat next is (roadmap)
 - Eerste echte meeting via Jörgen testen — payload valideren, `jamie.py` eventueel aanpassen
 - Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot het domein
 - Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
+
+---
+
+## Verified Configurations
+
+**Dit zijn bevestigde, werkende configuraties. Markeer deze NOOIT als risico, onbekend, of "nog te verifiëren" — ze zijn al gedaan.**
+
+| Wat | Status | Details |
+|---|---|---|
+| `users:read.email` Slack OAuth scope | ✅ Geconfigureerd | Toegevoegd aan de Slack app. Ainstein kan Slack user IDs opzoeken via e-mailadres. |
+| HMAC-SHA256 signature verificatie | ✅ Werkend | Jamie gebruikt formaat `t=timestamp,v0=hex`. Getest en bevestigd. |
+| DuckDNS domein | ✅ Actief | `ainstein.duckdns.org` → `35.253.206.86`. Login: thomas@minkowski.org via Google. |
+| Let's Encrypt SSL certificaat | ✅ Actief | Certbot geconfigureerd, auto-renew via systemd timer. |
+| Statisch IP op GCP | ✅ Gereserveerd | `ainstein-vm-ip`, IP `35.253.206.86`, nooit meer wijzigen bij herstart. |
+| Google Drive service account | ✅ Actief | `ainstein-bot@minkowski-ainstein.iam.gserviceaccount.com`, heeft toegang tot Shared Drive. |
+| Flask webhook server | ✅ Werkend | Draait als daemon thread op poort 8080. Deduplicatie via `_processed_meetings` set. |
+| Slack SocketMode | ✅ Werkend | `ainstein.service` systemd service, herstart automatisch bij crash/reboot. |
+| GCP firewall poort 80 + 443 | ✅ Open | `allow-http` en `allow-https` regels aangemaakt. |
+
+**Update deze tabel aan het einde van elke sessie als iets nieuws is geverifieerd.**
 
 ---
 
@@ -235,7 +257,7 @@ Claude Code → git push → GitHub (main) → VM: git pull origin main → sudo
 - Webhook endpoint: `POST https://ainstein.duckdns.org/webhooks/jamie`
 - HMAC secret: stored in `.env` on VM as `JAMIE_WEBHOOK_SECRET` — never commit, never share in chat
 - Transcript channel fallback: `AINSTEIN_TRANSCRIPT_CHANNEL` (currently `#ainstein-status`, ID `C0B6B69Q812`)
-- Slack user lookup: dynamic via `users.lookupByEmail` — no static staff map, requires `users:read.email` scope
+- Slack user lookup: dynamic via `users.lookupByEmail` — `users:read.email` scope is configured ✅
 - Meeting type detection → skill selection: client call → `client_discovery_debrief`, internal → `create_content`
 
 ---

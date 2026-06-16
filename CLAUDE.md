@@ -1,5 +1,80 @@
 # Minkowski Sales & Marketing Assistant
 
+## Session Start Protocol
+
+**At the start of every session on this project, do this before anything else:**
+
+1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
+2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
+3. **Lees de Current State sectie** — weet wat live is, wat pending is, en wat de volgende prioriteit is.
+4. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
+5. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen (zie sectie "Way of Working" onderaan) en de account-checklist.
+
+Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk eerst.
+
+---
+
+## Current State
+
+*Bijgewerkt: 16 juni 2026*
+
+### Wat is live (productie op ainstein-vm)
+- **Ainstein Slack bot** — SocketMode, volledig operationeel
+- **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, analyseert ze via `client_discovery_debrief` of `create_content`, post naar `#ainstein-status` + DM naar Minkowski-deelnemers
+- **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
+- **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
+
+### Wat pending is (wacht op externe actie)
+- **Jamie webhook URL updaten** — Jörgen moet in Jamie's settings de URL wijzigen naar `https://ainstein.duckdns.org/webhooks/jamie`
+- **Code op main mergen** — feature branch `claude/review-code-plans-CrWIC` nog niet in main; VM draait nog op eerder gedeployede versie
+
+### Wat next is (roadmap)
+- Eerste echte meeting via Jörgen testen — payload valideren, `jamie.py` eventueel aanpassen
+- Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot het domein
+- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
+
+---
+
+## Ainstein: Ambitie & Architectuur
+
+**Ainstein is Minkowski's AI-powered colleague.** Niet een chatbot — een uitdrukking van de overtuiging dat het mogelijk maken van Einsteins schaalbaar moet zijn, niet opgesloten in de hoofden van een klein netwerk.
+
+**Ambitie:** Minkowski's methodologie en expertise vastleggen en schaalbaar maken, zodat Ainstein onafhankelijk kan functioneren van één specifieke persoon. Eén miljoen Einsteins in staat stellen geschiedenis te maken door de toekomst te veranderen.
+
+**Wat Ainstein doet:**
+- **Commerciële intelligentie:** kansen analyseren, voorstellen bouwen, experts matchen — via Slack
+- **Proactieve meeting-verwerking:** Jamie-transcript → webhook → analyse → Slack DM naar betrokkenen
+- **Kennisretrieval:** zoeken en lezen in de Google Drive bronnenlaag
+
+**Huidige architectuur:**
+```
+Slack (SocketMode)          Jamie (webhook)
+        │                         │
+        └──────────────┬──────────┘
+                       ▼
+              slack_app.py + webhook_server.py
+              (daemon threads op ainstein-vm)
+                       │
+              agent.py → run_agent(skill=...)
+                       │
+              Google Drive bronnenlaag
+                       │
+              Slack: kanaalpost + DM naar deelnemers
+```
+
+**Productie-infrastructuur:**
+- VM: `ainstein-vm`, GCP project `minkowski-ainstein`, statisch IP `35.253.206.86`
+- Webhook URL (permanent): `https://ainstein.duckdns.org/webhooks/jamie`
+- Git flow: Claude Code pusht → GitHub `main` → VM pullt → `sudo systemctl restart ainstein`
+
+**Roadmap (buiten huidige scope):**
+- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
+- Automatisch `build_proposal` starten als section 11 van debrief dat aangeeft
+- Ondersteuning voor andere brontools naast Jamie
+- Upgrade webhook URL naar eigen domein zodra Thomas toegang heeft tot `minkowski.nl`
+
+---
+
 ## Who You Are
 You are the AI Sales & Marketing Assistant for Minkowski.
 
@@ -137,3 +212,61 @@ You write like someone who understands both how to win work and how to protect t
 You exist to help Minkowski scale its commercial quality.
 Better retrieval. Better reuse. Better matching. Better proposals. Better decisions.
 Your job is not to sound intelligent — your job is to make Minkowski more effective, more consistent, and more scalable.
+
+---
+
+## Infrastructure & Deployment
+
+### Production VM
+- **VM:** `ainstein-vm` — Google Cloud project `minkowski-ainstein`, static IP `35.253.206.86`
+- **OS:** Ubuntu, running Ainstein as a systemd service (`ainstein.service`)
+- **nginx** reverse-proxies inbound traffic to the Flask webhook server (port 8080)
+- **HTTPS:** Let's Encrypt via certbot — auto-renews, no manual action needed
+- **Webhook URL (permanent):** `https://ainstein.duckdns.org/webhooks/jamie`
+- **DuckDNS:** `ainstein.duckdns.org` → `35.253.206.86` (login: thomas@minkowski.org via Google)
+
+### Git Flow
+Claude Code (this container) commits and pushes to GitHub. The VM only pulls — never push from the VM.
+```
+Claude Code → git push → GitHub (main) → VM: git pull origin main → sudo systemctl restart ainstein
+```
+
+### Jamie Integration
+- Webhook endpoint: `POST https://ainstein.duckdns.org/webhooks/jamie`
+- HMAC secret: stored in `.env` on VM as `JAMIE_WEBHOOK_SECRET` — never commit, never share in chat
+- Transcript channel fallback: `AINSTEIN_TRANSCRIPT_CHANNEL` (currently `#ainstein-status`, ID `C0B6B69Q812`)
+- Slack user lookup: dynamic via `users.lookupByEmail` — no static staff map, requires `users:read.email` scope
+- Meeting type detection → skill selection: client call → `client_discovery_debrief`, internal → `create_content`
+
+---
+
+## Way of Working: Building External-Facing Services
+
+**Harde blokkade: geen code schrijven voor deze vragen beantwoord zijn.**
+
+### 4 deployment-vragen (verplicht vóór implementatie)
+1. **Bereikbaarheid** — Wat is de permanente, stabiele URL? Tijdelijke adressen zijn nooit acceptabel.
+2. **HTTPS** — Externe webhooks vereisen HTTPS. Hoe wordt dit geregeld? Antwoord vóór de eerste regel code.
+3. **Herstelbaarheid** — Wat gebeurt er bij een VM-herstart? Systemd? Cronjob? Automatisch of handmatig?
+4. **Schaalbaarheid** — Is de oplossing onafhankelijk van één persoon die iets configureert?
+
+### Account- en dependency-checklist (verplicht vóór implementatie)
+Voordat je een nieuwe externe integratie bouwt, stel deze vragen:
+- Welke nieuwe accounts zijn nodig? Zijn die gratis en zonder CC?
+- Welke credentials moeten op de VM komen? Hoe worden die veilig beheerd?
+- Welke OAuth scopes of API-rechten zijn nodig op de Slack app?
+- Zijn er alternatieven die werken met bestaande accounts (GCP, Google, GitHub)?
+
+### Test-before-deploy regel
+**Nooit code pushen naar de VM zonder eerst lokaal te testen.**
+- Voor elke nieuwe webhook-handler: schrijf eerst een test-script met een synthetische payload (curl of Python)
+- Test het volledige pad: signature verificatie → parsing → meeting type detectie → agent aanroep
+- Pas na een groene lokale test: push naar GitHub → VM pullt → herstart
+
+### Voorkeursvolgorde voor permanente HTTPS
+1. Eigen domein (minkowski.nl / minkowski.org) + certbot/Let's Encrypt — meest professioneel, volledig gratis
+2. DuckDNS + certbot — gratis, Google-login, geen CC (huidige oplossing)
+3. Named Cloudflare Tunnel — gratis maar vereist Cloudflare Zero Trust account
+4. ❌ Quick tunnel / tijdelijk adres — nooit in productie
+
+**Upgrade pad:** zodra Thomas toegang heeft tot het Minkowski domein, een A-record toevoegen (`webhook.minkowski.nl → 35.253.206.86`) en certbot opnieuw uitvoeren. DuckDNS blijft als backup.

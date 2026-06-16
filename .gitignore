@@ -38,5 +38,9 @@ venv/
 logs/
 *.log
 
+# Claude Code plugin artefacten — lokaal, niet voor repo
+TASKS.md
+dashboard.html
+
 # Review output is tracked — history builds over time
 # reviews/

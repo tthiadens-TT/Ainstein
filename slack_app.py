@@ -276,19 +276,36 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
 
     messages.append({"role": "user", "content": user_text})
     if skill is None:
-        skill = _detect_skill(user_text)
+        # For multi-modal content lists, extract text blocks for skill detection
+        if isinstance(user_text, list):
+            _text_for_skill = " ".join(
+                b.get("text", "") for b in user_text if isinstance(b, dict) and b.get("type") == "text"
+            )
+        else:
+            _text_for_skill = user_text
+        skill = _detect_skill(_text_for_skill)
 
     try:
         response, trace = run_agent(messages, ANTHROPIC_CLIENT, skill=skill)
     except Exception as e:
         logger.exception("run_agent failed for thread=%s: %s", thread_ts, e)
-        # Keep thread history in the fallback so the agent knows what was asked.
-        # Do NOT include the raw exception in the prompt — brain.md: never expose
-        # technical error details to end users. The exception is already in server logs.
-        fallback_messages = messages + [{"role": "user", "content": (
-            "Er was een technisch probleem bij het beantwoorden van de vorige vraag.\n\n"
-            "Laat de gebruiker weten dat er iets mis ging en wat ze nu het best kunnen doen."
-        )}]
+        # Context-too-long: the history itself is the problem — don't append more to it.
+        # Reset to just the current question so the fallback can at least respond.
+        _is_context_overflow = (
+            isinstance(e, anthropic.BadRequestError)
+            and "prompt is too long" in str(e)
+        )
+        if _is_context_overflow:
+            logger.warning("context overflow — resetting to bare question for fallback (thread=%s)", thread_ts)
+            fallback_messages = [{"role": "user", "content": user_text}]
+        else:
+            # Keep thread history in the fallback so the agent knows what was asked.
+            # Do NOT include the raw exception in the prompt — brain.md: never expose
+            # technical error details to end users. The exception is already in server logs.
+            fallback_messages = messages + [{"role": "user", "content": (
+                "Er was een technisch probleem bij het beantwoorden van de vorige vraag.\n\n"
+                "Laat de gebruiker weten dat er iets mis ging en wat ze nu het best kunnen doen."
+            )}]
         try:
             response, trace = run_agent(fallback_messages, ANTHROPIC_CLIENT)
         except Exception as fallback_err:
@@ -298,6 +315,7 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
                 "Controleer of de juiste bestanden in de bronmappen staan en probeer het opnieuw."
             )
             trace = {}
+            _notify_failure(fallback_err, channel, thread_ts)
 
     trace["thread_ts"] = thread_ts
     trace["channel"] = channel
@@ -306,6 +324,11 @@ def _run_and_reply(channel: str, thread_ts: str | None, user_text: str, say, ski
 
     # Persist bot response so future messages in this thread have full context.
     messages.append({"role": "assistant", "content": response})
+    # Trim before saving so the DB doesn't accumulate bloated tool-result history.
+    from agent import _estimate_chars, _trim_messages, _MAX_INPUT_CHARS
+    if _estimate_chars(messages) > _MAX_INPUT_CHARS:
+        messages = _trim_messages(messages)
+        logger.info("trimmed history before mem_save for thread=%s", mem_key)
     mem_save(mem_key, messages)
 
     # Upload any files queued by tools (e.g. export_proposal_deck)
@@ -496,9 +519,8 @@ def handle_mention(event, say, client):
         say(text="_Bestand ontvangen, even lezen…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
 
         def process_with_files():
-            file_content = _download_files(files)
-            combined = f"{user_text}\n\n{file_content}".strip() if user_text else file_content
-            if not combined:
+            file_blocks = _download_files(files)
+            if not file_blocks:
                 say(
                     text="_Kon het bijgevoegde bestand niet lezen. Kun je de inhoud plakken?_",
                     thread_ts=thread_ts,
@@ -506,7 +528,12 @@ def handle_mention(event, say, client):
                     mrkdwn=True,
                 )
                 return
-            _run_and_reply(channel, thread_ts, combined, say, user_id=user_id)
+            # Build multi-modal content: text caption + file/image blocks
+            if user_text:
+                content = [{"type": "text", "text": user_text}] + file_blocks
+            else:
+                content = file_blocks
+            _run_and_reply(channel, thread_ts, content, say, user_id=user_id)
 
         t = threading.Thread(target=process_with_files, daemon=True)
     else:
@@ -709,14 +736,29 @@ def cmd_feedback_review(body, ack, say):
 _SLACK_FILE_HOSTS = {"files.slack.com", "slack-files.com"}
 
 
-def _download_files(files: list) -> str:
-    """Download and read Slack file attachments. Returns combined text."""
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+_IMAGE_MIME = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+
+def _download_files(files: list) -> list[dict]:
+    """Download Slack file attachments. Returns a list of Claude API content blocks.
+
+    Images (jpg/jpeg/png/gif/webp) → base64 image blocks for vision.
+    All other files → text blocks via _read_text.
+    """
+    import base64
     from tools import _read_text
     from pathlib import Path
     from urllib.parse import urlparse
     import requests as _req
 
-    parts = []
+    blocks: list[dict] = []
     for f in files:
         filename = f.get("name", "bestand")
         url = f.get("url_private_download") or f.get("url_private")
@@ -734,15 +776,32 @@ def _download_files(files: list) -> str:
             r = _req.get(url, headers=headers, timeout=30)
             r.raise_for_status()
             suffix = Path(filename).suffix.lower()
-            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-                tmp.write(r.content)
-                tmp_path = tmp.name
-            content = _read_text(Path(tmp_path))
-            os.unlink(tmp_path)
-            parts.append(f"--- Bijlage: {filename} ---\n{content}")
+
+            if suffix in _IMAGE_EXTS:
+                # Vision: encode as base64 image block
+                media_type = _IMAGE_MIME[suffix]
+                b64 = base64.standard_b64encode(r.content).decode("ascii")
+                blocks.append({"type": "text", "text": f"Bijlage: {filename}"})
+                blocks.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": b64,
+                    },
+                })
+                logger.info("image block added for %s (%d bytes)", filename, len(r.content))
+            else:
+                # Text/doc: extract content as before
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                    tmp.write(r.content)
+                    tmp_path = tmp.name
+                content = _read_text(Path(tmp_path))
+                os.unlink(tmp_path)
+                blocks.append({"type": "text", "text": f"--- Bijlage: {filename} ---\n{content}"})
         except Exception as e:
-            parts.append(f"[Kon {filename} niet lezen: {e}]")
-    return "\n\n".join(parts)
+            blocks.append({"type": "text", "text": f"[Kon {filename} niet lezen: {e}]"})
+    return blocks
 
 
 @app.event("message")
@@ -815,13 +874,17 @@ def handle_dm(event, say, client):
     if files:
         say(text="_Bestand ontvangen, even lezen…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
         def process():
-            file_content = _download_files(files)
-            if not file_content:
+            file_blocks = _download_files(files)
+            if not file_blocks:
                 say(text="_Kon de bijlage(n) niet verwerken._", thread_ts=thread_ts, channel=channel, mrkdwn=True)
                 return
-            user_text = f"{caption}\n\n{file_content}".strip() if caption else file_content
+            # Build multi-modal content: text caption + file/image blocks
+            if caption:
+                content = [{"type": "text", "text": caption}] + file_blocks
+            else:
+                content = file_blocks
             skill = _detect_skill(caption) if caption else None
-            _run_and_reply(channel, thread_ts, user_text, say, skill=skill, user_id=user_id)
+            _run_and_reply(channel, thread_ts, content, say, skill=skill, user_id=user_id)
         threading.Thread(target=process, daemon=True).start()
     else:
         say(text="_Searching source layer…_", thread_ts=thread_ts, channel=channel, mrkdwn=True)
@@ -949,6 +1012,41 @@ def _notify_status(text: str) -> None:
         app.client.chat_postMessage(channel=channel, text=text, mrkdwn=True)
     except Exception as e:
         logger.warning("status notification failed: %s", e)
+
+
+def _notify_failure(err: Exception, channel: str, thread_ts: str | None) -> None:
+    """Stuur een foutmelding naar AINSTEIN_STATUS_CHANNEL als een request volledig faalt."""
+    status_channel = os.environ.get("AINSTEIN_STATUS_CHANNEL", "").strip()
+    if not status_channel:
+        return
+
+    err_str = str(err).lower()
+    if "credit balance" in err_str or "too low" in err_str:
+        soort = "💳 Credits op"
+        actie = "Ga naar *console.anthropic.com → Billing → Add funds*"
+    elif "invalid api key" in err_str or "authentication" in err_str:
+        soort = "🔑 Ongeldige API key"
+        actie = "Ga naar *console.anthropic.com → API Keys* en maak een nieuwe key aan. Zet hem in `.env` op de VM en herstart de service."
+    elif "rate limit" in err_str:
+        soort = "⏱ Rate limit bereikt"
+        actie = "Ainstein kon dit verzoek niet verwerken. Stuur het opnieuw als de rate limit is afgelopen."
+    else:
+        soort = f"⚠️ Onverwachte fout: `{type(err).__name__}`"
+        actie = "Check `logs/ainstein.log` op de VM voor details."
+
+    thread_link = f"thread `{thread_ts}`" if thread_ts else "onbekende thread"
+    in_channel = f"channel `{channel}`" if channel else ""
+    location = f"{in_channel} / {thread_link}".strip(" /")
+
+    tekst = (
+        f"*Ainstein kon niet reageren* — {soort}\n"
+        f"*Locatie:* {location}\n"
+        f"*Actie:* {actie}"
+    )
+    try:
+        app.client.chat_postMessage(channel=status_channel, text=tekst, mrkdwn=True)
+    except Exception as notify_err:
+        logger.warning("failure notification kon niet worden verstuurd: %s", notify_err)
 
 
 if __name__ == "__main__":

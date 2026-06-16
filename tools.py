@@ -6,7 +6,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import log_setup
@@ -1507,9 +1507,35 @@ def read_doc_comments(doc_id: str, include_resolved: bool = False) -> dict:
 
 def web_search(query: str, max_results: int = 5) -> dict:
     """
-    Search the web using DuckDuckGo. Use for live company research,
-    market context, competitive landscape, and recent news.
+    Search the web. Uses Tavily when TAVILY_API_KEY is set (richer results,
+    official API), falls back to DuckDuckGo otherwise.
+    Use for live company research, market context, competitive landscape, and recent news.
     """
+    api_key = os.environ.get("TAVILY_API_KEY")
+    if api_key:
+        return _web_search_tavily(query, max_results, api_key)
+    return _web_search_ddgs(query, max_results)
+
+
+def _web_search_tavily(query: str, max_results: int, api_key: str) -> dict:
+    try:
+        from tavily import TavilyClient
+        client = TavilyClient(api_key=api_key)
+        response = client.search(query, max_results=max_results, search_depth="advanced")
+        results = [
+            {"title": r.get("title"), "url": r.get("url"), "snippet": r.get("content")}
+            for r in response.get("results", [])
+        ]
+        out = {"query": query, "results": results}
+        if response.get("answer"):
+            out["answer"] = response["answer"]
+        return out
+    except Exception as e:
+        logger.error("web_search (Tavily) FAILED: %s: %s — falling back to DuckDuckGo", type(e).__name__, e)
+        return _web_search_ddgs(query, max_results)
+
+
+def _web_search_ddgs(query: str, max_results: int) -> dict:
     try:
         from ddgs import DDGS
         with DDGS() as ddgs:
@@ -1522,8 +1548,149 @@ def web_search(query: str, max_results: int = 5) -> dict:
             ],
         }
     except Exception as e:
-        logger.error("web_search FAILED: %s: %s", type(e).__name__, e)
+        logger.error("web_search (DDGS) FAILED: %s: %s", type(e).__name__, e)
         return {"error": f"Web search failed: {e}", "results": []}
+
+
+# ---------------------------------------------------------------------------
+# Recent files by user
+# ---------------------------------------------------------------------------
+
+def list_recent_files(hours: int = 72, user: str | None = None, limit: int = 50) -> dict:
+    """
+    List files added to the Minkowski Drive in the last N hours.
+    Optionally filter by creator/modifier name or email (partial, case-insensitive).
+
+    Args:
+        hours: Look-back window in hours. Default 72.
+        user:  Optional name or email fragment to filter by, e.g. 'Charlotte' or 'charlotte@'.
+        limit: Maximum number of files to return. Default 50.
+    """
+    if _is_drive_mode():
+        return _drive_list_recent_files(hours, user, limit)
+    return _fs_list_recent_files(hours, user, limit)
+
+
+def _drive_list_recent_files(hours: int, user: str | None, limit: int) -> dict:
+    service = _get_drive_service()
+    if not service:
+        return {"error": "Drive API not available — check GOOGLE_SERVICE_ACCOUNT_JSON"}
+
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+    drive_query = f"createdTime > '{cutoff}' and trashed = false"
+
+    files: list[dict] = []
+    page_token = None
+
+    while len(files) < limit:
+        kwargs: dict = dict(
+            q=drive_query,
+            corpora="drive",
+            driveId=root_id,
+            includeItemsFromAllDrives=True,
+            supportsAllDrives=True,
+            fields=(
+                "nextPageToken, "
+                "files(id, name, mimeType, createdTime, modifiedTime, parents, "
+                "lastModifyingUser(displayName, emailAddress), "
+                "sharingUser(displayName, emailAddress))"
+            ),
+            pageSize=min(100, limit),
+            orderBy="createdTime desc",
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+        try:
+            result = service.files().list(**kwargs).execute()
+        except Exception as e:
+            logger.error("list_recent_files Drive query failed: %s", e)
+            return {"error": f"Drive query failed: {e}"}
+
+        for f in result.get("files", []):
+            if len(files) >= limit:
+                break
+            if f.get("mimeType") == "application/vnd.google-apps.folder":
+                continue
+            modifier = f.get("lastModifyingUser") or {}
+            creator_name = modifier.get("displayName", "")
+            creator_email = modifier.get("emailAddress", "")
+            sharing = f.get("sharingUser") or {}
+            sharing_name = sharing.get("displayName", "")
+            sharing_email = sharing.get("emailAddress", "")
+
+            if user:
+                needle = user.lower()
+                haystack = " ".join([
+                    creator_name.lower(), creator_email.lower(),
+                    sharing_name.lower(), sharing_email.lower(),
+                ])
+                if needle not in haystack:
+                    continue
+
+            files.append({
+                "name": f["name"],
+                "path": _make_drive_path(f["id"], f["name"]),
+                "mime_type": f.get("mimeType", ""),
+                "created": (f.get("createdTime") or "")[:16],
+                "modified": (f.get("modifiedTime") or "")[:16],
+                "added_by": creator_name,
+            })
+
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    return {
+        "hours": hours,
+        "user_filter": user,
+        "total": len(files),
+        "files": files,
+    }
+
+
+def _fs_list_recent_files(hours: int, user: str | None, limit: int) -> dict:
+    """Filesystem fallback — filters by mtime only (no user metadata available)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    files: list[dict] = []
+
+    for folder_name, folder_path in SOURCE_FOLDERS.items():
+        if not folder_path.exists():
+            continue
+        for f in folder_path.rglob("*"):
+            if not f.is_file() or f.name.startswith("."):
+                continue
+            try:
+                st = f.stat()
+                created = datetime.fromtimestamp(
+                    getattr(st, "st_birthtime", st.st_mtime), timezone.utc
+                )
+                if created < cutoff:
+                    continue
+                files.append({
+                    "name": f.name,
+                    "path": str(f),
+                    "mime_type": "",
+                    "created": created.isoformat()[:16],
+                    "modified": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat()[:16],
+                    "added_by": "",
+                })
+            except OSError:
+                pass
+
+    files.sort(key=lambda x: x["created"], reverse=True)
+    files = files[:limit]
+    note = "Filesystem mode: user metadata not available." if user else ""
+    return {
+        "hours": hours,
+        "user_filter": user,
+        "total": len(files),
+        "files": files,
+        **({"note": note} if note else {}),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1778,12 +1945,51 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "list_recent_files",
+        "description": (
+            "List files recently added to the Minkowski Drive, optionally filtered by the person who added them. "
+            "Use this when someone asks 'what did Charlotte add this week?', 'welke documenten heeft X toegevoegd?', "
+            "'recent uploads', or 'what's new in the Drive?'. "
+            "Returns file names, paths, creation dates, and the person who added each file."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "hours": {
+                    "type": "integer",
+                    "description": (
+                        "How far back to look, in hours. Default 72 (= past 3 days). "
+                        "Use 168 for a week, 720 for a month."
+                    ),
+                },
+                "user": {
+                    "type": "string",
+                    "description": (
+                        "Optional. Filter by the name or email of the person who added the files. "
+                        "Partial match, case-insensitive. E.g. 'Charlotte', 'thomas', 'charlotte@minkowski.org'."
+                    ),
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": (
+                        "Maximum number of files to return. Default 50. "
+                        "Increase only when explicitly asked for a full overview."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "export_proposal_deck",
         "description": (
-            "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal "
-            "and upload it to Slack. Reads the doc, splits it on # headings into slides, "
-            "and builds a navy/cyan branded 16:9 deck. Use this whenever the user asks "
-            "for a PPTX, slidedeck, presentatie, or PowerPoint for a proposal."
+            "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal. "
+            "Reads the doc, splits it on # headings into slides, and builds a navy/cyan "
+            "branded 16:9 deck. Saves the file to 00_Werkdocumenten in Google Drive and "
+            "returns a 'url' field with the direct Drive link if the upload succeeds. "
+            "Also uploads to Slack. "
+            "Use this whenever the user asks for a PPTX, slidedeck, presentatie, or "
+            "PowerPoint. Share the 'url' from the result with the user if present."
         ),
         "input_schema": {
             "type": "object",
@@ -1823,6 +2029,12 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
         result = search_files(
             tool_input["query"],
             tool_input.get("folders"),
+        )
+    elif tool_name == "list_recent_files":
+        result = list_recent_files(
+            hours=tool_input.get("hours", 72),
+            user=tool_input.get("user"),
+            limit=tool_input.get("limit", 50),
         )
     elif tool_name == "record_correction":
         result = record_correction(
@@ -1909,8 +2121,58 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
                     )
                     filename = f"Voorstel_{client_name.replace(' ', '_')}.pptx"
                     title_label = f"Voorstel {client_name} — Minkowski"
+                    _PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
-                    # Save to temp file; slack_app drains this queue after run_agent()
+                    # Upload to Drive (00_Werkdocumenten) so the agent can return a real link.
+                    drive_url = None
+                    drive_id = None
+                    try:
+                        drive = _get_drive_service()
+                        if drive:
+                            root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+                            folder_id = _get_drive_folder_ids().get("00_Werkdocumenten")
+                            if not folder_id:
+                                res = drive.files().list(
+                                    q=(
+                                        f"name='00_Werkdocumenten' and "
+                                        f"mimeType='application/vnd.google-apps.folder' and "
+                                        f"'{root_id}' in parents and trashed=false"
+                                    ),
+                                    fields="files(id)",
+                                    supportsAllDrives=True,
+                                    includeItemsFromAllDrives=True,
+                                ).execute()
+                                files_found = res.get("files", [])
+                                if files_found:
+                                    folder_id = files_found[0]["id"]
+                            if folder_id:
+                                from googleapiclient.http import MediaIoBaseUpload
+                                file_meta = {
+                                    "name": filename,
+                                    "mimeType": _PPTX_MIME,
+                                    "parents": [folder_id],
+                                }
+                                media = MediaIoBaseUpload(
+                                    io.BytesIO(pptx_bytes),
+                                    mimetype=_PPTX_MIME,
+                                    resumable=False,
+                                )
+                                doc = drive.files().create(
+                                    body=file_meta,
+                                    media_body=media,
+                                    fields="id,webViewLink",
+                                    supportsAllDrives=True,
+                                ).execute()
+                                drive_url = doc.get("webViewLink")
+                                drive_id = doc.get("id")
+                                logger.info(
+                                    "export_proposal_deck: uploaded %s to Drive → %s",
+                                    filename, drive_id,
+                                )
+                    except Exception as _de:
+                        logger.warning("export_proposal_deck: Drive upload failed: %s", _de)
+
+                    # Also queue Slack file upload (posted to thread after agent loop).
                     tmp = tempfile.NamedTemporaryFile(
                         suffix=".pptx", delete=False, prefix="minkowski_deck_"
                     )
@@ -1924,6 +2186,9 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
                         "slides": len(sections) + 2,  # content + cover + back
                         "size_kb": round(len(pptx_bytes) / 1024),
                     }
+                    if drive_url:
+                        result["url"] = drive_url
+                        result["drive_id"] = drive_id
         except Exception as e:
             import traceback as _tb
             result = {"error": str(e), "traceback": _tb.format_exc()[-600:]}

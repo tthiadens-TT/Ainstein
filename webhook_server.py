@@ -61,7 +61,7 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
 
         # 1. HMAC verification
         if webhook_secret:
-            sig_header = request.headers.get("X-Jamie-Signature", "")
+            sig_header = request.headers.get("x-jamie-signature", "")
             if not verify_jamie_signature(raw_body, sig_header, webhook_secret):
                 logger.warning("Jamie webhook: invalid signature")
                 return Response("Forbidden", status=403)

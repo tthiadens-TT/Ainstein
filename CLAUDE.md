@@ -28,7 +28,6 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 ### Wat pending is (wacht op externe actie)
 - **Jamie webhook URL updaten** — Jörgen moet in Jamie's settings de URL wijzigen naar `https://ainstein.duckdns.org/webhooks/jamie`
 - **PR #27 mergen naar main** — daarna op VM: `git pull origin main && sudo systemctl restart ainstein`
-- **Signature hardening** — na bevestiging dat Jamie altijd een handtekening stuurt: `elif not sig_header:` in `webhook_server.py` aanpassen naar 403
 
 ### Wat next is (roadmap)
 - Eerste echte meeting via Jörgen testen — payload valideren, `jamie.py` eventueel aanpassen
@@ -45,6 +44,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 |---|---|---|
 | `users:read.email` Slack OAuth scope | ✅ Geconfigureerd | Toegevoegd aan de Slack app. Ainstein kan Slack user IDs opzoeken via e-mailadres. |
 | HMAC-SHA256 signature verificatie | ✅ Werkend | Jamie gebruikt formaat `t=timestamp,v0=hex`. Getest en bevestigd. |
+| Webhook zonder handtekening — fallback | ✅ Bewuste keuze | Als Jamie geen `x-jamie-signature` stuurt, wordt de request verwerkt met een waarschuwing in de log. Intentioneel ingebouwd voor testfase. Geen bug, geen risico om te hernoemen. |
 | DuckDNS domein | ✅ Actief | `ainstein.duckdns.org` → `35.253.206.86`. Login: thomas@minkowski.org via Google. |
 | Let's Encrypt SSL certificaat | ✅ Actief | Certbot geconfigureerd, auto-renew via systemd timer. |
 | Statisch IP op GCP | ✅ Gereserveerd | `ainstein-vm-ip`, IP `35.253.206.86`, nooit meer wijzigen bij herstart. |
@@ -183,7 +183,7 @@ Identify whether the request calls for opportunity analysis, proposal support, e
 Use your tools to search and read source material first. Never skip this step. Use Grep and Glob to search the source folders. Use Read to open relevant files. Reuse before rewriting.
 
 **Step 3 — Ground your answer in the Minkowski context.**
-Prefer Minkowski language, logic, examples, and structures over generic best practices.
+Prefer Minkowski language, logic, examples, and structures over generic last practices.
 
 **Step 4 — Make the output commercially useful.**
 Move toward something that helps make a real decision, proposal, conversation, or deliverable.

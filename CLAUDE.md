@@ -137,3 +137,47 @@ You write like someone who understands both how to win work and how to protect t
 You exist to help Minkowski scale its commercial quality.
 Better retrieval. Better reuse. Better matching. Better proposals. Better decisions.
 Your job is not to sound intelligent — your job is to make Minkowski more effective, more consistent, and more scalable.
+
+---
+
+## Infrastructure & Deployment
+
+### Production VM
+- **VM:** `ainstein-vm` — Google Cloud project `minkowski-ainstein`, static IP `35.253.206.86`
+- **OS:** Ubuntu, running Ainstein as a systemd service (`ainstein.service`)
+- **nginx** reverse-proxies inbound traffic to the Flask webhook server (port 8080)
+- **HTTPS:** Let's Encrypt via certbot — auto-renews, no manual action needed
+- **Webhook URL (permanent):** `https://ainstein.duckdns.org/webhooks/jamie`
+- **DuckDNS:** `ainstein.duckdns.org` → `35.253.206.86` (login: thomas@minkowski.org via Google)
+
+### Git Flow
+Claude Code (this container) commits and pushes to GitHub. The VM only pulls — never push from the VM.
+```
+Claude Code → git push → GitHub (main) → VM: git pull origin main → sudo systemctl restart ainstein
+```
+
+### Jamie Integration
+- Webhook endpoint: `POST https://ainstein.duckdns.org/webhooks/jamie`
+- HMAC secret: stored in `.env` on VM as `JAMIE_WEBHOOK_SECRET` — never commit, never share in chat
+- Transcript channel fallback: `AINSTEIN_TRANSCRIPT_CHANNEL` (currently `#ainstein-status`, ID `C0B6B69Q812`)
+- Slack user lookup: dynamic via `users.lookupByEmail` — no static staff map, requires `users:read.email` scope
+- Meeting type detection → skill selection: client call → `client_discovery_debrief`, internal → `create_content`
+
+---
+
+## Way of Working: Building External-Facing Services
+
+**Before writing a single line of code for any external-facing service, answer these four questions:**
+
+1. **Bereikbaarheid** — Wat is de permanente, stabiele URL? Tijdelijke adressen (quick tunnels, localhost) zijn nooit acceptabel in productie.
+2. **HTTPS** — Externe webhooks vereisen HTTPS. Regel dit upfront via certbot + domein, of DuckDNS als tussenoplossing.
+3. **Herstelbaarheid** — Wat gebeurt er bij een VM-herstart? Alles moet automatisch herstarten via systemd. Geen handmatige ingreep nodig.
+4. **Schaalbaarheid** — Is de oplossing onafhankelijk van één persoon die iets configureert?
+
+**Voorkeursvolgorde voor permanente HTTPS (geen nieuw account of CC nodig):**
+1. Eigen domein (minkowski.nl / minkowski.org) + certbot/Let's Encrypt — meest professioneel, volledig gratis
+2. DuckDNS + certbot — gratis, Google-login, geen CC (huidige oplossing voor ainstein.duckdns.org)
+3. Named Cloudflare Tunnel — gratis maar vereist Cloudflare Zero Trust account
+4. ❌ Quick tunnel / tijdelijk adres — nooit in productie
+
+**Upgrade pad:** zodra Thomas toegang heeft tot het Minkowski domein, een A-record toevoegen (`webhook.minkowski.nl → 35.253.206.86`) en certbot opnieuw uitvoeren voor het eigen domein. DuckDNS kan dan als backup blijven staan.

@@ -95,6 +95,19 @@ A direct, honest assessment of this opportunity:
 One clear action. Who does it. By when. Why it matters.
 Do not list five next steps — identify the single most important thing that unlocks the rest.
 
+### Proactieve Voorstellen
+After the recommended next step, add this subsection. List 2–3 things Ainstein could proactively execute — without waiting to be asked — that would meaningfully improve the outcome of this meeting.
+
+Format each as a direct question:
+- "Wil je dat ik [concrete actie]?"
+
+Each proposal must be specific and immediately executable. Not "do more research" — name what, for whom, to what end. Examples:
+- "Wil je dat ik een eerste voorstel-richting voor [klant] uitwerk op basis van de SCOPE-modules die passen?"
+- "Wil je dat ik de drie meest relevante experts uit 04_Experts zoek voor dit type programma?"
+- "Wil je dat ik de open vragen uit sectie 9 omzet in een concrete vragenlijst voor de volgende call?"
+
+If you cannot identify a genuinely useful proactive action, skip this section rather than filling it with generic suggestions.
+
 ## Operating Rules
 1. Interpret, do not just report. The value of this skill is the Minkowski diagnosis, not the transcript.
 2. Label inference clearly. Use "appears to be," "suggests," "likely" when interpreting — not when stating facts.
@@ -102,6 +115,8 @@ Do not list five next steps — identify the single most important thing that un
 4. Search the source layer before generating sections 7 and 8. Module logic and proposal structure must be grounded.
 5. The debrief must be useful to someone who was NOT on the call. No references to "as mentioned" without the content.
 6. Never fabricate client facts, organizational context, or commercial signals not present in the input.
+7. **Challenge the assumptions in the meeting.** Identify where the client or the Minkowski team accepted something without questioning it. Name the assumption explicitly and explain why it deserves scrutiny. This is often more valuable than summarising what was agreed.
+8. **Add what the source layer knows but the meeting didn't surface.** Search `01_Proposals` and `02_Tools` for relevant patterns. If something important was not discussed but should have been — a relevant program, a known risk, a comparable client situation — name it. Don't wait to be asked.
 
 ## Quality Check
 Before finalizing, ask:

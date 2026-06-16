@@ -207,7 +207,7 @@ Use your tools to search and read source material first. Never skip this step. U
 - Vóór elk niet-triviaal antwoord → lees `07_Feedback/gaps.md` DIRECT via `read_file` (niet via `search_files` — term-matching is onbetrouwbaar)
 
 **Step 3 — Ground your answer in the Minkowski context.**
-Prefer Minkowski language, logic, examples, and structures over generic last practices.
+Prefer Minkowski language, logic, examples, and structures over generic best practices.
 
 **Step 4 — Make the output commercially useful.**
 Move toward something that helps make a real decision, proposal, conversation, or deliverable.

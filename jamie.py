@@ -88,10 +88,8 @@ def parse_jamie_payload(body: dict) -> TranscriptEvent | None:
             task_lines = "\n".join(f"- {t.get('content', t)}" for t in tasks if t)
             summary = f"{summary}\n\n**Taken:**\n{task_lines}".strip()
 
-        recording_url = (event.get("recordingUrl") or data.get("recordingUrl")
-                         or body.get("recordingUrl"))
-        language = (event.get("language") or data.get("language")
-                    or body.get("language") or "")
+        recording_url = data.get("recordingUrl") or body.get("recordingUrl")
+        language = data.get("language") or body.get("language") or ""
         if not language and transcript:
             language = detect_language(transcript)
         elif not language and summary:

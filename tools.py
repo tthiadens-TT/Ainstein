@@ -244,7 +244,7 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
         export_mime = _GOOGLE_NATIVE_MIMES[mime_type]
         try:
             data = service.files().export(
-                fileId=file_id, mimeType=export_mime, supportsAllDrives=True
+                fileId=file_id, mimeType=export_mime
             ).execute()
             if isinstance(data, bytes):
                 return data.decode("utf-8", errors="replace")
@@ -286,7 +286,7 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
             }.get(suffix, "text/plain")
             try:
                 data = service.files().export(
-                    fileId=doc_id, mimeType=export_mime, supportsAllDrives=True
+                    fileId=doc_id, mimeType=export_mime
                 ).execute()
                 if isinstance(data, bytes):
                     return data.decode("utf-8", errors="replace")
@@ -807,7 +807,7 @@ def _read_gdoc(path: Path) -> str:
     }.get(suffix, "text/plain")
 
     try:
-        data = service.files().export(fileId=doc_id, mimeType=mime, supportsAllDrives=True).execute()
+        data = service.files().export(fileId=doc_id, mimeType=mime).execute()
         if isinstance(data, bytes):
             data = data.decode("utf-8", errors="replace")
         return data or "[Google Doc returned empty content]"

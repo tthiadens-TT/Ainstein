@@ -40,4 +40,5 @@ jobs:
             sudo systemctl restart ainstein
             sleep 3
             sudo systemctl is-active --quiet ainstein || { sudo systemctl status ainstein --no-pager; exit 1; }
+            crontab -l 2>/dev/null | grep -v 'run_backup.sh' | crontab -
             echo "Deploy done — $(date)"

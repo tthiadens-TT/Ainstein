@@ -36,7 +36,7 @@ Zoek in Drive wat relevant is voor dit gesprek en deze taken:
 Gebruik search_files en read_file. Alleen als het echt relevant is.
 
 **Stap 5 — Bronnenlaag aanvullen**
-Sla de gespreksnotities op via save_note:
+Sla de gespreksnotities op via create_gdoc:
 - folder_hint: klantnaam of projectnaam indien bekend
 - Inhoud: beknopte eigen samenvatting + takenlijst (niet Jamie's tekst kopiëren)
 

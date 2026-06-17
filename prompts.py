@@ -43,6 +43,8 @@ SKILL_LABELS = {
     "debrief_to_messaging": "DEBRIEF_TO_MESSAGING",
     "review_feedback": "REVIEW_FEEDBACK",
     "dvv_check": "DVV_CHECK",
+    "meeting_reviewer": "MEETING_REVIEWER",
+    "extract_knowledge": "EXTRACT_KNOWLEDGE",
 }
 
 

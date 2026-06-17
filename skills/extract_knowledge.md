@@ -57,7 +57,7 @@ Per item: [naam/patroon] — gevonden in: [bron]
 Actie: geen — bewaken of het in volgende scrape-ronde terugkeert
 ```
 
-**Stap 5 — Sla op via save_note**
+**Stap 5 — Sla op via create_gdoc**
 Titel: `Kennisdraft_{datum}`
 folder_hint: leeg (→ 00_Werkdocumenten)
 Inhoud: het draft-document uit stap 4.

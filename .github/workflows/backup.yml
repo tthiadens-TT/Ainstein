@@ -1,0 +1,22 @@
+name: Weekly Drive Backup
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"  # elke zondag 03:00 UTC
+  workflow_dispatch:      # handmatig starten via GitHub UI
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run backup on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: thomas
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /home/thomas/Ainstein
+            set -a; source .env; set +a
+            .venv311/bin/python3 scripts/backup_drive.py
+            echo "Backup exit code: $?"

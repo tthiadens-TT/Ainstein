@@ -26,6 +26,25 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+SLACK_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
+SLACK_CHANNEL = os.environ.get("AINSTEIN_TRANSCRIPT_CHANNEL", "C0B6B69Q812")
+
+
+def _slack_notify(message: str) -> None:
+    if not SLACK_TOKEN:
+        return
+    try:
+        import urllib.request, json as _json
+        body = _json.dumps({"channel": SLACK_CHANNEL, "text": message}).encode()
+        req = urllib.request.Request(
+            "https://slack.com/api/chat.postMessage",
+            data=body,
+            headers={"Authorization": f"Bearer {SLACK_TOKEN}", "Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        log.warning("Slack-notificatie mislukt: %s", e)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)s  %(message)s",
@@ -216,6 +235,12 @@ def main():
 
     # Stap 5: verwijder oude snapshots
     _cleanup_old_snapshots(service, backup_root_id)
+
+    # Stap 6: Slack-notificatie
+    if total_fail == 0:
+        _slack_notify(f":white_check_mark: *Drive backup geslaagd* — {date_str}\n{total_ok} bestanden gekopieerd naar backup drive.")
+    else:
+        _slack_notify(f":warning: *Drive backup gedeeltelijk mislukt* — {date_str}\n{total_ok} gekopieerd, *{total_fail} mislukt*. Check `logs/backup.log` op de VM.")
 
     log.info("=== Ainstein Drive Backup afgerond ===")
     return 0 if total_fail == 0 else 1

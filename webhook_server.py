@@ -12,9 +12,10 @@ import threading
 from flask import Flask, Response, request
 
 from jamie import parse_jamie_payload, verify_jamie_signature
+from log_setup import get_logger
 from models import TranscriptEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _processed_meetings: set[str] = set()
 _meetings_lock = threading.Lock()

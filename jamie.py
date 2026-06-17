@@ -8,9 +8,10 @@ import hashlib
 import hmac
 import logging
 
+from log_setup import get_logger
 from models import TranscriptEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _MINKOWSKI_DOMAINS = {"minkowski.org", "minkowski.nl"}
 

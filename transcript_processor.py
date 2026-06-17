@@ -15,9 +15,10 @@ import traceback
 
 from agent import run_agent
 from jamie import infer_client_name, lookup_participant_slack_ids
+from log_setup import get_logger
 from models import TranscriptEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _TRANSCRIPT_CHANNEL = ""
 

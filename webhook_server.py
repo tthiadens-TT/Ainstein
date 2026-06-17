@@ -102,6 +102,10 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
             return Response("OK", status=200)
 
         # 5. Return 200 immediately, then process in background
+        logger.info(
+            "Jamie webhook: verwerking gestart voor meeting_id=%s title=%r participants=%d",
+            meeting_id, event.title, len(event.participants),
+        )
         t = threading.Thread(
             target=process_transcript,
             args=(event, slack_client, anthropic_client),

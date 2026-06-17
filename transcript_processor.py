@@ -47,7 +47,15 @@ def process_transcript(
         )
 
         debrief_text, _trace = run_agent(messages, anthropic_client, skill=skill)
+        logger.info(
+            "Agent done for meeting_id=%s — output %d chars",
+            event.meeting_id, len(debrief_text),
+        )
         participant_slack_ids = lookup_participant_slack_ids(event.participants, slack_client)
+        logger.info(
+            "Minkowski deelnemers gevonden: %s",
+            list(participant_slack_ids.keys()) or "geen",
+        )
         _post_slack_notification(
             event, debrief_text, participant_slack_ids, meeting_type, slack_client, transcript_channel
         )
@@ -171,7 +179,9 @@ def _post_slack_notification(
     has_actions = bool(actions)
 
     # 1. Channel post — always
-    if transcript_channel:
+    if not transcript_channel:
+        logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — kanaalpost overgeslagen")
+    else:
         meeting_label = f"*{event.title}*" if event.title else "gesprek"
         if has_actions:
             channel_intro = f":microphone: Ainstein heeft {meeting_label} verwerkt.\n\n{actions}"
@@ -187,6 +197,7 @@ def _post_slack_notification(
                 mrkdwn=True,
             )
             thread_ts = resp["ts"]
+            logger.info("Kanaalpost geslaagd: channel=%s ts=%s", transcript_channel, thread_ts)
             # Post full debrief as threaded reply to keep the channel clean
             slack_client.chat_postMessage(
                 channel=transcript_channel,
@@ -200,6 +211,8 @@ def _post_slack_notification(
     proposals = _extract_proactive_proposals(debrief_text)
 
     # 2. DM per Minkowski-deelnemer in this meeting
+    if not participant_slack_ids:
+        logger.warning("Geen Minkowski-deelnemers gevonden — geen DM verstuurd voor '%s'", event.title)
     for name, slack_id in participant_slack_ids.items():
         try:
             first_name = name.split()[0] if name else "daar"
@@ -224,6 +237,7 @@ def _post_slack_notification(
                 text=dm_text,
                 mrkdwn=True,
             )
+            logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
         except Exception as exc:
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
 

@@ -162,14 +162,17 @@ def lookup_participant_slack_ids(
         email = p.get("email", "").lower()
         name = p.get("name", "")
         if not email:
+            logger.debug("Deelnemer zonder e-mailadres overgeslagen: %r", name)
             continue
         domain = email.split("@")[-1] if "@" in email else ""
         if domain not in _MINKOWSKI_DOMAINS:
+            logger.debug("Niet-Minkowski deelnemer overgeslagen: %s", email)
             continue
         try:
             resp = slack_client.users_lookupByEmail(email=email)
             slack_id = resp["user"]["id"]
             result[name] = slack_id
+            logger.info("Slack ID gevonden: %s → %s", email, slack_id)
         except Exception as exc:
             logger.warning("Could not resolve Slack ID for %s: %s", email, exc)
     return result

@@ -244,17 +244,18 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
         export_mime = _GOOGLE_NATIVE_MIMES[mime_type]
         try:
             data = service.files().export(
-                fileId=file_id, mimeType=export_mime
+                fileId=file_id, mimeType=export_mime, supportsAllDrives=True
             ).execute()
             if isinstance(data, bytes):
                 return data.decode("utf-8", errors="replace")
             return str(data) if data else "[empty document]"
         except Exception as e:
+            logger.error("Drive export failed for %s (id=%s): %s", filename, file_id, e)
             return f"[Drive export failed for {filename}: {e}]"
 
     # All other files → download as bytes
     try:
-        request = service.files().get_media(fileId=file_id)
+        request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
         buf = io.BytesIO()
         downloader = MediaIoBaseDownload(buf, request)
         done = False
@@ -263,6 +264,7 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
         buf.seek(0)
         raw = buf.read()
     except Exception as e:
+        logger.error("Drive download failed for %s (id=%s): %s", filename, file_id, e)
         return f"[Drive download failed for {filename}: {e}]"
 
     suffix = Path(filename).suffix.lower()
@@ -284,7 +286,7 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
             }.get(suffix, "text/plain")
             try:
                 data = service.files().export(
-                    fileId=doc_id, mimeType=export_mime
+                    fileId=doc_id, mimeType=export_mime, supportsAllDrives=True
                 ).execute()
                 if isinstance(data, bytes):
                     return data.decode("utf-8", errors="replace")
@@ -518,7 +520,7 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
         # Download existing content, append entry, upload
         file_id = files[0]["id"]
         try:
-            request = service.files().get_media(fileId=file_id)
+            request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
             buf = io.BytesIO()
             downloader = MediaIoBaseDownload(buf, request)
             done = False
@@ -805,7 +807,7 @@ def _read_gdoc(path: Path) -> str:
     }.get(suffix, "text/plain")
 
     try:
-        data = service.files().export(fileId=doc_id, mimeType=mime).execute()
+        data = service.files().export(fileId=doc_id, mimeType=mime, supportsAllDrives=True).execute()
         if isinstance(data, bytes):
             data = data.decode("utf-8", errors="replace")
         return data or "[Google Doc returned empty content]"

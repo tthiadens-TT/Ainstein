@@ -1,6 +1,9 @@
 name: Weekly Drive Backup
 
 on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/backup.yml"]
   schedule:
     - cron: "0 3 * * 0"  # elke zondag 03:00 UTC
   workflow_dispatch:      # handmatig starten via GitHub UI

@@ -733,6 +733,36 @@ def cmd_feedback_review(body, ack, say):
     t.start()
 
 
+@app.command("/kennisbronnen")
+def cmd_kennisbronnen(body, ack, say):
+    """Extraheer kennis uit bronmateriaal (Slack, LinkedIn, Substack) via Aslander cross-source methode."""
+    ack()
+    channel = body["channel_id"]
+    _raw_ts = body.get("thread_ts") or body.get("ts")
+    thread_ts = _raw_ts if isinstance(_raw_ts, str) and "." in _raw_ts else None
+    say(
+        text=(
+            "_Kennisextractie gestart. Ik lees alle bakjes in `_bronmateriaal/` onafhankelijk "
+            "en cross-check op bronfrequentie. Even geduld — dit kan een paar minuten duren._"
+        ),
+        channel=channel,
+        mrkdwn=True,
+    )
+    prompt = (
+        "Voer een kennisextractie uit op de bronmateriaal-bakjes in `06_Marketing/_bronmateriaal/`. "
+        "Volg de extract_knowledge skill: lees Slack, LinkedIn en Substack onafhankelijk, "
+        "tel cross-source frequentie (1=data, 2=informatie, 3+=kennis), "
+        "en sla het draft op in 00_Werkdocumenten via save_note."
+    )
+    t = threading.Thread(
+        target=_run_and_reply,
+        args=(channel, thread_ts, prompt, say, "extract_knowledge"),
+        kwargs={"user_id": body.get("user_id", "")},
+        daemon=True,
+    )
+    t.start()
+
+
 _SLACK_FILE_HOSTS = {"files.slack.com", "slack-files.com"}
 
 

@@ -115,12 +115,17 @@ def _get_or_create_folder(service, name: str, parent_id: str) -> str:
 
 
 def _upload_markdown(service, title: str, content: str, folder_id: str) -> str:
-    """Upload Markdown als Google Doc. Overschrijft bestaand doc met zelfde naam."""
+    """Upload Markdown als plain-text .md bestand. Overschrijft bestaand bestand met zelfde naam.
+
+    Aslander IA-principe: plain text is de universele taal — geen Google Doc conversie.
+    """
     from googleapiclient.http import MediaIoBaseUpload
 
-    # Check of er al een doc met deze naam bestaat
+    md_title = title if title.endswith(".md") else f"{title}.md"
+
+    # Check of er al een bestand met deze naam bestaat
     res = service.files().list(
-        q=f"'{folder_id}' in parents and name='{title}' and trashed=false",
+        q=f"'{folder_id}' in parents and name='{md_title}' and trashed=false",
         fields="files(id,name)",
         supportsAllDrives=True,
         includeItemsFromAllDrives=True,
@@ -132,24 +137,23 @@ def _upload_markdown(service, title: str, content: str, folder_id: str) -> str:
     )
 
     if existing:
-        # Update bestaand document
         doc = service.files().update(
             fileId=existing[0]["id"],
             media_body=media,
             fields="id,webViewLink",
             supportsAllDrives=True,
         ).execute()
-        log.info("Bijgewerkt: %s", title)
+        log.info("Bijgewerkt: %s", md_title)
     else:
         meta = {
-            "name": title,
-            "mimeType": "application/vnd.google-apps.document",
+            "name": md_title,
+            "mimeType": "text/plain",
             "parents": [folder_id],
         }
         doc = service.files().create(
             body=meta, media_body=media, fields="id,webViewLink", supportsAllDrives=True
         ).execute()
-        log.info("Aangemaakt: %s", title)
+        log.info("Aangemaakt: %s", md_title)
 
     return doc.get("webViewLink", "")
 

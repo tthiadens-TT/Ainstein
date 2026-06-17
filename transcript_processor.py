@@ -121,23 +121,29 @@ def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
     summary_text = event.summary or ""
     transcript_text = _truncate_transcript(event.transcript or "")
 
+    # Transcript first — Ainstein reads independently before seeing Jamie's conclusions
+    transcript_block = f"\n---\nTranscript:\n{transcript_text}" if transcript_text else ""
+    jamie_block = (
+        f"**Jamie's samenvatting:**\n{summary_text}\n\n"
+        f"**Jamie's taken:**\n{tasks_text or 'Geen taken gelogd door Jamie.'}\n"
+    )
+
     header = (
         f"{lang_instruction}\n\n"
         f"**Meeting:** {event.title}\n"
-        f"**Datum:** {event.started_at} | **Deelnemers:** {participants_str}\n\n"
-        f"**Jamie's samenvatting:**\n{summary_text}\n\n"
-        f"**Jamie's taken:**\n{tasks_text or 'Geen taken gelogd door Jamie.'}\n\n"
+        f"**Datum:** {event.started_at} | **Deelnemers:** {participants_str}\n"
     )
 
     if meeting_type == "internal":
         return (
             header
-            + "Dit is een intern Minkowski-overleg.\n\n"
-            + "Volg de meeting_reviewer skill. Geen klantcontext nodig — focus op:\n"
-            + "1. Zijn de taken concreet en toegewezen?\n"
-            + "2. Wat kun jij direct van de actielijst oppakken?\n"
-            + "Sla een korte notitie op via save_note.\n"
-            + (f"\n---\nTranscript:\n{transcript_text}" if transcript_text else "")
+            + "\nDit is een intern Minkowski-overleg.\n"
+            + transcript_block
+            + "\n\n---\n"
+            + jamie_block
+            + "\nVolg de meeting_reviewer skill. Geen klantcontext nodig — "
+            + "lees het transcript zelf, extraheer je eigen takenlijst, vergelijk met Jamie, "
+            + "sla een notitie op via save_note."
         )
 
     client_name = infer_client_name(event)
@@ -150,14 +156,16 @@ def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
 
     return (
         header
-        + f"**Klant:** {client_name} | **Type:** {type_hint}\n\n"
-        + "Volg de meeting_reviewer skill:\n"
-        + "1. Review Jamie's taken — compleet, concreet, eigenaar duidelijk?\n"
-        + "2. Zoek in de bronnenlaag: eerdere voorstellen, vergelijkbare programma's, "
-        + "experts (01_Proposals, 02_Tools, 04_Experts).\n"
-        + "3. Sla gespreksnotities op via save_note (folder_hint = klantnaam indien bekend).\n"
-        + "4. Formuleer wat JIJ direct kunt oppakken.\n"
-        + (f"\n---\nTranscript (ter referentie):\n{transcript_text}" if transcript_text else "")
+        + f"**Klant:** {client_name} | **Type:** {type_hint}\n"
+        + transcript_block
+        + "\n\n---\n"
+        + jamie_block
+        + "\nVolg de meeting_reviewer skill:\n"
+        + "1. Lees het transcript zelf en extraheer je EIGEN takenlijst (onafhankelijk van Jamie).\n"
+        + "2. Vergelijk daarna met Jamie's taken — wat klopt, wat mist, wat verschilt?\n"
+        + "3. Zoek relevante context in de bronnenlaag (01_Proposals, 02_Tools, 04_Experts).\n"
+        + "4. Sla gespreksnotities op via save_note (folder_hint = klantnaam indien bekend).\n"
+        + "5. Formuleer wat JIJ direct kunt oppakken."
     )
 
 

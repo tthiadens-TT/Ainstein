@@ -48,7 +48,9 @@ log = logging.getLogger("scrape_slack")
 # ---------------------------------------------------------------------------
 
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
-SLACK_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
+# User token geeft toegang tot alle kanalen waar Thomas lid van is (geen /invite nodig)
+# Fallback naar bot token als user token niet aanwezig is
+SLACK_TOKEN = os.environ.get("SLACK_USER_TOKEN") or os.environ.get("SLACK_BOT_TOKEN", "")
 
 # Jörgen's Slack user ID — set via env or pass --jorgen-id flag
 JORGEN_SLACK_ID = os.environ.get("JORGEN_SLACK_ID", "")

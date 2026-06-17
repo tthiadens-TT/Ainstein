@@ -1232,17 +1232,33 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
     if not terms:
         return {"error": "Empty search query"}
 
-    folder_conditions = " or ".join(f"'{fid}' in ancestors" for fid in scan.values())
-
-    # Drive API fullText: search for files containing ALL terms
-    # `fullText contains 'term'` searches both name and content
     def escape(t: str) -> str:
         return t.replace("\\", "\\\\").replace("'", "\\'")
 
-    fulltext_parts = [f"fullText contains '{escape(t)}'" for t in terms[:4]]
-    fulltext_conditions = " and ".join(fulltext_parts)
+    # BFS: expand each scan folder to include all subfolders, so post-filter works recursively.
+    # 'in ancestors' is not supported for Shared Drive queries with multiple OR conditions.
+    all_folder_ids: set[str] = set(scan.values())
+    bfs_queue = list(scan.values())
+    while bfs_queue:
+        current = bfs_queue.pop(0)
+        try:
+            resp = service.files().list(
+                q=f"'{current}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                fields="files(id)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            ).execute()
+            for sub in resp.get("files", []):
+                if sub["id"] not in all_folder_ids:
+                    all_folder_ids.add(sub["id"])
+                    bfs_queue.append(sub["id"])
+        except Exception:
+            pass
 
-    drive_query = f"({fulltext_conditions}) and ({folder_conditions}) and trashed=false"
+    # fullText search scoped to the whole Shared Drive; post-filter by folder in Python
+    drive_root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+    fulltext_parts = [f"fullText contains '{escape(t)}'" for t in terms[:4]]
+    drive_query = f"({' and '.join(fulltext_parts)}) and trashed=false"
 
     results: list[dict] = []
     seen_ids: set[str] = set()
@@ -1252,9 +1268,11 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
         kwargs: dict = dict(
             q=drive_query,
             fields="nextPageToken, files(id, name, mimeType, parents)",
-            pageSize=25,
+            pageSize=50,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
+            corpora="drive",
+            driveId=drive_root_id,
         )
         if page_token:
             kwargs["pageToken"] = page_token
@@ -1267,8 +1285,10 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
         for f in resp.get("files", []):
             if f["id"] in seen_ids:
                 continue
-            seen_ids.add(f["id"])
             parent_id = (f.get("parents") or [None])[0]
+            if parent_id not in all_folder_ids:
+                continue
+            seen_ids.add(f["id"])
             folder_name = next((k for k, v in scan.items() if v == parent_id), "unknown")
             name_hits = sum(1 for t in terms if t.lower() in f["name"].lower())
             results.append({
@@ -1284,33 +1304,34 @@ def _drive_search_files(query: str, folders: list[str] | None = None) -> dict:
         if not page_token:
             break
 
-    # Also search by filename for each term (catches binary files Drive may not index)
+    # Name search per folder via 'in parents' (no 'in ancestors')
     for term in terms[:2]:
-        name_query = f"name contains '{escape(term)}' and ({folder_conditions}) and trashed=false"
-        try:
-            resp = service.files().list(
-                q=name_query,
-                fields="files(id, name, mimeType, parents)",
-                pageSize=20,
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-            ).execute()
-            for f in resp.get("files", []):
-                if f["id"] in seen_ids:
-                    continue
-                seen_ids.add(f["id"])
-                parent_id = (f.get("parents") or [None])[0]
-                folder_name = next((k for k, v in scan.items() if v == parent_id), "unknown")
-                results.append({
-                    "path": _make_drive_path(f["id"], f["name"]),
-                    "folder": folder_name,
-                    "score": 5,
-                    "name_matches": 1,
-                    "content_matches": 0,
-                    "snippets": [f"[Filename match for '{term}']"],
-                })
-        except Exception as e:
-            logger.error("Drive name search failed for '%s': %s", term, e)
+        for fid in list(scan.values()):
+            name_query = f"name contains '{escape(term)}' and '{fid}' in parents and trashed=false"
+            try:
+                resp = service.files().list(
+                    q=name_query,
+                    fields="files(id, name, mimeType, parents)",
+                    pageSize=20,
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                ).execute()
+                for f in resp.get("files", []):
+                    if f["id"] in seen_ids:
+                        continue
+                    seen_ids.add(f["id"])
+                    parent_id = (f.get("parents") or [None])[0]
+                    folder_name = next((k for k, v in scan.items() if v == parent_id), "unknown")
+                    results.append({
+                        "path": _make_drive_path(f["id"], f["name"]),
+                        "folder": folder_name,
+                        "score": 5,
+                        "name_matches": 1,
+                        "content_matches": 0,
+                        "snippets": [f"[Filename match for '{term}']"],
+                    })
+            except Exception as e:
+                logger.error("Drive name search failed for '%s': %s", term, e)
 
     results.sort(key=lambda r: r["score"], reverse=True)
 

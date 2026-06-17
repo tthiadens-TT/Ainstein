@@ -71,12 +71,13 @@ def process_transcript(
 # ---------------------------------------------------------------------------
 
 _INTERNAL_KEYWORDS = {"intern", "internal", "team", "retrospective", "retro", "standup", "sync", "planning"}
-_FOLLOWUP_KEYWORDS = {"follow", "follow-up", "followup", "opvolg", "voortgang", "update", "check-in"}
+_CHECKIN_KEYWORDS = {"check in", "check-in", "checkin", "check up", "voortgang", "update", "status", "progress"}
+_FOLLOWUP_KEYWORDS = {"follow-up", "followup", "follow up", "opvolg", "offerte", "proposal"}
 _MINKOWSKI_DOMAINS = {"minkowski.org", "minkowski.nl"}
 
 
 def _detect_meeting_type(event: TranscriptEvent) -> str:
-    """Return 'client_call', 'follow_up', or 'internal'."""
+    """Return 'discovery', 'check_in', 'follow_up', or 'internal'."""
     title_lower = event.title.lower()
 
     # Internal: all participants have Minkowski email domains
@@ -86,20 +87,19 @@ def _detect_meeting_type(event: TranscriptEvent) -> str:
     ]
     if not non_minkowski:
         return "internal"
-
     if any(kw in title_lower for kw in _INTERNAL_KEYWORDS):
         return "internal"
+
+    if any(kw in title_lower for kw in _CHECKIN_KEYWORDS):
+        return "check_in"
     if any(kw in title_lower for kw in _FOLLOWUP_KEYWORDS):
         return "follow_up"
-    return "client_call"
+    return "discovery"
 
 
 def _skill_for_type(meeting_type: str) -> str:
-    return {
-        "client_call": "client_discovery_debrief",
-        "follow_up": "client_discovery_debrief",
-        "internal": "create_content",
-    }.get(meeting_type, "client_discovery_debrief")
+    # All meeting types now use the reviewer skill — it adapts via the prompt
+    return "meeting_reviewer"
 
 
 # ---------------------------------------------------------------------------
@@ -109,47 +109,75 @@ def _skill_for_type(meeting_type: str) -> str:
 def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
     lang = event.language or "nl"
     lang_instruction = (
-        "Schrijf je analyse volledig in het Nederlands."
+        "Schrijf je output volledig in het Nederlands."
         if lang == "nl"
-        else "Write your analysis entirely in English."
+        else "Write your output entirely in English."
     )
 
-    transcript_text = _truncate_transcript(event.transcript or event.summary or "")
-
-    if meeting_type == "internal":
-        return (
-            f"{lang_instruction}\n\n"
-            f"Dit is een intern Minkowski-overleg: **{event.title}**\n"
-            f"Datum: {event.started_at}\n\n"
-            f"Maak een beknopt verslag met:\n"
-            f"- Wat is besproken\n"
-            f"- Besluiten die zijn genomen\n"
-            f"- Actiepunten per persoon\n\n"
-            f"---\n{transcript_text}"
-        )
-
-    client_name = infer_client_name(event)
     participants_str = ", ".join(
         p.get("name", p.get("email", "?")) for p in event.participants
     )
-    type_hint = "Dit is een follow-up gesprek." if meeting_type == "follow_up" else "Dit is een eerste kennismakings- of intakegesprek."
+    tasks_text = _format_tasks(event)
+    summary_text = event.summary or ""
+    transcript_text = _truncate_transcript(event.transcript or "")
+
+    header = (
+        f"{lang_instruction}\n\n"
+        f"**Meeting:** {event.title}\n"
+        f"**Datum:** {event.started_at} | **Deelnemers:** {participants_str}\n\n"
+        f"**Jamie's samenvatting:**\n{summary_text}\n\n"
+        f"**Jamie's taken:**\n{tasks_text or 'Geen taken gelogd door Jamie.'}\n\n"
+    )
+
+    if meeting_type == "internal":
+        return (
+            header
+            + "Dit is een intern Minkowski-overleg.\n\n"
+            + "Volg de meeting_reviewer skill. Geen klantcontext nodig — focus op:\n"
+            + "1. Zijn de taken concreet en toegewezen?\n"
+            + "2. Wat kun jij direct van de actielijst oppakken?\n"
+            + "Sla een korte notitie op via save_note.\n"
+            + (f"\n---\nTranscript:\n{transcript_text}" if transcript_text else "")
+        )
+
+    client_name = infer_client_name(event)
+    type_hints = {
+        "check_in": "check-in / voortgangsgesprek (mid-programma of mid-traject)",
+        "follow_up": "follow-up op offerte of voorstel",
+        "discovery": "eerste contact / intake / kennismaking",
+    }
+    type_hint = type_hints.get(meeting_type, "gesprek met externe partij")
 
     return (
-        f"{lang_instruction}\n\n"
-        f"Je rol: Ainstein — proactieve denkpartner, geen notulist (dat is Jamie's taak).\n"
-        f"Jouw waarde zit in wat je TOEVOEGT aan dit gesprek, niet in wat er gezegd is.\n\n"
-        f"**Meeting:** {event.title}\n"
-        f"**Klant:** {client_name}\n"
-        f"**Datum:** {event.started_at}\n"
-        f"**Deelnemers:** {participants_str}\n"
-        f"**Type:** {type_hint}\n\n"
-        f"Analyseer dit gesprek met de 11 secties van client_discovery_debrief. Maar doe actief meer:\n"
-        f"- DAAG UIT: welke aannames zijn gemaakt die het bevragen waard zijn?\n"
-        f"- VOEG TOE: wat weet je vanuit de Minkowski bronnenlaag dat relevant is maar niet ter sprake kwam?\n"
-        f"- DENK VERDER: welke richting of aanpak zou beter werken dan besproken?\n\n"
-        f"Voeg na sectie 11 de sectie 'Proactieve Voorstellen' toe zoals beschreven in de skill.\n\n"
-        f"---\n{transcript_text}"
+        header
+        + f"**Klant:** {client_name} | **Type:** {type_hint}\n\n"
+        + "Volg de meeting_reviewer skill:\n"
+        + "1. Review Jamie's taken — compleet, concreet, eigenaar duidelijk?\n"
+        + "2. Zoek in de bronnenlaag: eerdere voorstellen, vergelijkbare programma's, "
+        + "experts (01_Proposals, 02_Tools, 04_Experts).\n"
+        + "3. Sla gespreksnotities op via save_note (folder_hint = klantnaam indien bekend).\n"
+        + "4. Formuleer wat JIJ direct kunt oppakken.\n"
+        + (f"\n---\nTranscript (ter referentie):\n{transcript_text}" if transcript_text else "")
     )
+
+
+def _format_tasks(event: TranscriptEvent) -> str:
+    """Format Jamie's tasks from the raw payload into a readable list."""
+    tasks = (event.raw_payload or {}).get("data", {}).get("tasks") or []
+    if not tasks:
+        return ""
+    lines = []
+    for t in tasks:
+        if isinstance(t, dict):
+            content = t.get("content") or t.get("text") or str(t)
+            assignee = t.get("assignee") or t.get("owner") or ""
+            line = f"- {content}"
+            if assignee:
+                line += f" ({assignee})"
+            lines.append(line)
+        elif isinstance(t, str):
+            lines.append(f"- {t}")
+    return "\n".join(lines)
 
 
 def _truncate_transcript(text: str) -> str:
@@ -254,9 +282,10 @@ def _post_chunked(slack_client, channel: str, thread_ts: str, text: str, chunk_s
 
 
 def _extract_next_step(debrief_text: str) -> str:
-    """Extract section 11 (Recommended Next Step) from a debrief."""
+    """Extract the 'Ik kan direct oppakken' section from a meeting_reviewer output."""
     pattern = re.compile(
-        r"(?:#{1,3}\s*11[.\s]|(?:\*{1,2})11[.\s]).*?(?=(?:#{1,3}\s*(?:Proactieve|12|\d+)|$))",
+        r"(?:\*{1,2}Ik kan direct oppakken.*?\*{0,2}|I can immediately|"
+        r"#{1,3}\s*Ik kan direct|#{1,3}\s*11[.\s]).*?(?=(?:#{1,3}\s*[A-Z]|\Z))",
         re.IGNORECASE | re.DOTALL,
     )
     match = pattern.search(debrief_text)
@@ -266,9 +295,10 @@ def _extract_next_step(debrief_text: str) -> str:
 
 
 def _extract_proactive_proposals(debrief_text: str) -> str:
-    """Extract the Proactieve Voorstellen section from a debrief."""
+    """Extract the 'Uit de bronnenlaag' section from a meeting_reviewer output."""
     pattern = re.compile(
-        r"(?:#{1,3}\s*Proactieve Voorstellen|Proactieve Voorstellen\b).*?(?=(?:#{1,3}\s*[A-Z]|\Z))",
+        r"(?:\*{1,2}Uit de bronnenlaag.*?\*{0,2}|From the source layer|"
+        r"#{1,3}\s*Uit de bronnenlaag|Proactieve Voorstellen\b).*?(?=(?:#{1,3}\s*[A-Z]|\*{1,2}Ik kan|\Z))",
         re.IGNORECASE | re.DOTALL,
     )
     match = pattern.search(debrief_text)

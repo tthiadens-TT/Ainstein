@@ -199,13 +199,8 @@ def _post_slack_notification(
             )
             thread_ts = resp["ts"]
             logger.info("Kanaalpost geslaagd: channel=%s ts=%s", transcript_channel, thread_ts)
-            # Post full debrief as threaded reply to keep the channel clean
-            slack_client.chat_postMessage(
-                channel=transcript_channel,
-                thread_ts=thread_ts,
-                text=debrief_text[:3000],
-                mrkdwn=True,
-            )
+            # Post full debrief as threaded replies (chunk to stay within Slack's ~40k char limit)
+            _post_chunked(slack_client, transcript_channel, thread_ts, debrief_text)
         except Exception as exc:
             logger.error("Failed to post to transcript channel: %s", exc)
 
@@ -241,6 +236,21 @@ def _post_slack_notification(
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
         except Exception as exc:
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
+
+
+def _post_chunked(slack_client, channel: str, thread_ts: str, text: str, chunk_size: int = 3800) -> None:
+    """Post long text as multiple threaded replies to stay within Slack's per-message limit."""
+    for i in range(0, len(text), chunk_size):
+        try:
+            slack_client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=text[i : i + chunk_size],
+                mrkdwn=True,
+            )
+        except Exception as exc:
+            logger.error("Failed to post chunk %d to thread: %s", i // chunk_size, exc)
+            break
 
 
 def _extract_next_step(debrief_text: str) -> str:

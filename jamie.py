@@ -164,17 +164,21 @@ def lookup_participant_slack_ids(
         if not email:
             logger.debug("Deelnemer zonder e-mailadres overgeslagen: %r", name)
             continue
-        domain = email.split("@")[-1] if "@" in email else ""
-        if domain not in _MINKOWSKI_DOMAINS:
-            logger.debug("Niet-Minkowski deelnemer overgeslagen: %s", email)
-            continue
         try:
             resp = slack_client.users_lookupByEmail(email=email)
-            slack_id = resp["user"]["id"]
-            result[name] = slack_id
-            logger.info("Slack ID gevonden: %s → %s", email, slack_id)
+            if resp.get("ok"):
+                slack_id = resp["user"]["id"]
+                result[name] = slack_id
+                logger.info("Slack ID gevonden: %s (%s) → %s", name, email, slack_id)
+            else:
+                logger.debug("Externe deelnemer (niet in Slack workspace): %s (%s)", name, email)
         except Exception as exc:
-            logger.warning("Could not resolve Slack ID for %s: %s", email, exc)
+            # users_not_found = externe klant, stilletjes overslaan
+            err = str(exc)
+            if "users_not_found" in err or "not_found" in err:
+                logger.debug("Externe deelnemer (niet in Slack workspace): %s (%s)", name, email)
+            else:
+                logger.warning("Slack lookup mislukt voor %s (%s): %s", name, email, exc)
     return result
 
 

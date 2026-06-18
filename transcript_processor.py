@@ -34,6 +34,7 @@ def process_transcript(
     """Full processing pipeline. Catches all exceptions so the daemon never silently dies."""
     transcript_channel = os.environ.get("AINSTEIN_TRANSCRIPT_CHANNEL", "").strip()
     try:
+        _save_transcript_bakje(event)  # bewaar ruwe bron eerst (Aslander) — mag de pijplijn nooit breken
         meeting_type = _detect_meeting_type(event)
         skill = _skill_for_type(meeting_type)
         prompt = _build_agent_prompt(event, meeting_type)
@@ -64,6 +65,46 @@ def process_transcript(
     except Exception:
         logger.exception("transcript_processor: unhandled error for meeting_id=%s", event.meeting_id)
         _post_failure_to_slack(event, traceback.format_exc(), slack_client, transcript_channel)
+
+
+def _save_transcript_bakje(event: TranscriptEvent) -> None:
+    """Bewaar de ruwe transcript als platte-tekst .md-bakje in 06_Marketing/_bronmateriaal/jamie/.
+
+    Aslander: de ruwe bron — met klant-, expert- en collega-stemmen — is het goud dat we bewaren;
+    de AI-samenvatting is afgeleid en wegwerpbaar. Dit bakje voedt de kennis-laag
+    (run_kennisextractie) met een wekelijkse, onafhankelijke, meerstemmige bron.
+    Eigen try/except: een Drive-fout mag het verwerken van de meeting nooit breken.
+    """
+    raw = (event.transcript or "").strip()
+    if not raw:
+        logger.info("Geen transcript-tekst om als bakje te bewaren (meeting_id=%s)", event.meeting_id)
+        return
+    try:
+        from tools import save_text_bakje
+
+        meeting_type = _detect_meeting_type(event)
+        context = infer_client_name(event) if meeting_type != "internal" else "intern Minkowski-overleg"
+        participants_str = ", ".join(p.get("name", p.get("email", "?")) for p in event.participants)
+        date_str = (event.started_at or "")[:10] or "onbekend"
+        safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", event.title or "meeting").strip()[:60]
+        mid = re.sub(r"[^a-zA-Z0-9]", "", str(event.meeting_id or ""))[:8]
+        bakje_title = "_".join(part for part in [date_str, safe_title, mid] if part)
+
+        content = (
+            f"# {event.title}\n"
+            f"_Bron: Jamie transcript | meeting_id: {event.meeting_id}_\n"
+            f"_Datum: {event.started_at} | Type: {meeting_type} | Klant/context: {context}_\n"
+            f"_Deelnemers: {participants_str}_\n"
+            f"_Ruwe transcript — onafhankelijke bron, NIET de AI-samenvatting._\n\n"
+            f"{raw}\n"
+        )
+        result = save_text_bakje(["06_Marketing", "_bronmateriaal", "jamie"], bakje_title, content)
+        if result.get("error"):
+            logger.warning("Transcript-bakje niet opgeslagen (meeting_id=%s): %s", event.meeting_id, result["error"])
+        else:
+            logger.info("Transcript-bakje opgeslagen: %s (meeting_id=%s)", result.get("name"), event.meeting_id)
+    except Exception:
+        logger.exception("Transcript-bakje opslaan mislukt (meeting_id=%s)", event.meeting_id)
 
 
 # ---------------------------------------------------------------------------

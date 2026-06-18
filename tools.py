@@ -462,6 +462,64 @@ def _save_note_via_drive_api(title: str, content: str, folder_hint: str = "") ->
     return {"doc_id": doc["id"], "url": url, "title": doc_name, "folder": folder_path}
 
 
+def save_text_bakje(path_parts: list[str], title: str, content: str) -> dict:
+    """Schrijf platte tekst als .md-bakje naar een geneste map onder de Drive-root.
+
+    Aslander-principe: ruwe bronnen bewaren we als platte tekst (text/plain), niet als
+    AI-samenvatting of Google Doc. Maakt de mapketen aan als die ontbreekt en overschrijft
+    een bestaand bestand met dezelfde naam (idempotent per titel).
+
+    path_parts bijv. ["06_Marketing", "_bronmateriaal", "jamie"]. Geeft {id,url,name} of {error}.
+    """
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
+
+    drive = _get_drive_service()
+    if drive is None:
+        logger.warning("save_text_bakje: Drive niet beschikbaar — bakje %r niet opgeslagen", title)
+        return {"error": "Drive API not available"}
+
+    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
+
+    # Resolveer/creëer de mapketen onder de root
+    parent_id = root_id
+    for name in path_parts:
+        safe = name.replace("'", "")
+        res = drive.files().list(
+            q=(f"name='{safe}' and mimeType='application/vnd.google-apps.folder' "
+               f"and '{parent_id}' in parents and trashed=false"),
+            fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True,
+        ).execute()
+        files = res.get("files", [])
+        if files:
+            parent_id = files[0]["id"]
+        else:
+            meta = {"name": name, "mimeType": "application/vnd.google-apps.folder", "parents": [parent_id]}
+            folder = drive.files().create(body=meta, fields="id", supportsAllDrives=True).execute()
+            parent_id = folder["id"]
+            logger.info("save_text_bakje: map aangemaakt %s", name)
+
+    md_name = title if title.endswith(".md") else f"{title}.md"
+    media = MediaIoBaseUpload(io.BytesIO(content.encode("utf-8")), mimetype="text/plain", resumable=False)
+
+    res = drive.files().list(
+        q=f"name='{md_name.replace(chr(39), '')}' and '{parent_id}' in parents and trashed=false",
+        fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True,
+    ).execute()
+    existing = res.get("files", [])
+    if existing:
+        doc = drive.files().update(
+            fileId=existing[0]["id"], media_body=media, fields="id,webViewLink", supportsAllDrives=True,
+        ).execute()
+    else:
+        file_meta = {"name": md_name, "mimeType": "text/plain", "parents": [parent_id]}
+        doc = drive.files().create(
+            body=file_meta, media_body=media, fields="id,webViewLink", supportsAllDrives=True,
+        ).execute()
+    logger.info("save_text_bakje: %s opgeslagen in %s", md_name, "/".join(path_parts))
+    return {"id": doc["id"], "url": doc.get("webViewLink", ""), "name": md_name}
+
+
 def drive_append_feedback(entry: str, header: str = "") -> None:
     """Append a feedback entry to gaps.md on Drive.
 

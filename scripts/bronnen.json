@@ -1,0 +1,7 @@
+[
+  {"bron": "linkedin",  "oorsprong": "jorgen-published", "locatie": "06_Marketing/_bronmateriaal/linkedin/", "type": "drive-map"},
+  {"bron": "substack",  "oorsprong": "jorgen-published", "locatie": "06_Marketing/_bronmateriaal/substack/", "type": "drive-map"},
+  {"bron": "slack",     "oorsprong": "minkowski-intern", "locatie": "06_Marketing/_bronmateriaal/slack/",    "type": "drive-map"},
+  {"bron": "proposals", "oorsprong": "commercieel",      "locatie": "01_Proposals",                          "type": "drive-map"},
+  {"bron": "outcomes",  "oorsprong": "klant",            "locatie": "08_Outcomes",                           "type": "drive-map"}
+]

@@ -735,24 +735,29 @@ def cmd_feedback_review(body, ack, say):
 
 @app.command("/kennisbronnen")
 def cmd_kennisbronnen(body, ack, say):
-    """Extraheer kennis uit bronmateriaal (Slack, LinkedIn, Substack) via Aslander cross-source methode."""
+    """Ad-hoc cross-source kennis-analyse: verrijken + bevestigen over onafhankelijke oorsprongen."""
     ack()
     channel = body["channel_id"]
     _raw_ts = body.get("thread_ts") or body.get("ts")
     thread_ts = _raw_ts if isinstance(_raw_ts, str) and "." in _raw_ts else None
     say(
         text=(
-            "_Kennisextractie gestart. Ik lees alle bakjes in `_bronmateriaal/` onafhankelijk "
-            "en cross-check op bronfrequentie. Even geduld — dit kan een paar minuten duren._"
+            "_Kennis-analyse gestart (ad-hoc). Ik kruis de databronnen en kijk waar "
+            "verkondigd en verkocht uiteenlopen. Even geduld — dit kan een paar minuten duren._\n"
+            "_Let op: dit is een blik op scherm; de meegroeiende kennis-laag wordt alleen "
+            "bijgewerkt via `run_kennisextractie.py`._"
         ),
         channel=channel,
         mrkdwn=True,
     )
     prompt = (
-        "Voer een kennisextractie uit op de bronmateriaal-bakjes in `06_Marketing/_bronmateriaal/`. "
-        "Volg de extract_knowledge skill: lees Slack, LinkedIn en Substack onafhankelijk, "
-        "tel cross-source frequentie (1=data, 2=informatie, 3+=kennis), "
-        "en sla het draft op in 00_Werkdocumenten via save_note."
+        "Voer een kennis-analyse uit volgens de extract_knowledge skill in ad-hoc modus "
+        "(géén kennis-laag aanwezig, dus geen laag-mutatie en geen fenced blokken). "
+        "Lees de databronnen en weeg bevestiging per onafhankelijke oorsprong, niet per bron: "
+        "LinkedIn + Substack (`06_Marketing/_bronmateriaal/`) = oorsprong 'jorgen-published' (verkondigd); "
+        "Slack (`06_Marketing/_bronmateriaal/slack/`) = 'minkowski-intern'; "
+        "`01_Proposals` = 'commercieel' (verkocht); `08_Outcomes` = 'klant'. "
+        "Geef als kop de twee gaten: verkondigd-niet-verkocht en verkocht-niet-verkondigd."
     )
     t = threading.Thread(
         target=_run_and_reply,

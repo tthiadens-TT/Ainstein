@@ -216,6 +216,16 @@ def main() -> int:
 
     link = _upload_markdown(service, LAAG_NAAM, nieuwe_laag, kennis_folder_id)
     log.info("Kennis-laag bijgewerkt: %s", link)
+
+    # Print de samenvatting naar stdout zodat wie het script draait de gaten
+    # direct ziet — connector-onafhankelijk, geen Slack/Drive-toegang nodig.
+    print("\n" + "=" * 64)
+    print("SAMENVATTING — verkondigd vs verkocht")
+    print("=" * 64)
+    print(samenvatting)
+    print("=" * 64)
+    print(f"Volledige kennis-laag: {link}\n")
+
     _slack_notify(
         f":white_check_mark: *Kennis-laag bijgewerkt* ({today})\n{link}\n\n{samenvatting}"
     )

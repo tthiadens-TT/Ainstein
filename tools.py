@@ -606,6 +606,51 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
             logger.error("Drive: failed to update gaps.md: %s", e)
 
 
+def drive_read_gaps(max_chars: int = 5000) -> str | None:
+    """Read gaps.md from Drive. Returns the last max_chars of content, or None on error."""
+    from googleapiclient.http import MediaIoBaseDownload
+
+    service = _get_drive_service()
+    if not service:
+        return None
+    folder_ids = _get_drive_folder_ids()
+    feedback_folder_id = folder_ids.get("07_Feedback")
+    if not feedback_folder_id:
+        return None
+    try:
+        results = service.files().list(
+            q=f"name='gaps.md' and '{feedback_folder_id}' in parents and trashed=false",
+            fields="files(id)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+    except Exception as e:
+        logger.error("drive_read_gaps: list failed: %s", e)
+        return None
+    files = results.get("files", [])
+    if not files:
+        return None
+    file_id = files[0]["id"]
+    try:
+        request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        buf.seek(0)
+        content = buf.read().decode("utf-8", errors="replace")
+        if not content.strip():
+            return None
+        if len(content) > max_chars:
+            content = "...[vroegere entries weggelaten]\n\n" + content[-max_chars:]
+        return content
+    except Exception as e:
+        logger.error("drive_read_gaps: download failed: %s", e)
+        return None
+
+
 def _log_source_health() -> None:
     """Log source layer health at import time and snapshot Drive metadata."""
     if _is_drive_mode():

@@ -240,6 +240,25 @@ def run_agent(
             "cache_control": {"type": "ephemeral"},
         })
 
+    # Inject recent feedback so the agent avoids known failure patterns.
+    # Not cached with cache_control — content changes as new feedback arrives.
+    try:
+        from feedback import load_gaps_context
+        gaps_ctx = load_gaps_context()
+        if gaps_ctx.strip():
+            system.append({
+                "type": "text",
+                "text": (
+                    "## Feedback log (07_Feedback/gaps.md)\n\n"
+                    "Recente 👎-feedback van gebruikers op eerdere antwoorden. "
+                    "Verwerk dit als context: vermijd patroonfouten die hier benoemd zijn, "
+                    "en houd rekening met open items bij het formuleren van je antwoord.\n\n"
+                    + gaps_ctx
+                ),
+            })
+    except Exception as _gaps_err:
+        logger.warning("gaps.md inject failed (non-fatal): %s", _gaps_err)
+
     def _finish(text: str) -> tuple[str, dict]:
         trace["iterations"] = iteration
         trace["total_duration_s"] = round(time.time() - _t_start, 2)

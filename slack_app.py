@@ -62,6 +62,7 @@ from feedback import (
     pop_pending,
     has_pending,
     capture_feedback,
+    increment_and_check,
     FEEDBACK_TYPES,
     TECHNICAL_CATEGORIES,
     QUALITATIVE_CATEGORIES,
@@ -887,17 +888,54 @@ def handle_dm(event, say, client):
                 category=cat,
                 source="slack",
             )
-            say(
-                text=(
-                    f"_Genoteerd ✅ als `{ftype} / {cat}` in `07_Feedback/gaps.md`. "
-                    "Auto-classified door Ainstein — corrigeer het label direct in "
-                    "`gaps.md` als het niet klopt. Volgende vergelijkbare vraag "
-                    "komt dit in context, en `/feedback-review` haalt patronen eruit._"
-                ),
-                thread_ts=thread_ts,
-                channel=channel,
-                mrkdwn=True,
-            )
+
+            if ftype == "technical" and cat == "hallucinatie":
+                # Feitelijke fout: direct verifiëren, niet alleen noteren.
+                say(
+                    text=(
+                        f"_Genoteerd ✅ als `{ftype} / {cat}`. "
+                        "Dit klinkt als een feitelijke fout — ik ga dit direct verifiëren._"
+                    ),
+                    thread_ts=thread_ts,
+                    channel=channel,
+                    mrkdwn=True,
+                )
+                verify_prompt = (
+                    f"Een gebruiker gaf 👎 op een antwoord van Ainstein en meldde:\n\n"
+                    f"> {caption}\n\n"
+                    f"Het originele antwoord (fragment):\n\n"
+                    f"> {state['bot_excerpt'][:600]}\n\n"
+                    f"Verifieer de bewering van de gebruiker via de bronnenlaag. "
+                    f"Als de fout bevestigd wordt: erken het expliciet, leg uit wat er misging, "
+                    f"en geef het correcte antwoord. "
+                    f"Als je het niet kunt bevestigen of weerleggen: zeg dat expliciet."
+                )
+                t = threading.Thread(
+                    target=_run_and_reply,
+                    args=(channel, thread_ts, verify_prompt, say),
+                    daemon=True,
+                )
+                t.start()
+            else:
+                say(
+                    text=(
+                        f"_Genoteerd ✅ als `{ftype} / {cat}` in `07_Feedback/gaps.md`. "
+                        "Auto-classified door Ainstein — corrigeer het label direct in "
+                        "`gaps.md` als het niet klopt. Volgende vergelijkbare vraag "
+                        "komt dit in context, en `/feedback-review` haalt patronen eruit._"
+                    ),
+                    thread_ts=thread_ts,
+                    channel=channel,
+                    mrkdwn=True,
+                )
+
+            # Auto-trigger: stel review voor na elke 10 feedback-entries.
+            if increment_and_check(threshold=10):
+                _notify_status(
+                    "_:bulb: 10 nieuwe feedback-entries geregistreerd in `07_Feedback/gaps.md`. "
+                    "Overweeg `/feedback-review` te draaien om patronen te identificeren en "
+                    "de bronnenlaag gericht te verbeteren._"
+                )
             return
 
     # In channels (public/private), normal chat is NOT auto-dispatched to the

@@ -18,6 +18,7 @@ In-memory pending state resets on bot restart; acceptable loss (user just reacts
 
 from __future__ import annotations
 
+import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -55,6 +56,15 @@ _lock = Lock()
 # Keyed by (channel, user_id) — one pending slot per user per channel.
 # A new 👎 from the same user overwrites the previous pending slot.
 _pending: dict[tuple[str, str], dict] = {}
+
+# Gaps cache — TTL-backed to avoid a Drive API call on every agent run.
+_gaps_cache_lock = Lock()
+_gaps_cache: dict = {"content": None, "loaded_at": 0.0}
+_GAPS_TTL = 300  # seconds
+
+# In-memory counter for auto-review trigger. Resets on restart and after each trigger.
+_open_count_lock = Lock()
+_open_count: int = 0
 
 
 def register_pending(
@@ -151,7 +161,8 @@ def capture_feedback(
         f"{skill_line}"
         f"- **Source:** {source}\n"
         f"- **Type:** {ftype}\n"
-        f"- **Category:** {cat}\n\n"
+        f"- **Category:** {cat}\n"
+        f"- **Status:** open\n\n"
         f"**Original answer (excerpt):**\n\n"
         f"{_format_blockquote(bot_excerpt)}\n\n"
         f"**What could be better:**\n\n"
@@ -173,6 +184,59 @@ def capture_feedback(
                 if fresh:
                     f.write(_HEADER)
                 f.write(entry)
+
+    # Invalidate cache so the next agent run picks up the new entry immediately.
+    invalidate_gaps_cache()
+
+
+def load_gaps_context(max_chars: int = 5000) -> str:
+    """Return gaps.md content for injection into the agent system prompt.
+
+    Cached for _GAPS_TTL seconds to avoid a Drive API call on every agent run.
+    Returns empty string when unavailable or empty.
+    """
+    global _gaps_cache
+    now = _time.time()
+    with _gaps_cache_lock:
+        if _gaps_cache["content"] is not None and now - _gaps_cache["loaded_at"] < _GAPS_TTL:
+            return _gaps_cache["content"]
+
+        content = ""
+        try:
+            from tools import _is_drive_mode, drive_read_gaps
+            if _is_drive_mode():
+                raw = drive_read_gaps(max_chars=max_chars)
+                content = raw or ""
+            else:
+                if GAPS_FILE.exists():
+                    raw = GAPS_FILE.read_text(encoding="utf-8")
+                    if len(raw) > max_chars:
+                        raw = "...[vroegere entries weggelaten]\n\n" + raw[-max_chars:]
+                    content = raw
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger("feedback").warning("load_gaps_context failed: %s", e)
+
+        _gaps_cache["content"] = content
+        _gaps_cache["loaded_at"] = now
+        return content
+
+
+def invalidate_gaps_cache() -> None:
+    """Force the next load_gaps_context call to re-read from Drive/disk."""
+    with _gaps_cache_lock:
+        _gaps_cache["loaded_at"] = 0.0
+
+
+def increment_and_check(threshold: int = 10) -> bool:
+    """Increment the open-entry counter. Returns True (and resets) when threshold is reached."""
+    global _open_count
+    with _open_count_lock:
+        _open_count += 1
+        if _open_count >= threshold:
+            _open_count = 0
+            return True
+    return False
 
 
 # Backwards-compatible alias — kept so existing callers keep working until

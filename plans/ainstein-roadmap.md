@@ -1,7 +1,7 @@
 # Ainstein Ontwikkelroadmap
 
-Laatste update: 2026-05-31
-Status: Plan A afgerond, Plan B klaar voor implementatie.
+Laatste update: 2026-06-16
+Status: Plan A afgerond ✅, Plan B afgerond ✅.
 
 ---
 

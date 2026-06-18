@@ -215,6 +215,8 @@ def _post_slack_notification(
     actions = _extract_next_step(debrief_text)
     has_actions = bool(actions)
 
+    thread_ts = None
+
     # 1. Channel post — always
     if not transcript_channel:
         logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — kanaalpost overgeslagen")
@@ -243,6 +245,9 @@ def _post_slack_notification(
     proposals = _extract_proactive_proposals(debrief_text)
 
     # 2. DM per Minkowski-deelnemer in this meeting
+    sent_dms: list[tuple[str, str]] = []   # (name, slack_id)
+    failed_dms: list[str] = []
+
     if not participant_slack_ids:
         logger.warning("Geen Minkowski-deelnemers gevonden — geen DM verstuurd voor '%s'", event.title)
     for name, slack_id in participant_slack_ids.items():
@@ -270,8 +275,42 @@ def _post_slack_notification(
                 mrkdwn=True,
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
+            sent_dms.append((name, slack_id))
         except Exception as exc:
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
+            failed_dms.append(name)
+
+    # 3. Thread reply with verified DM status
+    if transcript_channel and thread_ts:
+        _post_dm_status(slack_client, transcript_channel, thread_ts, sent_dms, failed_dms)
+
+
+def _post_dm_status(
+    slack_client,
+    channel: str,
+    thread_ts: str,
+    sent_dms: list[tuple[str, str]],
+    failed_dms: list[str],
+) -> None:
+    """Post a thread reply confirming which DMs were actually delivered."""
+    if not sent_dms and not failed_dms:
+        text = ":bust_in_silhouette: *DM-status:* geen Minkowski-deelnemers herkend in deze meeting — geen DM verstuurd."
+    else:
+        lines = [":bust_in_silhouette: *DM-status:*"]
+        for name, slack_id in sent_dms:
+            lines.append(f"  ✅ DM verstuurd aan <@{slack_id}> ({name})")
+        for name in failed_dms:
+            lines.append(f"  ❌ DM mislukt voor {name}")
+        text = "\n".join(lines)
+    try:
+        slack_client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=text,
+            mrkdwn=True,
+        )
+    except Exception as exc:
+        logger.error("Failed to post DM status to thread: %s", exc)
 
 
 def _post_chunked(slack_client, channel: str, thread_ts: str, text: str, chunk_size: int = 3800) -> None:

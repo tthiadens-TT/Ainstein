@@ -208,6 +208,7 @@ def run_agent(
     skill: str | None = None,
     verbose: bool = False,
     max_iterations: int = 15,
+    max_tokens: int = 8192,
 ) -> tuple[str, dict]:
     """Run one turn of the agent loop. Returns (final text, trace dict)."""
 
@@ -280,7 +281,7 @@ def run_agent(
             _apply_cache_breakpoint(messages)
             final = client.messages.create(
                 model=MODEL,
-                max_tokens=8192,
+                max_tokens=max_tokens,
                 system=system,
                 messages=messages,
             )
@@ -306,7 +307,7 @@ def run_agent(
             try:
                 response = client.messages.create(
                     model=MODEL,
-                    max_tokens=8192,
+                    max_tokens=max_tokens,
                     system=system,
                     tools=TOOL_SCHEMAS,
                     messages=messages,

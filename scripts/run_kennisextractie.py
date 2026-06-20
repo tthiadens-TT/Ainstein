@@ -187,6 +187,7 @@ def main() -> int:
         client,
         skill="extract_knowledge",
         max_iterations=25,
+        max_tokens=16000,
     )
 
     nieuwe_laag = _extract_block(response, LAAG_START, LAAG_END)

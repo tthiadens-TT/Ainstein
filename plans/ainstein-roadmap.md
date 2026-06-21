@@ -1,172 +1,244 @@
 # Ainstein Ontwikkelroadmap
 
-Laatste update: 2026-06-21
+Laatste update: 2026-06-21 (volledige audit — alle sessies, memory-files, worktrees)
 Status: Kennis-laag bewijs-fase actief. Evidence-bar nog niet gehaald.
 
 ---
 
 ## Kritische terugblik op dit plan
 
-Voordat je dit als leidraad gebruikt: vier aannames die het waard zijn om te bevragen.
+Vier aannames die het waard zijn te bevragen:
 
-1. **"Evidence-bar" is een vage gate.** Het criterium "Thomas/Jörgen promoveert ≥1 item naar bronnenlaag" is afhankelijk van menselijk handelen dat geen deadline heeft. Zonder expliciete datum blijft dit eeuwig open. Beslissing nodig: *wanneer* is de bar gehaald, en wie bewaakt dat?
+1. **"Evidence-bar" heeft geen deadline.** Criterium "Thomas/Jörgen promoveert ≥1 item" is afhankelijk van menselijk handelen zonder datum. Beslissing nodig: *wanneer* precies?
 
-2. **De kennis-laag is gebouwd maar niet teruggekoppeld.** `kennis_laag.md` bestaat in Drive, maar Ainstein leest hem niet mee bij antwoorden. Dat maakt hem nu een dood document. De cyclus is pas gesloten als de laag invloed heeft op output.
+2. **Kennis-laag is gebouwd maar niet teruggekoppeld.** `kennis_laag.md` bestaat in Drive, maar Ainstein leest hem niet mee bij antwoorden. Dood document totdat K1 geïmplementeerd is.
 
-3. **De roadmap is lang maar zonder prioriteit.** Items B t/m I + U2–U9 staan allemaal als "volgende stap" zonder onderscheid. Als alles prioriteit heeft, heeft niets prioriteit. Hieronder staat een expliciete volgorde.
+3. **Drive-connector is geblokkeerd.** Google Workspace AI-policy-label blokkeert `mcp__4e943b1e` voor de Shared Drive. Dit is geen tijdelijk probleem — vereist admin-actie van Thomas/Jörgen.
 
-4. **Smart meeting routing (J) is nooit besloten.** Er is een vraag gesteld ("eerst afstemmen met Jörgen of direct implementeren?"), maar nooit beantwoord. Elke nieuwe Jamie-meeting runt nu dezelfde debrief — ook check-ins.
+4. **NN Group kennisbank: volledig plan, nooit geïmplementeerd.** Sessie 19 juni heeft een compleet uitgewerkt plan opgeleverd (`plans/laten-we-met-1-precious-pearl.md`). Nooit uitgebouwd. Formele go/no-go ontbreekt.
 
 ---
 
 ## Wat live is (productie, 21 juni 2026)
 
-| Component | Status | Commit/PR |
-|---|---|---|
-| Ainstein Slack bot (SocketMode) | ✅ Live | — |
-| Jamie webhook pipeline | ✅ Live | PR #27 |
-| Ainstein karakter-update (uitdager/denkpartner) | ✅ Live | PR #28 |
-| Feedback loop (gaps.md inject + hallucinatie-verificatie) | ✅ Live | commit `4205d75` |
-| Map-reduce kennis-extractie | ✅ Live | commit `c9bbf42` |
-| Tijd-dimensie + resumability in kennis-extractie | ✅ Live | commit `1a3820a` |
-| SSL certifi-fix in `_slack_notify` | ✅ Live | commit `b4118c9` |
-| Scrapers: LinkedIn, Medium, Substack, minkowski.org, futuresready.com | ✅ Live | commit `b716a23` + `cdbd99b` |
-| Jamie-transcripten als plain-text bakje | ✅ Live | commit `d6a3553` |
-| Tavily web search (vervangt DDGS) | ✅ Live | commit `7154a08` |
-| Rate limiting (10 calls/uur per user) | ✅ Live | — |
-| Backup: GCP snapshots + Drive backup via Actions | ✅ Live | — |
-| CI/CD: auto-deploy op main, syntax check | ✅ Live | — |
+| Component | Commit/PR |
+|---|---|
+| Ainstein Slack bot (SocketMode) | — |
+| Jamie webhook pipeline | PR #27 |
+| Ainstein karakter-update (uitdager/denkpartner) | PR #28 |
+| Smart meeting routing (discovery / check-in / follow-up / internal) | commit `18 jun sessie` |
+| Feedback loop (gaps.md inject + hallucinatie-verificatie + auto-review) | commit `4205d75` |
+| Map-reduce kennis-extractie per bron | commit `c9bbf42` |
+| Tijd-dimensie + resumability in kennis-extractie | commit `1a3820a` |
+| SSL certifi-fix in `_slack_notify` | commit `b4118c9` |
+| Scrapers: LinkedIn, Medium (403-geblokkeerd), Substack, minkowski.org, futuresready.com | commit `b716a23` |
+| Jamie-transcripten als plain-text bakje | commit `d6a3553` |
+| Tavily web search (vervangt DDGS, DDGS blijft fallback) | commit `7154a08` |
+| Slack-scraper (exports als .md in Drive) | commit `15bec6c` |
+| Rate limiting (10 calls/uur per user) | — |
+| Backup: GCP snapshots (dagelijks) + Drive backup (wekelijks, GitHub Actions) | — |
+| CI/CD: auto-deploy op main, syntax check | — |
 
 ---
 
-## Open items — geordend naar urgentie
+## URGENT — direct oppakken
 
-### Fase 0 — Direct oppakken (mensenwerk, geen code nodig)
+### AINSTEIN-BACKUP-DEST: env var ontbreekt op VM
+**Probleem:** `AINSTEIN_BACKUP_DEST_ID` is niet gezet in `.env` op VM. Drive-backup-script stopt met een fout — **backup kan stil falen** zonder dat Thomas het merkt.
+**Actie Thomas:** SSH naar VM → `nano .env` → `AINSTEIN_BACKUP_DEST_ID=<Drive-folder-ID>` toevoegen → `systemctl restart ainstein`
+**Blokkade:** Geen — alleen handeling Thomas.
 
-| # | Item | Wie | Actie | Effort |
-|---|---|---|---|---|
-| H1 | **08_Outcomes vullen** | Thomas | NN Group voorstel/outcome toevoegen als win/loss-record in Drive `08_Outcomes` | 1 uur |
-| H2 | **Evidence-bar — beslissing** | Thomas+Jörgen | Promoveer ≥1 item van kennis_laag.md naar vaste bronnenlaag, óf benoem een gap dat tot actie leidt. Daarna: automatisering ontgrendeld. | <1 uur |
-| H3 | **Notion pagina's delen** | Thomas | In Notion-UI: deel pagina's met de Notion-integratie. Nu staat de connector klaar maar heeft 0 inhoud. | <1 uur |
-| H4 | **AInstein_OUD opruimen** | Thomas | `tthiadens@gmail.com` → Google Drive → oude map verwijderen | <1 uur |
-| H5 | **Calendar token beslissing** | Thomas | `normal` (tthiadens@gmail.com) token verlopen. Fix: `npx @cocal/google-calendar-mcp auth`. Of: is deze agenda nog nodig? | <1 uur |
+### DRIVE-CONNECTOR-BLOKKADE: AI-policy blokkeert Shared Drive
+**Probleem:** `mcp__4e943b1e` connector is geblokkeerd door een Google Workspace AI-policy-label op de Shared Drive. Claude Code-sessies kunnen kennis_laag.md en Drive-bestanden niet rechtstreeks lezen. Geen workaround aan Claude's kant.
+**Actie Thomas/Jörgen:** Google Workspace Admin Console → Shared Drive → verwijder of pas het AI-policy-label aan. Of: beslis dat de connector niet wordt gebruikt en documenteer het alternatief (service account via Python).
+**Impact:** Blokkeert K1 (terugkoppeling kennis-laag) indirect.
 
 ---
 
-### Fase 1 — Laag aansluiten (na H1+H2, ~1-2 weken)
+## Fase 0 — Mensenwerk, geen code nodig
 
-#### K1. Terugkoppeling kennis-laag
-**Probleem:** `kennis_laag.md` in Drive bestaat maar Ainstein leest hem niet. De extractie-cyclus produceert output zonder invloed.
-**Oplossing:** Één van twee paden — (a) Ainstein injecteert `kennis_laag.md` automatisch bij voorstellen/matching (lichte aanpassing in `agent.py`), of (b) Thomas promoveert handmatig naar de reguliere bronnenlaag. Pad A is schaalbaar. Pad B is veiliger voor kwaliteitscontrole. Beslissing open.
+| # | Item | Wie | Actie |
+|---|---|---|---|
+| H1 | **08_Outcomes vullen** | Thomas | NN Group voorstel/outcome toevoegen als win/loss-record in Drive `08_Outcomes` |
+| H2 | **Evidence-bar — beslissing met datum** | Thomas+Jörgen | Promoveer ≥1 item van `kennis_laag.md` naar vaste bronnenlaag, óf benoem een gap dat tot actie leidt. Stel een concrete deadline. |
+| H3 | **Notion pagina's delen** | Thomas | Notion-UI → Settings → Connections → deel pagina's met de Claude MCP-integratie |
+| H4 | **AInstein_OUD opruimen** | Thomas | `tthiadens@gmail.com` → Google Drive → oude map verwijderen |
+| H5 | **Calendar token beslissing** | Thomas | `normal` (tthiadens@gmail.com) token verlopen. Fix: `npx @cocal/google-calendar-mcp auth`. Of: is deze agenda nog nodig? |
+| H6 | **Jörgen-DM validatie** | Jörgen | Eerste echte Minkowski-meeting waarbij Jörgen aanwezig is via Jamie → DM + proactieve voorstellen valideren in productie |
+| H7 | **Drive docs kwaliteit beoordelen** | Thomas+Jörgen | Hei-dag Waardestromen + SNI Non-Life debrief — zijn de automatisch aangemaakte docs commercieel bruikbaar? |
+
+---
+
+## Fase 1 — Kennis aansluiten (na H1+H2, ~1-2 weken)
+
+### K1. Terugkoppeling kennis-laag
+**Probleem:** `kennis_laag.md` bestaat in Drive maar Ainstein leest hem niet mee bij antwoorden. De extractie-cyclus produceert output zonder invloed op gedrag.
+**Twee paden:**
+- (A) Ainstein injecteert `kennis_laag.md` automatisch bij voorstellen/matching — aanpassing in `agent.py`. Schaalbaar.
+- (B) Thomas promoveert handmatig naar de reguliere bronnenlaag. Veiliger voor kwaliteitscontrole.
+**Beslissing open:** welk pad?
+**Blokkade:** Drive-connector AI-policy (zie URGENT). Als die niet opgelost is, werkt pad A niet via MCP.
 **Effort:** 2-3 uur (pad A), <1 uur (pad B).
 
-#### K2. Kennis-laag contextprobleem — structurele fix
-**Probleem:** Bij grote dataset (alle bronnen samen) loopt input op tot 267k+ chars → API-timeout bij iteratie 4-5. Tijdelijke workaround (timeout-fix + resumability) is live maar lost het niet structureel op.
-**Echte fix:** Extractie per oorsprong draaien in losse runs (al gedeeltelijk aanwezig via map-reduce). Verfijnen zodat geen enkele run > 50k chars input verwerkt.
+### K2. Kennis-laag contextprobleem — structurele fix
+**Probleem:** Bij alle bronnen samen loopt input op tot 267k+ chars → API-timeout bij iteratie 4-5. Map-reduce structuur is gebouwd (commit `c9bbf42`) maar lost het niet volledig op.
+**Fix:** Zorg dat geen enkele run > 50k chars input verwerkt. Extractie per oorsprong in losse runs, ook in de reduce-stap.
 **Effort:** 3-4 uur.
 
-#### J. Smart meeting routing
-**Probleem:** Jamie-webhook past nu `client_discovery_debrief` toe op élke meeting. Check-ins, interne vergaderingen en statusupdates krijgen een volledige klantdebrief — dat is fout.
-**Beslissing nodig:** Direct implementeren, of eerst afstemmen met Jörgen over exacte scope?
-**Technisch:** Kleine uitbreiding in `transcript_processor.py` — detect check-in vs client op basis van title/deelnemers, stuur dan naar lichtere skill of skip.
-**Effort:** 2-3 uur.
+### K-MEDIUM. Medium-scraper werkend maken
+**Probleem:** `scrape_medium.py` bestaat maar Medium geeft HTTP 403 bij urllib én bij `?format=json`. LinkedIn en Minkowski-sites zijn gedaan; Medium ontbreekt in de kennis-laag.
+**Oplossing:** Side-panel-methode (Thomas plakt content door vanuit ingelogde browser), of alternatieve API.
+**Wie:** Thomas (side-panel) of Claude Code (andere aanpak).
+**Effort:** 1-2 uur.
 
----
+### K-BRON-OVERZICHT. Afvinkcriterium per kennisbron
+**Probleem:** `bronnen.json` heeft 10 bronnen, maar er is geen overzicht van welke volledig gescraped zijn en welke niet. Maakt volledigheid onbeoordeelbaar.
+**Actie:** Voeg `status`-veld toe aan `bronnen.json` per bron: `done` / `partial` / `blocked` + reden.
+**Effort:** <1 uur.
 
-### Fase 2 — Kennis verbreden (na K1, ~2-4 weken)
-
-#### K3. Gmail als onafhankelijke klantstem
-**Wat:** Klant-mails analyseren op vraagstukken, pijnpunten, transformatie-signalen — de echte klantperspectief die ontbreekt in de huidige laag.
-**Waarom:** Nu is de laag sterk Minkowski-centrisch (Jörgen, Thomas, minkowski.org). Gmail-MCP is al verbonden.
-**Beslissing open:** `tthiadens@gmail.com` of `thomas@minkowski.org`? Welke mails zijn relevant?
-**Effort:** 3-4 uur.
-
-#### K4. GitHub Actions scheduling voor kennis-extractie
-**Conditie:** Pas na evidence-bar (H2) gehaald.
-**Wat:** Wekelijkse cron-job draait `run_kennisextractie.py` automatisch — niet meer handmatig op VM.
+### K4. GitHub Actions scheduling kennis-extractie
+**Conditie:** Na evidence-bar (H2).
+**Wat:** Wekelijkse cron-job draait `run_kennisextractie.py` automatisch.
 **Effort:** 2 uur.
 
-#### K5. Spotify-podcast Minkowski Spacetime
-**Wat:** 6+ afleveringen met klantgasten = rijkste onafhankelijke klantstem die beschikbaar is. Audio → transcript nodig.
-**Blokkade:** Tooling voor audio-transcriptie ontbreekt. Whisper op VM, of externe service?
-**Effort:** 3-4 uur (excl. transcriptie-tooling keuze).
+### J. Smart meeting routing — verificatie
+**Status:** Basisrouting gebouwd in sessie 18 juni (detection: discovery/check_in/follow_up/internal). Nog **niet geverifieerd** in productie met echte meetings. Staat als afgerond maar is niet beproefd.
+**Actie:** Eerste echte Jörgen-meeting afwachten → loggen welk type gedetecteerd werd → verfijnen indien nodig.
 
 ---
 
-### Fase 3 — Commerciële intelligentie (na Fase 2, ~1-2 maanden)
+## Fase 2 — Kennis verbreden (na K1, ~2-4 weken)
 
-#### B. Website-analyse via Slack
-**Wat:** Trigger `/dvv-website [URL]` → Ainstein analyseert op DVV + AUB + SEO → Slack-rapport.
-**Stand:** DVV + AUB frameworks al gebouwd (`dvv_check` skill). Website-scan al gedaan voor minkowski.org (mei 2026). Nu productief maken via Slack.
+### K3. Gmail als onafhankelijke klantstem
+**Wat:** Client-mails analyseren op vraagstukken en transformatie-signalen.
+**Beslissing open:** `tthiadens@gmail.com` of `thomas@minkowski.org`?
+**Effort:** 3-4 uur.
+
+### K5. Spotify-podcast Minkowski Spacetime
+**Wat:** 6+ afleveringen met klantgasten als kennisbron. Audio → transcript tooling nodig.
+**Blokkade:** Spotify API levert geen transcripten. Whisper op VM of externe service?
+**Effort:** 3-4 uur (excl. tooling-keuze).
+
+---
+
+## Fase 3 — Commerciële intelligentie (~1-2 maanden)
+
+### B. Website-analyse via Slack
+**Wat:** `/dvv-website [URL]` → DVV + AUB + SEO analyse → Slack-rapport.
 **Blokkade:** Playwright installeren op VM voor JS-rendered content.
-**Effort:** 4-6 uur (Versie A zonder Playwright: 4u; met Playwright: 6u).
+**Effort:** 4-6 uur.
 
-#### D. Leerarchitectuur — Stap 1: Versterkte feedbackloop
-**Wat:** Ainstein analyseert wekelijks `gaps.md`, detecteert 3+ vergelijkbare patronen, stuurt Thomas een Slack-voorstel: "voeg X toe / pas skill Y aan" — ter goedkeuring, niet autonoom.
-**Waarom:** Nu is Thomas de bottleneck voor bronnenlaag-updates. Dit maakt patronen zichtbaar zonder extra werk.
+### B-SEO. SEO als derde framework
+**Conditie:** Na B live. Technisch, on-page, autoriteitslaag toevoegen.
+**Effort:** 2-3 uur extra.
+
+### E. AUB-audit bronnenlaag
+**Wat:** Maandelijkse scan Drive op verouderde/unieke/onbetrouwbare bronnen → "5 zwakste plekken" naar Thomas.
+**Effort:** 3-4 uur.
+
+### D. Versterkte feedbackloop (Stap 1 leerarchitectuur)
+**Wat:** Ainstein analyseert wekelijks `gaps.md`, detecteert 3+ vergelijkbare patronen, stuurt Thomas een Slack-voorstel ter goedkeuring.
 **Effort:** 2-3 uur.
 
-#### G. Pipeline tracker
+### G. Pipeline tracker
 **Wat:** Google Sheet of Doc als acquisitie-pipeline. `/pipeline` → status actieve leads.
-**Beslissing open:** Sheet (makkelijker te bekijken) of Doc (simpeler te schrijven via API)?
+**Beslissing open:** Sheet (leesbaarder) of Doc (makkelijker schrijven via API)?
 **Effort:** 2-3 uur.
+
+### TAVILY-MONITORING. Tavily API-limiet monitoring
+**Probleem:** Gratis plan = 1.000 calls/maand. Geen monitoring. Als limiet bereikt valt Ainstein stil terug op DDGS zonder waarschuwing.
+**Fix:** Teller in `.env` of simpele log-analyse die Thomas wekelijks ziet.
+**Effort:** 1 uur.
+
+### CREATE-CONTENT-PROACTIEF. Beslissing: proactieve voorstellen bij interne meetings?
+**Gesignaleerd 17 juni:** create_content-meetings genereren geen proactieve voorstellen. "Bewuste keuze of vergeten?" — nooit beantwoord.
+**Actie Thomas:** Ja of nee. Bij ja: 1-2 uur implementatie.
 
 ---
 
-### Fase 4 — Strategische uitbreiding (Q3 2026)
+## Fase 4 — Strategische uitbreiding (Q3 2026)
 
-#### C. Interactieve voorstel-refinement loop
-**Wat:** Google Doc comments per sectie → `/refine-comments` → Ainstein herschrijft → `/export-deck` → PPTX.
+### NN-KENNISBANK. Externe kennisbank per klant (start: NN Group)
+**Situatie:** Sessie 19 juni heeft een volledig uitgewerkt plan opgeleverd in `plans/laten-we-met-1-precious-pearl.md`. Scripts, skill, Drive-structuur — alles beschreven. Nooit geïmplementeerd.
+**Actie:** Formele go/no-go van Thomas. Bij go: Claude Code bouwt `scrape_client_research.py`, `run_client_kennisextractie.py`, skill `client_profile.md`, `clients/nn_group.json`.
+**Effort:** 5-6 uur bij go.
+
+### C. Interactieve voorstel-refinement loop
+**Wat:** Google Doc comments → `/refine-comments` → Ainstein herschrijft → `/export-deck` → PPTX.
 **Plan:** Volledig uitgewerkt in `ainstein-is-de-assistent-merry-swing.md`.
-**Effort:** ~7 uur (Fase 1: 4u, Fase 2: 3u).
+**Effort:** ~7 uur.
 
-#### D. Leerarchitectuur — Stap 2: Episodisch geheugen
-**Wat:** Na afgeronde sessie: gestructureerde les naar `08_Episodes` in Drive (klanttype, vraagstuk, format, budget, wat resoneerde).
+### D Stap 2. Episodisch geheugen
 **Conditie:** Stap 1 (versterkte feedbackloop) werkt.
 **Effort:** 3-4 uur.
 
-#### H. Geautomatiseerde lead-radar
-**Wat:** Cron-job maandag 08:00 — web searches op Minkowski-relevante signalen → shortlist 3-5 prospects naar Jörgen.
-**Conditie:** GTM-laag bewezen in praktijk.
+### H. Geautomatiseerde lead-radar
+**Wat:** Cron-job maandag 08:00 — web searches → shortlist 3-5 prospects naar Jörgen.
 **Effort:** 3-4 uur.
 
-#### I. Competitive intelligence skill
-**Wat:** Nieuwe skill `competitive_brief` — 3-5 gerichte web searches op wie er bij prospect al werkt, formuleert Minkowski-onderscheid.
+### I. Competitive intelligence skill
+**Wat:** `competitive_brief` — gerichte web searches op wie bij prospect al werkt, Minkowski-onderscheid per concurrent.
 **Effort:** 2-3 uur.
+
+### GTM-THOMAS. Thomas persoonlijke GTM-propositie
+**Situatie:** Besproken 19 juni, gepland voor "volgende sessie". Ainsteins uitdaagvraag ("wat is het specifieke probleem dat jij voor hen oplost?") nooit beantwoord. Nooit opgepakt.
+**Actie:** Thomas initieert sessie zodra relevant.
+
+### JORGEN-MAGIC. Jörgens vraag: 'wat is Minkowski's magic?'
+**Situatie:** Ainstein stelde voor dit als nulmeting te doen. Sessie eindigde daarna. Nooit uitgevoerd.
+**Actie:** Ainstein kan dit draaien zodra Thomas groen licht geeft.
 
 ---
 
-### Fase 5 — Architectuursprong (Q4 2026 of later)
+## Fase 5 — Architectuursprong (Q4 2026)
 
 | Item | Wat | Effort |
 |---|---|---|
-| **A1. RAG / vector search** | FAISS of PGVector — semantisch zoeken i.p.v. keyword grep. Fundament voor alle schaalbare retrieval. | 10-15 uur |
-| **D Stap 3. Semantische zoeklaag** | Bouwt op A1. | 4-5 uur |
-| **S4. Klant-Agent (U5)** | Tweede agent die elk voorstel aanvalt met bezwaren vóór oplevering. | 6-8 uur |
-| **S8. Live pricing engine (U9)** | Rekentool i.p.v. tekstuele prijslijsten. | 6-8 uur |
-| **I3. Cloud Logging** | GCP Cloud Logging i.p.v. lokale VM-logs. | 3-4 uur |
-| **I4. conversations.db versleuteling** | SQLCipher of encrypted disk volume. | 4-6 uur |
+| **A1. RAG / vector search** | FAISS of PGVector — semantisch zoeken. Fundament voor U7+ | 10-15 uur |
+| **U2. Conversie-feedbackloop** | Systematisch hergebruik logica uit gewonnen proposals (vereist H1) | 3-4 uur |
+| **U3. CRM-context per klant** | Klantdossier per organisatie — keuze: Drive-structuur of echte CRM | 2-3 uur |
+| **U4. Pipeline management** | Prioritering actieve kansen op status, deadline, experts | 4-6 uur |
+| **U5. Klant-Agent** | Tweede agent die elk voorstel aanvalt met bezwaren vóór oplevering | 6-8 uur |
+| **U6. Stakeholder mapping** | Saboteur, champion, beslisser per kans | 3-4 uur |
+| **U8. Expert availability** | Agenda's vaste experts koppelen aan matching | 4-6 uur |
+| **S8. Live pricing engine** | Rekentool i.p.v. tekstuele prijslijsten | 6-8 uur |
+| **I3. Cloud Logging** | GCP Cloud Logging i.p.v. lokale VM-logs | 3-4 uur |
+| **I4. conversations.db versleuteling** | SQLCipher of encrypted disk | 4-6 uur |
+
+---
+
+## Hygiëne — klein maar niet vergeten
+
+| # | Item | Wie | Urgentie |
+|---|---|---|---|
+| HY1 | **PPTX Sen ExtraBold testen** | Claude Code | `rid = 'rIdSenEB'` hardcoded — visueel testen op machine zonder Sen-installatie vóór klantverstrekking | Laag |
+| HY2 | **reviews/ directory** | Thomas | In git (versiebeheer) of `.gitignore`? Al gevlagd 15 juni, nooit besloten | Laag |
+| HY3 | **Weekly routines aanmaken** | Thomas | Wekelijkse skills audit, expert index check, feedback digest voorgesteld. Go of no-go? | Laag |
+| HY4 | **Drive MCP token structureel oplossen** | Thomas+Claude | Token verloopt frequent (~1 week). Service account auth vs. OAuth refresh? | Middel |
 
 ---
 
 ## Openstaande beslissingen (vereisen Thomas/Jörgen input)
 
-| # | Beslissing | Context | Urgentie |
+| # | Beslissing | Impact | Urgentie |
 |---|---|---|---|
-| D1 | **Terugkoppeling kennis-laag** — Ainstein injecteert automatisch, of Thomas promoveert handmatig? | K1 hangt hiervan af | Hoog |
-| D2 | **Smart meeting routing** — Direct implementeren, of eerst scope afstemmen met Jörgen? | Elke meeting runt nu volledige debrief | Hoog |
-| D3 | **Gmail-account** — `tthiadens@gmail.com` of `thomas@minkowski.org` als klantstem? | K3 hangt hiervan af | Middel |
-| D4 | **Pipeline tracker** — Google Sheet of Google Doc? | G hangt hiervan af | Laag |
-| D5 | **Calendar normal-token** — Nog nodig, of verwijderen? | H5 | Laag |
-| D6 | **Webhook-domein** — Zodra Thomas toegang tot minkowski.nl: A-record instellen + certbot | Upgrade van DuckDNS | Laag |
+| D1 | **Terugkoppeling kennis-laag** — Ainstein injecteert automatisch of Thomas promoveert handmatig? | K1 | Hoog |
+| D2 | **Drive-connector AI-policy** — admin-actie of alternatief documenteren? | K1, kennis-integratie | Hoog |
+| D3 | **Evidence-bar datum** — wanneer precies is de bar gehaald? | K4, automatisering | Hoog |
+| D4 | **NN Group kennisbank** — go of no-go op het 19-juni plan? | NN-KENNISBANK | Middel |
+| D5 | **create_content-meetings** — proactieve voorstellen ja of nee? | CREATE-CONTENT | Middel |
+| D6 | **Gmail-account voor klantstem** — `tthiadens@gmail.com` of `thomas@minkowski.org`? | K3 | Middel |
+| D7 | **Pipeline tracker formaat** — Google Sheet of Google Doc? | G | Laag |
+| D8 | **Calendar normal-token** — nog nodig, of verwijderen? | H5 | Laag |
+| D9 | **Slack MCP org-goedkeuring** — externe blokkade, wacht op Jörgen/org-beheerder | SLACK-MCP | Extern |
+| D10 | **Webhook-domein upgrade** — zodra Thomas toegang tot minkowski.nl: A-record + certbot | DNS | Extern |
 
 ---
 
 ## Hoe dit bestand gebruiken
 
 Dit bestand staat in de repo onder `plans/ainstein-roadmap.md`.
-Gebruik het als context aan het begin van elke nieuwe Claude Code sessie:
 
 > "Lees `plans/ainstein-roadmap.md` en ga verder waar we gebleven waren."
 
-De roadmap beschrijft intenties en beslissingen — geen implementatiedetails. Implementatiedetails horen thuis in de commit messages en CLAUDE.md.
+Implementatiedetails horen in commit messages en CLAUDE.md, niet hier.

@@ -77,14 +77,20 @@ def _slack_notify(message: str) -> None:
         log.info("Geen SLACK_BOT_TOKEN — sla notificatie over.")
         return
     try:
+        import ssl
         import urllib.request
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+        except ImportError:
+            ctx = ssl.create_default_context()
         body = json.dumps({"channel": SLACK_CHANNEL, "text": message[:39000]}).encode()
         req = urllib.request.Request(
             "https://slack.com/api/chat.postMessage",
             data=body,
             headers={"Authorization": f"Bearer {SLACK_TOKEN}", "Content-Type": "application/json"},
         )
-        urllib.request.urlopen(req, timeout=10)
+        urllib.request.urlopen(req, timeout=10, context=ctx)
     except Exception as e:
         log.warning("Slack-notificatie mislukt: %s", e)
 

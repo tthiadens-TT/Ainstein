@@ -6,7 +6,7 @@
 
 1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
 2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
-3. **Lees de Current State sectie** — weet wat live is, wat pending is, en wat de volgende prioriteit is.
+3. **Lees de Current State sectie + `plans/ainstein-roadmap.md`** — weet wat live is, wat het actieve probleem is, en wat de volgende prioriteit is.
 4. **Lees de Verified Configurations sectie** — weet wat al bevestigd en werkend is. Markeer dit NOOIT als risico of onbekend.
 5. **Check GitHub vóór je Thomas iets laat doen** — gebruik de GitHub MCP tools om te verifiëren of iets al gedaan is. Zeg nooit "merge de PR" of "herstart de VM" zonder eerst te checken of het al gebeurd is.
 6. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
@@ -18,22 +18,23 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 16 juni 2026*
+*Bijgewerkt: 21 juni 2026*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
 - **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, analyseert ze via `client_discovery_debrief` of `create_content`, post naar `#ainstein-status` + DM naar Minkowski-deelnemers
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
-- **PR #27 gemerged en automatisch gedeployed** — alle Jamie-integratie code staat op main en is live op de VM
+- **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen
+- **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
 
-### Wat pending is (wacht op merge)
-- **PR #28** — Ainstein karakter-update (uitdager/denkpartner). Merge → auto-deploy naar VM.
+### Wat pending is
+- **Geen open PRs.** Alles staat op main.
 
-### Wat next is (roadmap)
-- Eerste echte Minkowski-meeting via Jörgen testen — DM + Proactieve Voorstellen valideren
-- Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot het Minkowski domein
-- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
+### Wat next is
+→ Zie `plans/ainstein-roadmap.md` voor de volledige backlog.
+**Actief probleem:** Kennis-laag extractie — REDUCE timeout + max_tokens gefixed (`1a3820a`), maar 267k+ chars MAP-fase nog niet volledig gevalideerd. Volgende stap: één volledige run uitvoeren en beoordelen.
 
 ---
 

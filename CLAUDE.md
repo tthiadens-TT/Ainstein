@@ -18,22 +18,27 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 16 juni 2026*
+*Bijgewerkt: 21 juni 2026*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
 - **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, analyseert ze via `client_discovery_debrief` of `create_content`, post naar `#ainstein-status` + DM naar Minkowski-deelnemers
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
-- **PR #27 gemerged en automatisch gedeployed** — alle Jamie-integratie code staat op main en is live op de VM
+- **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen
+- **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
 
-### Wat pending is (wacht op merge)
-- **PR #28** — Ainstein karakter-update (uitdager/denkpartner). Merge → auto-deploy naar VM.
+### Wat pending is
+- **Geen open PRs.** Alles staat op main.
 
 ### Wat next is (roadmap)
-- Eerste echte Minkowski-meeting via Jörgen testen — DM + Proactieve Voorstellen valideren
+- **Kennis-laag contextprobleem fixen** — `run_kennisextractie.py` faalt bij grote datasets (267k+ chars input bij iteratie 4–5). Fix: extractie per oorsprong draaien (map-reduce), dan synthese. [Actief probleem]
+- **Kennis-laag automatiseren** — na evidence-bar (≥1 promotie door Thomas/Jörgen of say-vs-sell-gat leidt tot actie): GitHub Actions scheduling
+- **Terugkoppeling kennis** — mens promoveert naar vaste bronnenlaag óf Ainstein leest `_kennis/kennis_laag.md` mee bij voorstellen/matching
+- **08_Outcomes vullen** — NN Group-voorstel toevoegen
+- **Eerste echte Minkowski-meeting via Jörgen testen** — DM + Proactieve Voorstellen valideren
 - Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot het Minkowski domein
-- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
 
 ---
 

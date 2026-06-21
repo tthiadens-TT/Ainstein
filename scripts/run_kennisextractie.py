@@ -172,6 +172,9 @@ def main() -> int:
                         help="Beperk tot deze bron(nen) — herhaalbaar (voor testen)")
     parser.add_argument("--map-only", action="store_true",
                         help="Alleen de distilleer-stap draaien en printen; geen reduce/schrijven")
+    parser.add_argument("--reduce-from", metavar="PAD",
+                        help="Sla MAP over; laad distillaties uit dit JSON-bestand en draai alleen REDUCE "
+                             "(goedkoop herhalen zonder alle bronnen opnieuw te lezen)")
     args = parser.parse_args()
 
     log.info("=== Kennisextractie gestart (map-reduce) ===")
@@ -207,33 +210,46 @@ def main() -> int:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
     # --- MAP: distilleer elke bron los (kleine, begrensde context per bron) ---
-    distillaties: list[str] = []
-    for i, bron in enumerate(bronnen, 1):
-        log.info("[map %d/%d] distilleren: %s (oorsprong=%s)", i, len(bronnen), bron["bron"], bron["oorsprong"])
-        try:
-            resp, _ = run_agent(
-                [{"role": "user", "content": _build_distil_prompt(bron, today)}],
-                client,
-                skill="extract_knowledge_distilleer",
-                max_iterations=12,
-                max_tokens=8000,
-            )
-        except Exception as e:
-            log.warning("[map %d/%d] bron %s mislukt: %s — overslaan", i, len(bronnen), bron["bron"], e)
-            continue
-        blok = _extract_block(resp, DIS_START, DIS_END)
-        if not blok:
-            log.warning("[map %d/%d] bron %s: geen distillatie-blok — overslaan", i, len(bronnen), bron["bron"])
-            continue
-        # Bewaar mét markers, zodat de reduce-stap de grenzen ziet
-        distillaties.append(f"{DIS_START}\n{blok}\n{DIS_END}")
-        log.info("[map %d/%d] ✓ %s (%d tekens distillatie)", i, len(bronnen), bron["bron"], len(blok))
+    if args.reduce_from:
+        distillaties = json.loads(Path(args.reduce_from).read_text(encoding="utf-8"))
+        log.info("REDUCE-from: %d distillaties geladen uit %s — MAP overgeslagen",
+                 len(distillaties), args.reduce_from)
+    else:
+        distillaties = []
+        for i, bron in enumerate(bronnen, 1):
+            log.info("[map %d/%d] distilleren: %s (oorsprong=%s)", i, len(bronnen), bron["bron"], bron["oorsprong"])
+            try:
+                resp, _ = run_agent(
+                    [{"role": "user", "content": _build_distil_prompt(bron, today)}],
+                    client,
+                    skill="extract_knowledge_distilleer",
+                    max_iterations=12,
+                    max_tokens=8000,
+                )
+            except Exception as e:
+                log.warning("[map %d/%d] bron %s mislukt: %s — overslaan", i, len(bronnen), bron["bron"], e)
+                continue
+            blok = _extract_block(resp, DIS_START, DIS_END)
+            if not blok:
+                log.warning("[map %d/%d] bron %s: geen distillatie-blok — overslaan", i, len(bronnen), bron["bron"])
+                continue
+            # Bewaar mét markers, zodat de reduce-stap de grenzen ziet
+            distillaties.append(f"{DIS_START}\n{blok}\n{DIS_END}")
+            log.info("[map %d/%d] ✓ %s (%d tekens distillatie)", i, len(bronnen), bron["bron"], len(blok))
 
-    if not distillaties:
-        log.error("Geen enkele distillatie geslaagd — afgebroken.")
-        return 1
-    log.info("MAP klaar: %d/%d bronnen gedistilleerd, %d tekens totaal",
-             len(distillaties), len(bronnen), sum(len(d) for d in distillaties))
+        if not distillaties:
+            log.error("Geen enkele distillatie geslaagd — afgebroken.")
+            return 1
+        # Bewaar distillaties zodat REDUCE goedkoop te herhalen is (zonder MAP).
+        import tempfile
+        dist_path = os.path.join(tempfile.gettempdir(), f"kennis_distillaties_{today}.json")
+        try:
+            Path(dist_path).write_text(json.dumps(distillaties, ensure_ascii=False), encoding="utf-8")
+            log.info("Distillaties bewaard: %s (gebruik --reduce-from om REDUCE te herhalen)", dist_path)
+        except Exception as e:
+            log.warning("Kon distillaties niet bewaren: %s", e)
+        log.info("MAP klaar: %d/%d bronnen gedistilleerd, %d tekens totaal",
+                 len(distillaties), len(bronnen), sum(len(d) for d in distillaties))
 
     if args.map_only:
         print("\n" + "=" * 64 + "\nDISTILLATIES (map-only)\n" + "=" * 64)
@@ -247,7 +263,8 @@ def main() -> int:
         client,
         skill="extract_knowledge_merge",
         max_iterations=8,
-        max_tokens=16000,
+        max_tokens=32000,       # laag + samenvatting in één generatie; voorkomt afgekapte samenvatting
+        request_timeout=900.0,  # merge schrijft de hele laag opnieuw → trage generatie
     )
 
     nieuwe_laag = _extract_block(response, LAAG_START, LAAG_END)

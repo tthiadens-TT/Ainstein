@@ -209,6 +209,7 @@ def run_agent(
     verbose: bool = False,
     max_iterations: int = 15,
     max_tokens: int = 8192,
+    request_timeout: float = 180.0,
 ) -> tuple[str, dict]:
     """Run one turn of the agent loop. Returns (final text, trace dict)."""
 
@@ -284,6 +285,7 @@ def run_agent(
                 max_tokens=max_tokens,
                 system=system,
                 messages=messages,
+                timeout=request_timeout,
             )
             text = "\n".join(b.text for b in final.content if b.type == "text").strip()
             messages.append({"role": "assistant", "content": final.content})
@@ -311,7 +313,7 @@ def run_agent(
                     system=system,
                     tools=TOOL_SCHEMAS,
                     messages=messages,
-                    timeout=180.0,
+                    timeout=request_timeout,
                 )
                 break  # success
             except anthropic.RateLimitError:

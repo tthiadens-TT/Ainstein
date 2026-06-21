@@ -17,6 +17,8 @@ Gebruik `list_folder` op de top-map uit `locatie` en filter op het pad, dan `rea
 **Stap 2 — Verzamel per onderwerp de facetten.**
 Welke concrete dingen zegt deze bron over dit onderwerp? Houd het compact: korte zinnen, geen lange citaten.
 
+**Tijd vastleggen.** Noteer per facet de **periode/het jaar** als de bron een datum heeft (publicatiedatum van een artikel/post, datum in een transcript). Schrijf het als `(jaar)` of `(jaar-jaar)` achter het facet. Heeft de bron geen datum, laat het weg. Noteer onderaan het blok de **periode die deze bron beslaat** (oudste → nieuwste datum die je zag). Dit voedt de tijd-analyse in de reduce-stap.
+
 **Onderwerptypes:** `thema | positionering | methode | taalpatroon | klant-/sectorpatroon | bewijspunt`.
 **Geen feiten** — prijzen, dagtarieven, expertnamen, aantallen horen hier niet (die worden actueel gehouden, niet getrianguleerd).
 
@@ -24,12 +26,12 @@ Welke concrete dingen zegt deze bron over dit onderwerp? Houd het compact: korte
 
 ```
 <<<DISTILLATIE_START>>>
-bron: {bron} | oorsprong: {oorsprong} | gelezen: {n} bestand(en)
+bron: {bron} | oorsprong: {oorsprong} | gelezen: {n} bestand(en) | periode: {oudste}–{nieuwste of "onbekend"}
 - {entiteit} — {type}
-  - {concreet facet}
+  - {concreet facet} ({jaar indien bekend})
   - {concreet facet}
 - {entiteit} — {type}
-  - {concreet facet}
+  - {concreet facet} ({jaar-jaar})
 <<<DISTILLATIE_END>>>
 ```
 

@@ -30,12 +30,22 @@ Match op **genormaliseerde naam** (lowercase, leestekens weg, enkelvoud). Verzam
 
 Méér distillaties binnen één oorsprong verhoogt de zekerheid **niet** — voegt wél facetten toe.
 
-**Stap 4 — De twee gaten (de kop).**
+**Stap 4 — Tijd: trend, verandering, verval.**
+Kennis is niet statisch — ze ontwikkelt, verrijkt of veroudert. Gebruik de datums uit de distillaties (`periode` per bron, `(jaar)` per facet).
+- **Dateer facetten.** Neem het `(jaar)` mee in het facet als de bron het gaf.
+- **Verandering bewaren, niet overschrijven.** Spreekt een nieuwer-gedateerd facet een ouder facet tegen of vervangt het (bv. positionering schuift van "future-proof" naar "futures-ready")? Bewaar het oude mét periode én voeg het nieuwe toe. Zet de entiteit-status op `gewijzigd-over-tijd` en benoem het in de samenvatting. Overschrijf nooit stilzwijgend.
+- **Trend per entiteit** — bepaal kwalitatief uit de datums:
+  - `opkomend` — vooral in recente bronnen, nieuw of groeiend.
+  - `stabiel` — over meerdere periodes consistent aanwezig.
+  - `vervagend` — alleen in oudere bronnen; recente bronnen noemen het niet meer.
+- **Herverificatie.** Is een entiteit `INFORMATIE`/`KENNIS` maar `vervagend` (laatst gezien ≥ ~1 jaar voor vandaag)? Voeg `te herverifiëren` toe aan de status — de bevestiging kan verouderd zijn; waarheid kan in de tijd verschuiven.
+
+**Stap 5 — De twee gaten (de kop).**
 - **Verkondigd, niet verkocht** — alleen `jorgen`/`minkowski`/`minkowski-intern`, niet in `commercieel`/`klant`. Mooie positionering die niet in voorstellen landt.
 - **Verkocht, niet verkondigd** — alleen `commercieel`/`klant`, niet in de gepubliceerde stem. Onbenutte sterkte.
 
-**Stap 5 — Merge naar de laag.**
-Werk bestaande blokken bij i.p.v. dubbel toevoegen. Reproduceer elk bestaand blok verbatim tenzij je het wijzigt. Bump `Laatst gezien`. Raak `## Promotiebesluiten` **nooit** aan. Voer bevroren entiteiten niet opnieuw als kandidaat op.
+**Stap 6 — Merge naar de laag.**
+Werk bestaande blokken bij i.p.v. dubbel toevoegen. Reproduceer elk bestaand blok verbatim tenzij je het wijzigt. Bump `Laatst gezien` en herbereken `Trend`. Bewaar bestaande `Historie`-regels. Raak `## Promotiebesluiten` **nooit** aan. Voer bevroren entiteiten niet opnieuw als kandidaat op.
 
 ## Outputformaat — exact twee fenced blokken, niets eromheen dat ertussen hoort
 
@@ -48,10 +58,12 @@ _Laatste run: {datum} | verrijken + bevestigen (onafhankelijke oorsprongen) | NI
 
 ### {naam} — {type}
 - Zekerheid: {ONBEVESTIGD|INFORMATIE|KENNIS} ({n} oorsprongen: {lijst})
+- Trend: {opkomend | stabiel | vervagend}
 - Facetten:
-  - {facet} — {oorsprong}
+  - {facet} ({jaar indien bekend}) — {oorsprong}
+- Historie: {alleen indien iets veranderde — bv. "positionering: 'future-proof' (2020) → 'futures-ready' (2021+)"; anders weglaten}
 - Eerst/laatst gezien: {datum} / {datum}
-- Status: {promotie-kandidaat | onbenutte sterkte | verkondigd niet verkocht | gepromoveerd | afgewezen}
+- Status: {promotie-kandidaat | onbenutte sterkte | verkondigd niet verkocht | gepromoveerd | afgewezen}{, gewijzigd-over-tijd}{, te herverifiëren}
 
 ## Promotiebesluiten (sticky — niet opnieuw voorstellen)
 {ongewijzigd overnemen}
@@ -61,6 +73,7 @@ _Laatste run: {datum} | verrijken + bevestigen (onafhankelijke oorsprongen) | NI
 **Verkondigd, niet verkocht:** [bullets of "niets opvallends"]
 **Verkocht, niet verkondigd:** [bullets of "niets opvallends"]
 **Nieuwe bevestigde kennis (3+ oorsprongen):** [bullets]
+**Veranderd/vervaagd over tijd:** [bullets — gewijzigde of vervagende entiteiten + wat te herverifiëren is; of "niets opvallends"]
 **Kanttekening:** [bv. dun klant-signaal als 08_Outcomes leeg is]
 <<<SAMENVATTING_END>>>
 ```

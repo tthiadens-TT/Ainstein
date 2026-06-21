@@ -26,7 +26,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
 - **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
-- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen; map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief (trends per entiteit: opkomend/stabiel/vervagend, te-herverifiëren vlag bij verouderde bevestigingen)
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen; map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief (trends per entiteit: opkomend/stabiel/vervagend, te-herverifiëren vlag bij verouderde bevestigingen); bronconfig: `scripts/bronnen.json`
 - **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
 - **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`) converteert een Google Doc voorstel naar Minkowski-branded PowerPoint; uploadt naar `00_Werkdocumenten`; triggerable via Slack `/pptx`
 - **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen; handmatig aanroepen (niet auto-getriggerd via Jamie)
@@ -179,7 +179,7 @@ Additional skills available: `qualify_lead`, `prepare_discovery`, `map_objection
 - `extract_knowledge_merge` — REDUCE-stap: ontvangt alle distillaties + huidige laag, kruist over onafhankelijke oorsprongen, werkt `kennis_laag.md` bij. Voert **geen** tool-calls uit.
 
 **Output-tools (niet via Slack-skills):**
-- `export_proposal_deck` (tool in `tools.py`) — converteert Google Doc voorstel naar Minkowski-branded `.pptx` via `pptx_builder.py`. Uploadt naar `00_Werkdocumenten`. Branding: kleuren + fonts uit MK-new-brandbook.pptx (Charlotte, 2026). Triggerable via Slack `/pptx`.
+- `export_proposal_deck` (tool in `tools.py`) — converteert Google Doc voorstel naar Minkowski-branded `.pptx` via `pptx_builder.py`. Uploadt naar `00_Werkdocumenten`. Branding: kleuren + fonts uit MK-new-brandbook.pptx (Charlotte, 2026). Triggerable via Slack `/pptx`. Font-embedding vereist `assets/fonts/Sen-ExtraBold.ttf` in de repo — stil overgeslagen als afwezig.
 - `create_report_doc.py` — CLI-script (niet in bot geïntegreerd). Maakt geformatteerd Google Doc van markdown-invoer. Gebruik op VM: `python3 create_report_doc.py --title "Maandrapport Juni 2026" < rapport.md`. Default folder: `00_Werkdocumenten`.
 
 ## Your Source Layer
@@ -202,6 +202,8 @@ The local repo (`/Users/thomasthiadens/Ainstein`) holds only **code** — never 
 | `04_Experts` | Expert profiles, role definitions, expertise comparisons, matching logic |
 | `05_Venues` | Venue suggestions, format fit, experience design trade-offs |
 | `06_Marketing` | Proposition language, positioning, external messaging |
+| `06_Marketing/_bronmateriaal/` | Output van scrapers (LinkedIn, Medium, Substack, website, Slack) — plain-text `.md` per bron. Invoer voor kennis-laag pipeline. **Niet handmatig bewerken.** |
+| `06_Marketing/_kennis/` | Output van `run_kennisextractie.py` — `kennis_laag.md` (getrianguleerde kennis). **Niet handmatig bewerken — promotie is mensenwerk via Promotiebesluiten.** |
 | `07_Feedback` | Logged gaps from past bot answers — user critiques after 👎 reactions. Consult `gaps.md` directly via `read_file` before answering (not via search — term-matching is unreliable). |
 | `08_Outcomes` | Win/loss-records per voorstel. **Verplicht te raadplegen bij elk voorstel bouwen.** Gebruik logica en taal van WON voorstellen. Flag expliciet als je logica van een LOST voorstel hergebruikt — leg uit waarom het hier toch geldt. Als de map leeg is of geen relevant record bevat: zeg dat expliciet. |
 

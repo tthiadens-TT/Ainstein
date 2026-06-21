@@ -65,6 +65,7 @@ SLACK_CHANNEL = (
 
 LAAG_START, LAAG_END = "<<<LAAG_START>>>", "<<<LAAG_END>>>"
 SAM_START, SAM_END = "<<<SAMENVATTING_START>>>", "<<<SAMENVATTING_END>>>"
+DIS_START, DIS_END = "<<<DISTILLATIE_START>>>", "<<<DISTILLATIE_END>>>"
 
 
 # ---------------------------------------------------------------------------
@@ -131,12 +132,27 @@ def _extract_block(text: str, start: str, end: str) -> str:
 # Prompt
 # ---------------------------------------------------------------------------
 
-def _build_prompt(bronnen: list, current_laag: str, today: str) -> str:
+def _build_distil_prompt(bron: dict, today: str) -> str:
+    """MAP-stap: distilleer één bron tot een compact facetten-blok."""
     return (
-        "Voer een kennisextractie uit volgens de extract_knowledge skill (laag-modus).\n\n"
+        "Distilleer deze ene databron volgens de extract_knowledge_distilleer skill.\n\n"
         f"Vandaag is {today}.\n\n"
-        "Bron-lijst (lees deze bronnen; weeg bevestiging per oorsprong, niet per bron):\n"
-        f"{json.dumps(bronnen, ensure_ascii=False, indent=2)}\n\n"
+        "Bron:\n"
+        f"{json.dumps(bron, ensure_ascii=False, indent=2)}\n\n"
+        f"Lever exact één fenced blok ({DIS_START}…{DIS_END}) zoals het "
+        "Outputformaat voorschrijft. Niets eromheen."
+    )
+
+
+def _build_merge_prompt(distillaties: list[str], current_laag: str, today: str) -> str:
+    """REDUCE-stap: kruis alle distillaties + merge in de laag. Geen bronnen lezen."""
+    blokken = "\n\n".join(distillaties)
+    return (
+        "Kruis de onderstaande distillaties en werk de kennis-laag bij volgens de "
+        "extract_knowledge_merge skill. Lees GEEN bronnen — alles zit in de distillaties.\n\n"
+        f"Vandaag is {today}.\n\n"
+        "Distillaties per bron:\n"
+        f"{blokken}\n\n"
         "Huidige kennis-laag:\n"
         f"<HUIDIGE_LAAG>\n{current_laag}\n</HUIDIGE_LAAG>\n\n"
         "Lever exact de twee fenced blokken "
@@ -150,11 +166,15 @@ def _build_prompt(bronnen: list, current_laag: str, today: str) -> str:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Bron-agnostische kennis-laag — verrijken + bevestigen")
+    parser = argparse.ArgumentParser(description="Bron-agnostische kennis-laag — map-reduce (distilleer per bron, kruis daarna)")
     parser.add_argument("--dry-run", action="store_true", help="Niet schrijven/posten — print de output")
+    parser.add_argument("--bron", action="append", metavar="NAAM",
+                        help="Beperk tot deze bron(nen) — herhaalbaar (voor testen)")
+    parser.add_argument("--map-only", action="store_true",
+                        help="Alleen de distilleer-stap draaien en printen; geen reduce/schrijven")
     args = parser.parse_args()
 
-    log.info("=== Kennisextractie gestart ===")
+    log.info("=== Kennisextractie gestart (map-reduce) ===")
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
         log.error("ANTHROPIC_API_KEY ontbreekt in .env — afgebroken.")
@@ -164,7 +184,13 @@ def main() -> int:
         log.error("Bron-lijst niet gevonden: %s", BRONNEN_FILE)
         return 1
     bronnen = json.loads(BRONNEN_FILE.read_text(encoding="utf-8"))
-    log.info("Bronnen geladen: %s", [b["bron"] for b in bronnen])
+    if args.bron:
+        wanted = set(args.bron)
+        bronnen = [b for b in bronnen if b["bron"] in wanted]
+        if not bronnen:
+            log.error("Geen bronnen matchen --bron %s", args.bron)
+            return 1
+    log.info("Bronnen: %s", [b["bron"] for b in bronnen])
 
     service = _get_drive_service()
     kennis_folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *KENNIS_PAD)
@@ -175,18 +201,52 @@ def main() -> int:
     log.info("Bestaande laag: %d tekens%s", len(current_laag), " (eerste run)" if not current_laag else "")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    prompt = _build_prompt(bronnen, current_laag, today)
 
     import anthropic
     from agent import run_agent
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-    log.info("Agent draait (skill=extract_knowledge)...")
+    # --- MAP: distilleer elke bron los (kleine, begrensde context per bron) ---
+    distillaties: list[str] = []
+    for i, bron in enumerate(bronnen, 1):
+        log.info("[map %d/%d] distilleren: %s (oorsprong=%s)", i, len(bronnen), bron["bron"], bron["oorsprong"])
+        try:
+            resp, _ = run_agent(
+                [{"role": "user", "content": _build_distil_prompt(bron, today)}],
+                client,
+                skill="extract_knowledge_distilleer",
+                max_iterations=12,
+                max_tokens=8000,
+            )
+        except Exception as e:
+            log.warning("[map %d/%d] bron %s mislukt: %s — overslaan", i, len(bronnen), bron["bron"], e)
+            continue
+        blok = _extract_block(resp, DIS_START, DIS_END)
+        if not blok:
+            log.warning("[map %d/%d] bron %s: geen distillatie-blok — overslaan", i, len(bronnen), bron["bron"])
+            continue
+        # Bewaar mét markers, zodat de reduce-stap de grenzen ziet
+        distillaties.append(f"{DIS_START}\n{blok}\n{DIS_END}")
+        log.info("[map %d/%d] ✓ %s (%d tekens distillatie)", i, len(bronnen), bron["bron"], len(blok))
+
+    if not distillaties:
+        log.error("Geen enkele distillatie geslaagd — afgebroken.")
+        return 1
+    log.info("MAP klaar: %d/%d bronnen gedistilleerd, %d tekens totaal",
+             len(distillaties), len(bronnen), sum(len(d) for d in distillaties))
+
+    if args.map_only:
+        print("\n" + "=" * 64 + "\nDISTILLATIES (map-only)\n" + "=" * 64)
+        print("\n\n".join(distillaties))
+        return 0
+
+    # --- REDUCE: kruis distillaties + merge in de laag (kleine input, voltooit altijd) ---
+    log.info("REDUCE: kruisen + mergen (skill=extract_knowledge_merge)...")
     response, _trace = run_agent(
-        [{"role": "user", "content": prompt}],
+        [{"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)}],
         client,
-        skill="extract_knowledge",
-        max_iterations=25,
+        skill="extract_knowledge_merge",
+        max_iterations=8,
         max_tokens=16000,
     )
 

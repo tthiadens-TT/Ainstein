@@ -45,6 +45,8 @@ SKILL_LABELS = {
     "dvv_check": "DVV_CHECK",
     "meeting_reviewer": "MEETING_REVIEWER",
     "extract_knowledge": "EXTRACT_KNOWLEDGE",
+    "extract_knowledge_distilleer": "EXTRACT_KNOWLEDGE_DISTILLEER",
+    "extract_knowledge_merge": "EXTRACT_KNOWLEDGE_MERGE",
 }
 
 

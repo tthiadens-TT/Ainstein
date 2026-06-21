@@ -1,249 +1,164 @@
 # Ainstein Ontwikkelroadmap
 
-Laatste update: 2026-06-16
-Status: Plan A afgerond ✅, Plan B afgerond ✅.
+Laatste update: 2026-06-21
+Status: Kennis-laag bewijs-fase actief. Evidence-bar nog niet gehaald.
 
 ---
 
-## Plan A: Proactive Prompt Coaching ✓ GEDAAN
+## Kritische terugblik op dit plan
 
-**Branch:** `claude/ainstein-slack-questions-AmZir`
-**Commit:** `1be0b66`
-**Status:** Gepusht, wacht op merge naar main + deploy op VM.
+Voordat je dit als leidraad gebruikt: vier aannames die het waard zijn om te bevragen.
 
-### Waarom
-Vragen in Slack zijn vaak te vaag: geen klantnaam, geen budget, geen gewenst outputformaat. Operating Rule 5 ("Do not reward vagueness") was passief. Dit maakt het actief zichtbaar in elk antwoord.
+1. **"Evidence-bar" is een vage gate.** Het criterium "Thomas/Jörgen promoveert ≥1 item naar bronnenlaag" is afhankelijk van menselijk handelen dat geen deadline heeft. Zonder expliciete datum blijft dit eeuwig open. Beslissing nodig: *wanneer* is de bar gehaald, en wie bewaakt dat?
 
-### Wat gedaan
-Nieuwe sectie `## Prompt Coaching` toegevoegd aan `brain.md` na regel 263 (na Operating Rule 11, vóór `## Tone`).
+2. **De kennis-laag is gebouwd maar niet teruggekoppeld.** `kennis_laag.md` bestaat in Drive, maar Ainstein leest hem niet mee bij antwoorden. Dat maakt hem nu een dood document. De cyclus is pas gesloten als de laag invloed heeft op output.
 
-Ainstein voegt na elk niet-triviaal antwoord een coachingblok toe:
-```
----
-**Scherpere vraag**
-[één coachende zin: wat ontbrak]
-> "[ideale herformulering van de vraag]"
-```
+3. **De roadmap is lang maar zonder prioriteit.** Items B t/m I + U2–U9 staan allemaal als "volgende stap" zonder onderscheid. Als alles prioriteit heeft, heeft niets prioriteit. Hieronder staat een expliciete volgorde.
 
-### Ontwerpkeuzes
-- **Skill-aware**: per skill (analyse_opportunity, build_proposal, match_experts, qualify_lead) andere coaching-elementen
-- **Kwaliteitsgate**: vage coaching wordt weggelaten — liever niets dan generiek
-- **Scherpheidsdrempel**: vraag is "al scherp" bij ≥3 van 6 elementen (klantnaam, budget, programmatype, outputformaat, referentiemateriaal, beslissing)
-- **Scheiding van feedback-loop**: triggert nooit `record_correction` — apart systeem
-
-### Nog te doen voor live
-1. `git checkout main && git merge claude/ainstein-slack-questions-AmZir && git push`
-2. Op VM: `git pull && systemctl restart ainstein`
-3. Test in Slack: vage vraag → coachingblok; scherpe vraag (≥3 elementen) → bevestiging
+4. **Smart meeting routing (J) is nooit besloten.** Er is een vraag gesteld ("eerst afstemmen met Jörgen of direct implementeren?"), maar nooit beantwoord. Elke nieuwe Jamie-meeting runt nu dezelfde debrief — ook check-ins.
 
 ---
 
-## Plan B: Jamie → Ainstein → Slack ○ NOG TE DOEN
+## Wat live is (productie, 21 juni 2026)
 
-**Branch:** nog aan te maken
-**Status:** Volledig uitgewerkt, gereed voor implementatie. Vereist productie-VM met Drive-credentials.
-
-### Waarom
-Charlotte en Jörgen nemen klantgesprekken op via Jamie (AI-meetingrecorder). Inzichten verdwijnen in losse transcripten. Doel: zodra een gesprek klaar is, haalt Ainstein het transcript automatisch op, analyseert het via `client_discovery_debrief`, slaat het op in de juiste Drive-projectmap, en stuurt proactief een Slack-bericht met actiepunten per persoon.
-
-### Architectuur
-
-```
-jamie.ai ──POST──▶ Flask webhook server (:8080, daemon thread)
-                         │
-                   webhook_server.py
-                   jamie.py (parser + HMAC-SHA256)
-                   project_matcher.py
-                         │
-                   run_agent(messages, anthropic_client,
-                             skill="client_discovery_debrief")   ← agent.py:147
-                         │
-                   _save_note_via_drive_api(folder_hint=...)     ← tools.py:389
-                         │
-                   slack_client.chat_postMessage()
-                    ┌────┴────────────┐
-                    ▼                 ▼
-            #transcript-kanaal    DM naar expert
-```
-
-Slack WebSocket (SocketModeHandler) blijft ongewijzigd in de hoofdthread.
-
----
-
-### Nieuwe bestanden
-
-#### `jamie.py`
-Parser + verificatie voor Jamie-webhooks.
-
-```python
-@dataclass
-class JamieMeeting:
-    meeting_id: str
-    title: str
-    started_at: str          # ISO 8601
-    participants: list[dict] # [{"name": str, "email": str}]
-    transcript: str
-    summary: str
-    recording_url: str | None
-    language: str
-
-def parse_jamie_payload(body: dict) -> JamieMeeting
-def verify_jamie_signature(raw_body: bytes, header: str, secret: str) -> bool
-def extract_minkowski_participant(participants, known_emails) -> tuple[str|None, str|None]
-def infer_client_name(meeting: JamieMeeting) -> str
-```
-
-**Kritiek:** Jamie's payload-veldnamen zijn onbekend. Bij `KeyError`/`ValueError`:
-1. Sla raw payload op via `_save_note_via_drive_api()` naar `00_Werkdocumenten`
-2. Post naar `AINSTEIN_TRANSCRIPT_CHANNEL`: "Nieuwe Jamie-webhook ontvangen maar kon niet worden geparsed. Raw payload opgeslagen."
-3. Return `200 OK` (niet 400 — anders stopt Jamie met retries)
-
-#### `project_matcher.py`
-
-```python
-def match_project_folder(client_name, meeting_title, participants) -> tuple[str|None, str]:
-    # 1. tools.search_files(client_name, folders=["01_Proposals"])
-    # 2. Fallback: eerste 3-4 woorden van meeting-titel
-    # 3. Geen match: return (None, "00_Werkdocumenten")
-```
-
-#### `transcript_processor.py`
-
-```python
-def set_clients(slack_client, anthropic_client) -> None
-    # Wordt aangeroepen vanuit slack_app.py __main__
-    # GEEN imports van slack_app — circulaire import vermijden
-
-def process_transcript(meeting: JamieMeeting) -> None
-    # Volledige pipeline, daemon-thread, vangt ALLE fouten op
-    # Bij exception: post transcript + foutmelding naar AINSTEIN_TRANSCRIPT_CHANNEL
-
-def _build_agent_prompt(meeting, folder_hint) -> str
-    # Inclusief: "Note: this meeting was conducted in Dutch/English."
-
-def _post_slack_notification(meeting, debrief_text, doc_url,
-                              expert_name, expert_slack_id, matched_folder) -> None
-
-def _extract_action_items(debrief_text: str, person: str) -> list[str]
-    # Sectie 9 (Open Questions) + sectie 11 (Recommended Next Step)
-```
-
-#### `webhook_server.py`
-
-```python
-def create_webhook_app(slack_client, anthropic_client) -> Flask
-    # POST /webhooks/jamie:
-    #   1. raw body lezen (voor HMAC vóór JSON-parse)
-    #   2. verify_jamie_signature() → 403 bij fail
-    #   3. _is_duplicate(meeting_id) → 200 zonder verwerking
-    #   4. parse_jamie_payload() → bij fout: raw naar Drive + Slack, return 200
-    #   5. Direct 200 OK retourneren
-    #   6. threading.Thread(target=process_transcript, daemon=True).start()
-    # GET /health → {"status": "ok", "jamie_configured": true}
-
-def start_webhook_server(port: int, slack_client, anthropic_client) -> None
-
-# Deduplicatie (thread-safe) — Jamie herprobeert bij timeout:
-_processed_meetings: set[str] = set()
-_meetings_lock = threading.Lock()
-```
-
----
-
-### Gewijzigde bestanden
-
-#### `slack_app.py` — twee toevoegingen
-
-**1. `/transcript` slash command** (vóór `if __name__`, zelfde patroon als regel 546):
-```python
-@app.command("/transcript")
-def cmd_transcript(body, ack, say):
-    _slash_handler("client_discovery_debrief", body, ack, say)
-```
-
-**2. Webhook-thread in `__main__`** (invoegen vóór `handler.start()` op regel 977):
-```python
-if os.environ.get("JAMIE_WEBHOOK_SECRET"):
-    from webhook_server import start_webhook_server
-    from transcript_processor import set_clients
-    _wh_slack_client = app.client
-    _wh_anthropic_client = ANTHROPIC_CLIENT
-    set_clients(_wh_slack_client, _wh_anthropic_client)
-    _wh_port = int(os.environ.get("JAMIE_WEBHOOK_PORT", "8080"))
-    threading.Thread(
-        target=start_webhook_server,
-        args=(_wh_port, _wh_slack_client, _wh_anthropic_client),
-        daemon=True,
-    ).start()
-    logger.info("Jamie webhook server gestart op poort %s", _wh_port)
-```
-
-#### `requirements.txt`
-Toevoegen: `flask>=3.0.0`
-
-#### `.env.example`
-```
-JAMIE_WEBHOOK_SECRET=          # python3 -c "import secrets; print(secrets.token_hex(32))"
-JAMIE_WEBHOOK_PORT=8080
-AINSTEIN_TRANSCRIPT_CHANNEL=   # Slack channel ID
-EXPERT_CHARLOTTE_EMAIL=charlotte@minkowski.nl
-EXPERT_JORGEN_EMAIL=jorgen@minkowski.nl
-EXPERT_CHARLOTTE_SLACK_ID=     # Slack profiel → More → Copy member ID
-EXPERT_JORGEN_SLACK_ID=
-```
-
----
-
-### Implementatievolgorde
-
-**Fase 1 — Fundament:**
-- [ ] `jamie.py` met parse-fout fallback
-- [ ] `webhook_server.py` met deduplicatie en security-first
-- [ ] `flask>=3.0.0` aan `requirements.txt`
-- [ ] `slack_app.py __main__` webhook-thread (8 regels)
-- [ ] Test: `curl localhost:8080/health`
-- [ ] Test: POST zonder signature → 403
-
-**Fase 2 — Verwerking:**
-- [ ] `project_matcher.py`
-- [ ] `transcript_processor.py` met failure-pad
-- [ ] Test: synthetische payload + geldig HMAC → run_agent aanroep in logs
-
-**Fase 3 — Notificaties:**
-- [ ] `_post_slack_notification()` — kanaalpost + DM
-- [ ] `/transcript` slash command
-- [ ] Registreren in Slack App config (api.slack.com → Slash Commands)
-
-**Fase 4 — Deployment:**
-- [ ] Env vars op VM
-- [ ] nginx: `location /webhooks/ { proxy_pass http://127.0.0.1:8080; proxy_read_timeout 30s; }`
-- [ ] Jamie: `https://ainstein.minkowski.nl/webhooks/jamie` + secret
-- [ ] Eerste echte meeting → raw payload in Drive → `jamie.py` aanpassen op schema
-
----
-
-### Kritieke beslissingen (genomen)
-
-| Beslissing | Keuze |
-|---|---|
-| Circulaire import | `set_clients()` — geen imports van `slack_app` buiten `__main__` |
-| Secret niet geconfigureerd | Server start niet — geen silent security-lek |
-| Jamie payload onbekend | Parse-fout → raw naar Drive + Slack, info nooit kwijt |
-| Dubbele webhooks (retry) | `_is_duplicate()` op `meeting_id`, thread-safe |
-| `ANTHROPIC_CLIENT` in processor | Via `set_clients()`, niet importeren uit `slack_app` |
-| Taal debrief | `meeting.language` → `language_note` in agent-prompt |
-
-### Hergebruikte bestaande functies
-
-| Functie | Locatie | Gebruik |
+| Component | Status | Commit/PR |
 |---|---|---|
-| `search_files(query, folders)` | `tools.py:1195` | Projectmatch in Drive |
-| `_save_note_via_drive_api(title, content, folder_hint)` | `tools.py:389` | Debrief opslaan |
-| `_find_subfolder_by_hint()` | `tools.py:353` | BFS 5 niveaus, gecapped |
-| `run_agent(messages, client, skill=...)` | `agent.py:147` | Transcript-analyse |
-| `app.client.chat_postMessage()` | `slack_app.py:650` | Slack-notificaties |
-| `threading.Thread(daemon=True)` | `slack_app.py:511,537,695` | Achtergrondverwerking |
-| `_slash_handler(skill, body, ack, say)` | `slack_app.py:546 patroon` | `/transcript` command |
+| Ainstein Slack bot (SocketMode) | ✅ Live | — |
+| Jamie webhook pipeline | ✅ Live | PR #27 |
+| Ainstein karakter-update (uitdager/denkpartner) | ✅ Live | PR #28 |
+| Feedback loop (gaps.md inject + hallucinatie-verificatie) | ✅ Live | commit `4205d75` |
+| Map-reduce kennis-extractie | ✅ Live | commit `c9bbf42` |
+| Tijd-dimensie + resumability in kennis-extractie | ✅ Live | commit `1a3820a` |
+| SSL certifi-fix in `_slack_notify` | ✅ Live | commit `b4118c9` |
+| Scrapers: LinkedIn, Medium, Substack, minkowski.org, futuresready.com | ✅ Live | commit `b716a23` + `cdbd99b` |
+| Jamie-transcripten als plain-text bakje | ✅ Live | commit `d6a3553` |
+| Tavily web search (vervangt DDGS) | ✅ Live | commit `7154a08` |
+| Rate limiting (10 calls/uur per user) | ✅ Live | — |
+| Backup: GCP snapshots + Drive backup via Actions | ✅ Live | — |
+| CI/CD: auto-deploy op main, syntax check | ✅ Live | — |
+
+---
+
+## Open items — geordend naar urgentie
+
+### Fase 0 — Direct oppakken (mensenwerk, geen code nodig)
+
+| # | Item | Wie | Actie | Effort |
+|---|---|---|---|---|
+| H1 | **08_Outcomes vullen** | Thomas | NN Group voorstel/outcome toevoegen als win/loss-record in Drive `08_Outcomes` | 1 uur |
+| H2 | **Evidence-bar — beslissing** | Thomas+Jörgen | Promoveer ≥1 item van kennis_laag.md naar vaste bronnenlaag, óf benoem een gap dat tot actie leidt. Daarna: automatisering ontgrendeld. | <1 uur |
+| H3 | **Notion pagina's delen** | Thomas | In Notion-UI: deel pagina's met de Notion-integratie. Nu staat de connector klaar maar heeft 0 inhoud. | <1 uur |
+| H4 | **AInstein_OUD opruimen** | Thomas | `tthiadens@gmail.com` → Google Drive → oude map verwijderen | <1 uur |
+| H5 | **Calendar token beslissing** | Thomas | `normal` (tthiadens@gmail.com) token verlopen. Fix: `npx @cocal/google-calendar-mcp auth`. Of: is deze agenda nog nodig? | <1 uur |
+
+---
+
+### Fase 1 — Laag aansluiten (na H1+H2, ~1-2 weken)
+
+#### K1. Terugkoppeling kennis-laag
+**Probleem:** `kennis_laag.md` in Drive bestaat maar Ainstein leest hem niet. De extractie-cyclus produceert output zonder invloed.
+**Oplossing:** Één van twee paden — (a) Ainstein injecteert `kennis_laag.md` automatisch bij voorstellen/matching (lichte aanpassing in `agent.py`), of (b) Thomas promoveert handmatig naar de reguliere bronnenlaag. Pad A is schaalbaar. Pad B is veiliger voor kwaliteitscontrole. Beslissing open.
+**Effort:** 2-3 uur (pad A), <1 uur (pad B).
+
+#### K2. Kennis-laag contextprobleem — structurele fix
+**Probleem:** Bij grote dataset (alle bronnen samen) loopt input op tot 267k+ chars → API-timeout bij iteratie 4-5. Tijdelijke workaround (timeout-fix + resumability) is live maar lost het niet structureel op.
+**Echte fix:** Extractie per oorsprong draaien in losse runs (al gedeeltelijk aanwezig via map-reduce). Verfijnen zodat geen enkele run > 50k chars input verwerkt.
+**Effort:** 3-4 uur.
+
+#### J. Smart meeting routing
+**Probleem:** Jamie-webhook past nu `client_discovery_debrief` toe op élke meeting. Check-ins, interne vergaderingen en statusupdates krijgen een volledige klantdebrief — dat is fout.
+**Beslissing nodig:** Direct implementeren, of eerst afstemmen met Jörgen over exacte scope?
+**Technisch:** Kleine uitbreiding in `transcript_processor.py` — detect check-in vs client op basis van title/deelnemers, stuur dan naar lichtere skill of skip.
+**Effort:** 2-3 uur.
+
+---
+
+### Fase 2 — Kennis verbreden (na K1, ~2-4 weken)
+
+#### K3. Gmail als onafhankelijke klantstem
+**Wat:** Klant-mails analyseren op vraagstukken, pijnpunten, transformatie-signalen — de echte klantperspectief die ontbreekt in de huidige laag.
+**Waarom:** Nu is de laag sterk Minkowski-centrisch (Jörgen, Thomas, minkowski.org). Gmail-MCP is al verbonden.
+**Beslissing open:** `tthiadens@gmail.com` of `thomas@minkowski.org`? Welke mails zijn relevant?
+**Effort:** 3-4 uur.
+
+#### K4. GitHub Actions scheduling voor kennis-extractie
+**Conditie:** Pas na evidence-bar (H2) gehaald.
+**Wat:** Wekelijkse cron-job draait `run_kennisextractie.py` automatisch — niet meer handmatig op VM.
+**Effort:** 2 uur.
+
+#### K5. Spotify-podcast Minkowski Spacetime
+**Wat:** 6+ afleveringen met klantgasten = rijkste onafhankelijke klantstem die beschikbaar is. Audio → transcript nodig.
+**Blokkade:** Tooling voor audio-transcriptie ontbreekt. Whisper op VM, of externe service?
+**Effort:** 3-4 uur (excl. transcriptie-tooling keuze).
+
+---
+
+### Fase 3 — Commerciële intelligentie (na Fase 2, ~1-2 maanden)
+
+#### B. Website-analyse via Slack
+**Wat:** Trigger `/dvv-website [URL]` → Ainstein analyseert op DVV + AUB + SEO → Slack-rapport.
+**Stand:** DVV + AUB frameworks al gebouwd (`dvv_check` skill). Website-scan al gedaan voor minkowski.org (mei 2026). Nu productief maken via Slack.
+**Blokkade:** Playwright installeren op VM voor JS-rendered content.
+**Effort:** 4-6 uur (Versie A zonder Playwright: 4u; met Playwright: 6u).
+
+#### D. Leerarchitectuur — Stap 1: Versterkte feedbackloop
+**Wat:** Ainstein analyseert wekelijks `gaps.md`, detecteert 3+ vergelijkbare patronen, stuurt Thomas een Slack-voorstel: "voeg X toe / pas skill Y aan" — ter goedkeuring, niet autonoom.
+**Waarom:** Nu is Thomas de bottleneck voor bronnenlaag-updates. Dit maakt patronen zichtbaar zonder extra werk.
+**Effort:** 2-3 uur.
+
+#### G. Pipeline tracker
+**Wat:** Google Sheet of Doc als acquisitie-pipeline. `/pipeline` → status actieve leads.
+**Beslissing open:** Sheet (makkelijker te bekijken) of Doc (simpeler te schrijven via API)?
+**Effort:** 2-3 uur.
+
+---
+
+### Fase 4 — Strategische uitbreiding (Q3 2026)
+
+#### C. Interactieve voorstel-refinement loop
+**Wat:** Google Doc comments per sectie → `/refine-comments` → Ainstein herschrijft → `/export-deck` → PPTX.
+**Plan:** Volledig uitgewerkt in `ainstein-is-de-assistent-merry-swing.md`.
+**Effort:** ~7 uur (Fase 1: 4u, Fase 2: 3u).
+
+#### D. Leerarchitectuur — Stap 2: Episodisch geheugen
+**Wat:** Na afgeronde sessie: gestructureerde les naar `08_Episodes` in Drive (klanttype, vraagstuk, format, budget, wat resoneerde).
+**Conditie:** Stap 1 (versterkte feedbackloop) werkt.
+**Effort:** 3-4 uur.
+
+#### H. Geautomatiseerde lead-radar
+**Wat:** Cron-job maandag 08:00 — web searches op Minkowski-relevante signalen → shortlist 3-5 prospects naar Jörgen.
+**Conditie:** GTM-laag bewezen in praktijk.
+**Effort:** 3-4 uur.
+
+#### I. Competitive intelligence skill
+**Wat:** Nieuwe skill `competitive_brief` — 3-5 gerichte web searches op wie er bij prospect al werkt, formuleert Minkowski-onderscheid.
+**Effort:** 2-3 uur.
+
+---
+
+### Fase 5 — Architectuursprong (Q4 2026 of later)
+
+| Item | Wat | Effort |
+|---|---|---|
+| **A1. RAG / vector search** | FAISS of PGVector — semantisch zoeken i.p.v. keyword grep. Fundament voor alle schaalbare retrieval. | 10-15 uur |
+| **D Stap 3. Semantische zoeklaag** | Bouwt op A1. | 4-5 uur |
+| **S4. Klant-Agent (U5)** | Tweede agent die elk voorstel aanvalt met bezwaren vóór oplevering. | 6-8 uur |
+| **S8. Live pricing engine (U9)** | Rekentool i.p.v. tekstuele prijslijsten. | 6-8 uur |
+| **I3. Cloud Logging** | GCP Cloud Logging i.p.v. lokale VM-logs. | 3-4 uur |
+| **I4. conversations.db versleuteling** | SQLCipher of encrypted disk volume. | 4-6 uur |
+
+---
+
+## Openstaande beslissingen (vereisen Thomas/Jörgen input)
+
+| # | Beslissing | Context | Urgentie |
+|---|---|---|---|
+| D1 | **Terugkoppeling kennis-laag** — Ainstein injecteert automatisch, of Thomas promoveert handmatig? | K1 hangt hiervan af | Hoog |
+| D2 | **Smart meeting routing** — Direct implementeren, of eerst scope afstemmen met Jörgen? | Elke meeting runt nu volledige debrief | Hoog |
+| D3 | **Gmail-account** — `tthiadens@gmail.com` of `thomas@minkowski.org` als klantstem? | K3 hangt hiervan af | Middel |
+| D4 | **Pipeline tracker** — Google Sheet of Google Doc? | G hangt hiervan af | Laag |
+| D5 | **Calendar normal-token** — Nog nodig, of verwijderen? | H5 | Laag |
+| D6 | **Webhook-domein** — Zodra Thomas toegang tot minkowski.nl: A-record instellen + certbot | Upgrade van DuckDNS | Laag |
 
 ---
 
@@ -252,4 +167,6 @@ EXPERT_JORGEN_SLACK_ID=
 Dit bestand staat in de repo onder `plans/ainstein-roadmap.md`.
 Gebruik het als context aan het begin van elke nieuwe Claude Code sessie:
 
-> "Lees `plans/ainstein-roadmap.md` en ga verder waar we gebleven zijn."
+> "Lees `plans/ainstein-roadmap.md` en ga verder waar we gebleven waren."
+
+De roadmap beschrijft intenties en beslissingen — geen implementatiedetails. Implementatiedetails horen thuis in de commit messages en CLAUDE.md.

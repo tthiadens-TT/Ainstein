@@ -6,7 +6,7 @@
 
 1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
 2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
-3. **Lees de Current State sectie** — weet wat live is, wat pending is, en wat de volgende prioriteit is.
+3. **Lees de Current State sectie + `plans/ainstein-roadmap.md`** — weet wat live is, wat het actieve probleem is, en wat de volgende prioriteit is.
 4. **Lees de Verified Configurations sectie** — weet wat al bevestigd en werkend is. Markeer dit NOOIT als risico of onbekend.
 5. **Check GitHub vóór je Thomas iets laat doen** — gebruik de GitHub MCP tools om te verifiëren of iets al gedaan is. Zeg nooit "merge de PR" of "herstart de VM" zonder eerst te checken of het al gebeurd is.
 6. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
@@ -32,13 +32,9 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 ### Wat pending is
 - **Geen open PRs.** Alles staat op main.
 
-### Wat next is (roadmap)
-- **Kennis-laag contextprobleem fixen** — `run_kennisextractie.py` faalt bij grote datasets (267k+ chars input bij iteratie 4–5). Fix: extractie per oorsprong draaien (map-reduce), dan synthese. [Actief probleem]
-- **Kennis-laag automatiseren** — na evidence-bar (≥1 promotie door Thomas/Jörgen of say-vs-sell-gat leidt tot actie): GitHub Actions scheduling
-- **Terugkoppeling kennis** — mens promoveert naar vaste bronnenlaag óf Ainstein leest `_kennis/kennis_laag.md` mee bij voorstellen/matching
-- **08_Outcomes vullen** — NN Group-voorstel toevoegen
-- **Eerste echte Minkowski-meeting via Jörgen testen** — DM + Proactieve Voorstellen valideren
-- Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot het Minkowski domein
+### Wat next is
+→ Zie `plans/ainstein-roadmap.md` voor de volledige backlog.
+**Actief probleem:** Kennis-laag extractie — REDUCE timeout + max_tokens gefixed (`1a3820a`), maar 267k+ chars MAP-fase nog niet volledig gevalideerd. Volgende stap: één volledige run uitvoeren en beoordelen.
 
 ---
 

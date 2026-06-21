@@ -181,6 +181,7 @@ Additional skills available: `qualify_lead`, `prepare_discovery`, `map_objection
 **Output-tools (niet via Slack-skills):**
 - `export_proposal_deck` (tool in `tools.py`) — converteert Google Doc voorstel naar Minkowski-branded `.pptx` via `pptx_builder.py`. Uploadt naar `00_Werkdocumenten`. Branding: kleuren + fonts uit MK-new-brandbook.pptx (Charlotte, 2026). Triggerable via Slack `/pptx`. Font-embedding vereist `assets/fonts/Sen-ExtraBold.ttf` in de repo — stil overgeslagen als afwezig.
 - `create_report_doc.py` — CLI-script (niet in bot geïntegreerd). Maakt geformatteerd Google Doc van markdown-invoer. Gebruik op VM: `python3 create_report_doc.py --title "Maandrapport Juni 2026" < rapport.md`. Default folder: `00_Werkdocumenten`.
+- `gdoc_tools.py` — core bibliotheek voor Drive/Docs operaties: lezen, schrijven, zoeken, exporteren, commentaar. Wordt gebruikt door `tools.py`, `slack_app.py`, `pptx_builder.py` en `create_report_doc.py`. Niet rechtstreeks aanroepen — gebruik de tools-laag.
 
 ## Your Source Layer
 The Minkowski source layer lives in **one** location: a Google Workspace Shared Drive named **"Minkowski AInstein"** (drive ID `0AFvBEDYKrnHbUk9PVA`). It is owned by the Minkowski organisation — not by any individual. Multi-user, single source of truth.

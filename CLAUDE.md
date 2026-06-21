@@ -26,14 +26,16 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
 - **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
-- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen; map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief (trends per entiteit: opkomend/stabiel/vervagend, te-herverifiëren vlag bij verouderde bevestigingen)
 - **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
+- **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`) converteert een Google Doc voorstel naar Minkowski-branded PowerPoint; uploadt naar `00_Werkdocumenten`; triggerable via Slack `/pptx`
+- **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen; handmatig aanroepen (niet auto-getriggerd via Jamie)
 
 ### Wat pending is
 - **Geen open PRs.** Alles staat op main.
 
 ### Wat next is (roadmap)
-- **Kennis-laag contextprobleem fixen** — `run_kennisextractie.py` faalt bij grote datasets (267k+ chars input bij iteratie 4–5). Fix: extractie per oorsprong draaien (map-reduce), dan synthese. [Actief probleem]
+- **Kennis-laag contextprobleem** ✅ — map-reduce geïmplementeerd (`extract_knowledge_distilleer` per bron, `extract_knowledge_merge` voor synthese); context-overflow opgelost
 - **Kennis-laag automatiseren** — na evidence-bar (≥1 promotie door Thomas/Jörgen of say-vs-sell-gat leidt tot actie): GitHub Actions scheduling
 - **Terugkoppeling kennis** — mens promoveert naar vaste bronnenlaag óf Ainstein leest `_kennis/kennis_laag.md` mee bij voorstellen/matching
 - **08_Outcomes vullen** — NN Group-voorstel toevoegen
@@ -168,7 +170,17 @@ Use when the request is about creating, improving, comparing, or sharpening a pr
 ### 3. match_experts
 Use when the request is about selecting, comparing, or recommending experts, facilitators, or faculty members. → `skills/match_experts.md`
 
-Additional skills available: `qualify_lead`, `prepare_discovery`, `map_objections`, `client_discovery_debrief`, `sharpen_positioning`, `create_content`, `adapt_messaging`, `debrief_to_messaging`, `refine_proposal`, `review_feedback`, `dvv_check`.
+Additional skills available: `qualify_lead`, `prepare_discovery`, `map_objections`, `client_discovery_debrief`, `sharpen_positioning`, `create_content`, `adapt_messaging`, `debrief_to_messaging`, `refine_proposal`, `review_feedback`, `dvv_check`, `meeting_reviewer`, `extract_knowledge`, `extract_knowledge_distilleer`, `extract_knowledge_merge`.
+
+**Kennis-laag skills:**
+- `meeting_reviewer` — onafhankelijke meeting-analyse los van Jamie; vergelijkt eigen takenlijst met Jamie's taken; raadpleegt bronnenlaag; genereert proactieve voorstellen. Niet automatisch getriggerd — handmatig aanroepen.
+- `extract_knowledge` — ad-hoc modus: leest bronnen direct, geen huidige laag nodig. Levert: twee gaten (verkondigd-niet-verkocht / verkocht-niet-verkondigd) + nieuwe bevestigde kennis.
+- `extract_knowledge_distilleer` — MAP-stap: verwerkt **één** bron naar entiteiten + facetten + tijdsperiode. Kleine context, nooit overflow. Gebruikt door `run_kennisextractie.py`.
+- `extract_knowledge_merge` — REDUCE-stap: ontvangt alle distillaties + huidige laag, kruist over onafhankelijke oorsprongen, werkt `kennis_laag.md` bij. Voert **geen** tool-calls uit.
+
+**Output-tools (niet via Slack-skills):**
+- `export_proposal_deck` (tool in `tools.py`) — converteert Google Doc voorstel naar Minkowski-branded `.pptx` via `pptx_builder.py`. Uploadt naar `00_Werkdocumenten`. Branding: kleuren + fonts uit MK-new-brandbook.pptx (Charlotte, 2026). Triggerable via Slack `/pptx`.
+- `create_report_doc.py` — CLI-script (niet in bot geïntegreerd). Maakt geformatteerd Google Doc van markdown-invoer. Gebruik op VM: `python3 create_report_doc.py --title "Maandrapport Juni 2026" < rapport.md`. Default folder: `00_Werkdocumenten`.
 
 ## Your Source Layer
 The Minkowski source layer lives in **one** location: a Google Workspace Shared Drive named **"Minkowski AInstein"** (drive ID `0AFvBEDYKrnHbUk9PVA`). It is owned by the Minkowski organisation — not by any individual. Multi-user, single source of truth.

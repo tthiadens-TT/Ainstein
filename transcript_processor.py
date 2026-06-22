@@ -15,7 +15,7 @@ import traceback
 
 from agent import run_agent
 from jamie import infer_client_name, lookup_participant_slack_ids
-from log_setup import get_logger
+from log_setup import append_decision_trace, get_logger
 from models import TranscriptEvent
 
 logger = get_logger(__name__)
@@ -48,7 +48,10 @@ def process_transcript(
             skill,
         )
 
-        debrief_text, _trace = run_agent(messages, anthropic_client, skill=skill)
+        debrief_text, trace = run_agent(messages, anthropic_client, skill=skill)
+        trace["meeting_id"] = event.meeting_id
+        trace["meeting_title"] = event.title
+        append_decision_trace(trace)
         logger.info(
             "Agent done for meeting_id=%s — output %d chars",
             event.meeting_id, len(debrief_text),

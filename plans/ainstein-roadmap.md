@@ -234,6 +234,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
+| Slack-scraper geautomatiseerd — wekelijks zondag 02:00 via VM cron, scrapet laatste 8 dagen | `5d93daf` | 22 juni 2026 |
 | K1-pad: kennis_laag.md injectie via agent.py (Pad A) — `drive_read_kennis_laag()` + `load_kennis_context()` in tools.py, injectie in agent.py na gaps.md | `4af0453` | 22 juni 2026 |
 | `_slack_notify` certifi-fix — SSL-context met certifi-CA toegevoegd in `run_kennisextractie.py` | `b4118c9` | 21 juni 2026 |
 | DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |

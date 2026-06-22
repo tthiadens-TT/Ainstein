@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 — sessie-afsluiting audit + architectuurbespreking*
+*Bijgewerkt: 22 juni 2026 — skills-sessie afgerond + dev-branch cleanup gepland*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -31,6 +31,11 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
+
+### dev-branch cleanup
+**Wat:** `dev` staat 10 commits voor op `main` met deels verouderd werk. De skills-verbeteringen en de meeste Drive-fixes zijn al apart op main gecommit. Dev bevat mogelijk unieke commits (save_note refactor, folder hint depth, deploy.yml health check).
+**Actie:** `git diff main...dev -- *.py` draaien, unieke waardevolle commits identificeren, cherry-pick of delete. Daarna `dev` verwijderen of opnieuw baseren op main.
+**Prioriteit:** laag — niets blokkeert productie, maar de branch rommelt.
 
 ### Klant-Agent — adversariale voorstelreview
 **Wat:** Tweede API-aanroep na `build_proposal`. Speelt kritische klant (CHRO, inkoper, directeur) — genereert 3–5 scherpe bezwaren op het concept. Ainstein verwerkt ze en levert versterkt eindvoorstel. Thomas ziet alleen het eindresultaat + optioneel een "Verwerkte kritiek"-sectie.
@@ -116,8 +121,8 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 ### Kennis terugkoppeling — beslissing aanpak
 **Vraag:** wil je dat Ainstein `kennis_laag.md` meeleest bij elke aanroep (automatisch), of wil je kennisitems handmatig promoveren naar de vaste bronnenlaag?
 
-### MCP-koppelingen — drie open beslissingen
-**Calendar MCP:** token verlopen (`npx @cocal/google-calendar-mcp auth` nodig). Beslissing vóór je dat doet: waarvoor wil je dat Ainstein agenda-toegang heeft?
+### MCP-koppelingen — twee open beslissingen
+**Calendar MCP:** ✅ token vernieuwd (19 mei 2026), "minkowski"-account correct op `thomas@minkowski.org` gezet. Minkowski-agenda zelf nog leeg — vul zakelijke afspraken in als je agenda-context in briefings wilt.
 **Gmail MCP:** werkt, maar leest `tthiadens@gmail.com`. Beslissing: moet Ainstein de Minkowski-inbox (`thomas@minkowski.org`) kunnen lezen, en voor welk gebruik?
 **Notion MCP:** verbonden, maar 0 pagina's gedeeld. Eenmalige handeling in Notion UI (Settings → Connections). Beslissing: welke pagina's wil je beschikbaar maken?
 
@@ -155,6 +160,8 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| 7 skills verbeterd: DVV-toets in build_proposal, map_objections herschreven, create_content/adapt_messaging/sharpen_positioning/match_experts/debrief_to_messaging versterkt + detect-skill false positive "content" gefixed | `6fff459` | 22 juni 2026 |
+| dev-branch cleanup (10 commits, deels verouderd) gepland | backlog | 22 juni 2026 |
 | `.env` opruimen — dubbele AINSTEIN_STATUS_CHANNEL regels gefixed | handmatig op VM | 22 juni 2026 |
 | Drie audit-gaps gesloten: run_backup.sh in git, RATE_LIMIT_MAX in .env.example, pip-audit (0 kwetsbaarheden) | `cfba2fb` | 22 juni 2026 |
 | Architectuurbeslissing: single-agent blijft; Klant-Agent = tweede API-call, geen apart systeem | sessie 22 juni 2026 | — |

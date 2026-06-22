@@ -68,6 +68,48 @@ def run_cmd(args, timeout=5):
         return None
 
 
+def _dot(color, size=9):
+    return f'<span style="display:inline-block;width:{size}px;height:{size}px;border-radius:50%;background:{color};margin-right:6px;vertical-align:middle;position:relative;top:-1px"></span>'
+
+
+def _tip(content, tooltip):
+    """Wrap content in a hover-tooltip span."""
+    safe = tooltip.replace('"', '&quot;')
+    return f'<span class="tip" data-tip="{safe}">{content}</span>'
+
+
+SKILL_TIPS = {
+    "analyse_opportunity": "Ainstein analyseerde een commerciële kans of klantbriefing.",
+    "build_proposal": "Ainstein bouwde of verbeterde een voorstel.",
+    "match_experts": "Ainstein zocht de juiste expert of facilitator.",
+    "meeting_reviewer": "Ainstein analyseerde een vergaderverslag dat via Jamie binnenkwam.",
+    "extract_knowledge": "Ainstein haalde nieuwe inzichten op uit Minkowski-bronnen.",
+    "extract_knowledge_distilleer": "Ainstein verwerkte één bron naar gestructureerde kennis (stap 1 van 2).",
+    "extract_knowledge_merge": "Ainstein combineerde alle distillaties tot een bijgewerkte kennislaag (stap 2 van 2).",
+    "qualify_lead": "Ainstein beoordeelde of een lead het opvolgen waard is.",
+    "prepare_discovery": "Ainstein bereidde een discovery-gesprek voor.",
+    "map_objections": "Ainstein bracht bezwaren en tegenargumenten in kaart.",
+    "client_discovery_debrief": "Ainstein verwerkte de uitkomsten van een discovery-gesprek.",
+    "sharpen_positioning": "Ainstein scherpte de positionering van een aanbod aan.",
+    "create_content": "Ainstein maakte content aan, zoals een artikel of LinkedIn-post.",
+    "adapt_messaging": "Ainstein paste de boodschap aan op een specifieke doelgroep.",
+    "debrief_to_messaging": "Ainstein vertaalde een debrief naar externe communicatie.",
+    "refine_proposal": "Ainstein verfijnde een bestaand voorstel op basis van feedback.",
+    "review_feedback": "Ainstein verwerkte feedback op een voorstel of document.",
+    "dvv_check": "Ainstein controleerde een document op duidelijkheid, volledigheid en overtuigingskracht.",
+    "(geen skill)": "Ainstein verwerkte een algemeen verzoek zonder specifieke werkvorm.",
+}
+
+SVC_TIPS = {
+    "Anthropic API": "De AI-dienst achter Ainsteins intelligentie. Elke vraag die Ainstein verwerkt, gaat via Anthropic.",
+    "Slack": "De chatverbinding waarmee Ainstein berichten ontvangt en verstuurt naar het team.",
+    "Google Drive": "De documentenopslag met voorstellen, expertprofielen en methodologie. Ainstein zoekt hier altijd eerst.",
+    "Jamie webhook": "De koppeling met Jamie. Na elke vergadering stuurt Jamie het transcript automatisch naar Ainstein.",
+    "Tavily": "Een webzoekdienst voor actuele informatie buiten de eigen Minkowski-bronnen.",
+    "SSL / DuckDNS": "Het beveiligingscertificaat en het domeinnaam-systeem. Beide zijn nodig om de Jamie-koppeling bereikbaar te houden.",
+}
+
+
 # ── Data loading ─────────────────────────────────────────────────────────────
 
 def load_decisions():
@@ -90,7 +132,6 @@ def load_log_errors(max_lines=5000):
     if not AINSTEIN_LOG.exists():
         return []
     errors = []
-    # Pattern: 2026-06-22 10:35:26,012 [module] LEVEL message
     pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ \[.*?\] (ERROR|CRITICAL) (.+)$')
     try:
         lines = AINSTEIN_LOG.read_text(errors="replace").splitlines()
@@ -105,7 +146,7 @@ def load_log_errors(max_lines=5000):
                 errors.append((ts, level, msg[:200]))
     except Exception:
         pass
-    return errors[-5:]  # only last 5
+    return errors[-5:]
 
 
 # ── VM health checks ──────────────────────────────────────────────────────────
@@ -114,14 +155,11 @@ def check_vm_health():
     """Run system checks. Returns dict with results (None = unavailable/local)."""
     result = {}
 
-    # systemd service status
     svc = run_cmd(["systemctl", "is-active", "ainstein"])
-    result["service_status"] = svc  # "active" / "inactive" / "failed" / None
+    result["service_status"] = svc
 
-    # Disk usage on /home
     disk_raw = run_cmd(["df", "/home", "--output=pcent"])
     if disk_raw:
-        # Output: "Use%\n 45%"
         lines = disk_raw.splitlines()
         pct_str = lines[-1].strip().replace("%", "") if lines else None
         try:
@@ -131,7 +169,6 @@ def check_vm_health():
     else:
         result["disk_pct"] = None
 
-    # SSL cert expiry — live check via openssl s_client (geen bestandstoegang nodig)
     result["ssl_expires"] = None
     result["ssl_days"] = None
     cert_out = run_cmd(
@@ -152,7 +189,6 @@ def check_vm_health():
             except ValueError:
                 pass
 
-    # Last git pull (proxy for last deploy)
     git_ts = run_cmd(["git", "-C", str(BASE), "log", "-1", "--format=%ai"])
     result["last_deploy"] = git_ts
 
@@ -164,12 +200,12 @@ def check_vm_health():
 def extract_service_activity(entries, now):
     """Return last-seen timestamps for each external service."""
     svc = {
-        "anthropic": None,   # any entry
-        "slack": None,       # any entry with user_id
-        "drive": None,       # any entry with files_read non-empty
-        "jamie": None,       # skill == "meeting_reviewer"
-        "tavily": None,      # tools_called contains web_search
-        "tavily_month": 0,   # count of web_search calls this month
+        "anthropic": None,
+        "slack": None,
+        "drive": None,
+        "jamie": None,
+        "tavily": None,
+        "tavily_month": 0,
     }
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -178,26 +214,21 @@ def extract_service_activity(entries, now):
         if ts is None:
             continue
 
-        # Anthropic: every entry is an API call
         if svc["anthropic"] is None or ts > svc["anthropic"]:
             svc["anthropic"] = ts
 
-        # Slack: entries from real Slack channels
         if e.get("user_id") or e.get("channel"):
             if svc["slack"] is None or ts > svc["slack"]:
                 svc["slack"] = ts
 
-        # Drive: entries with files_read
         if e.get("files_read"):
             if svc["drive"] is None or ts > svc["drive"]:
                 svc["drive"] = ts
 
-        # Jamie: meeting_reviewer skill
         if e.get("skill") == "meeting_reviewer":
             if svc["jamie"] is None or ts > svc["jamie"]:
                 svc["jamie"] = ts
 
-        # Tavily: web_search tool
         for tool in e.get("tools_called", []):
             if tool.get("name") == "web_search":
                 if svc["tavily"] is None or ts > svc["tavily"]:
@@ -277,10 +308,6 @@ def compute_metrics(entries, vm, svc, errors, now):
 
 # ── HTML rendering ────────────────────────────────────────────────────────────
 
-def _dot(color, size=9):
-    return f'<span style="display:inline-block;width:{size}px;height:{size}px;border-radius:50%;background:{color};margin-right:6px;vertical-align:middle;position:relative;top:-1px"></span>'
-
-
 def _status_color(age_hours):
     if age_hours is None:
         return "#C0392B", "Geen data"
@@ -292,11 +319,18 @@ def _status_color(age_hours):
 
 
 def render_card_status(m):
-    now = m["now"]
     vm = m["vm"]
     st_col, st_label = _status_color(m["last_age_hours"])
 
-    # Service status
+    if m["last_age_hours"] is None:
+        st_tip = "Geen activiteit gevonden. Ainstein heeft nog geen verzoeken verwerkt, of het logboek is leeg."
+    elif m["last_age_hours"] < 24:
+        st_tip = "Ainstein heeft onlangs een verzoek ontvangen en verwerkt. Alles werkt normaal."
+    elif m["last_age_hours"] < 72:
+        st_tip = "Ainstein heeft meer dan een dag niets gedaan. Dit kan normaal zijn bij weinig gebruik — controleer wel even."
+    else:
+        st_tip = "Ainstein is al meer dan 3 dagen inactief. Controleer of de achtergrondservice nog draait op de server."
+
     svc_raw = vm.get("service_status")
     if svc_raw == "active":
         svc_col, svc_txt = "#2A7A5A", "actief"
@@ -309,7 +343,6 @@ def render_card_status(m):
     else:
         svc_col, svc_txt = "#E67E22", svc_raw
 
-    # Disk
     disk_pct = vm.get("disk_pct")
     if disk_pct is None:
         disk_col, disk_txt = "#8492A6", "n.v.t."
@@ -320,7 +353,6 @@ def render_card_status(m):
     else:
         disk_col, disk_txt = "#C0392B", f"{disk_pct}% — vol!"
 
-    # SSL
     ssl_days = vm.get("ssl_days")
     if ssl_days is None:
         ssl_col, ssl_txt = "#8492A6", "n.v.t."
@@ -331,7 +363,6 @@ def render_card_status(m):
     else:
         ssl_col, ssl_txt = "#C0392B", f"verloopt in {ssl_days}d!"
 
-    # Deploy
     deploy_txt = vm.get("last_deploy", "onbekend") or "onbekend"
     if deploy_txt and len(deploy_txt) > 16:
         deploy_txt = deploy_txt[:16]
@@ -340,28 +371,34 @@ def render_card_status(m):
     if m["last_age_hours"] is None or m["last_age_hours"] >= 72:
         inactive_alert = '<div class="alert">Controleer of ainstein.service actief is op de VM.</div>'
 
+    card_tip = "Geeft aan of Ainstein live en bereikbaar is. Gebaseerd op wanneer het systeem voor het laatst een verzoek verwerkte."
+    svc_tip = "De achtergrondservice die Ainstein laat draaien. Stopt deze, dan reageert Ainstein nergens meer op — Slack noch Jamie."
+    disk_tip = "Hoeveel opslagruimte er nog vrij is op de server. Bij meer dan 85% gebruik kan de server vastlopen en stopt Ainstein met reageren."
+    ssl_tip = "Het beveiligingscertificaat voor HTTPS. Verloopt dit, dan werkt de koppeling met Jamie niet meer en geeft Slack een foutmelding."
+    deploy_tip = "De datum van de laatste automatische code-update. Na elke wijziging in GitHub wordt dit automatisch bijgewerkt op de server."
+
     return f"""
   <div class="card" style="border-top-color:{st_col}">
-    <div class="card-label">Systeemstatus</div>
-    <div class="big" style="color:{st_col}">{_dot(st_col)}{st_label}</div>
+    <div class="card-label">{_tip('Systeemstatus', card_tip)}</div>
+    <div class="big" style="color:{st_col}">{_dot(st_col)}{_tip(st_label, st_tip)}</div>
     <div class="meta">Laatste activiteit: {m['last_activity'] or 'onbekend'}</div>
     {inactive_alert}
     <div class="divider"></div>
     <div class="row-items">
       <div class="row-item">
-        <div class="row-label">ainstein.service</div>
+        <div class="row-label">{_tip('ainstein.service', svc_tip)}</div>
         <div class="row-val" style="color:{svc_col}">{_dot(svc_col, 8)}{svc_txt}</div>
       </div>
       <div class="row-item">
-        <div class="row-label">Schijfruimte</div>
+        <div class="row-label">{_tip('Schijfruimte', disk_tip)}</div>
         <div class="row-val" style="color:{disk_col}">{_dot(disk_col, 8)}{disk_txt}</div>
       </div>
       <div class="row-item">
-        <div class="row-label">SSL-certificaat</div>
+        <div class="row-label">{_tip('SSL-certificaat', ssl_tip)}</div>
         <div class="row-val" style="color:{ssl_col}">{_dot(ssl_col, 8)}{ssl_txt}</div>
       </div>
       <div class="row-item">
-        <div class="row-label">Laatste deploy</div>
+        <div class="row-label">{_tip('Laatste deploy', deploy_tip)}</div>
         <div class="row-val">{deploy_txt}</div>
       </div>
     </div>
@@ -369,11 +406,16 @@ def render_card_status(m):
 
 
 def render_card_gebruik(m):
+    card_tip = "Hoeveel Ainstein is gebruikt de afgelopen 7 dagen — berichten via Slack en vergaderingen via Jamie."
+    msg_tip = "Het aantal keer dat iemand Ainstein een vraag of opdracht heeft gestuurd via Slack de afgelopen 7 dagen."
+    meet_tip = "Het aantal vergaderingen dat Jamie automatisch heeft doorgestuurd naar Ainstein voor analyse en opvolging."
+
     skills_html = ""
     for skill, count in m["top_skills"]:
+        tip = SKILL_TIPS.get(skill, "Een taak die Ainstein heeft uitgevoerd.")
         skills_html += f"""
       <div class="skill-row">
-        <span class="skill-name">{skill}</span>
+        <span class="skill-name">{_tip(skill, tip)}</span>
         <span class="skill-count">{count}×</span>
       </div>"""
     if not skills_html:
@@ -381,15 +423,15 @@ def render_card_gebruik(m):
 
     return f"""
   <div class="card" style="border-top-color:#6BDBD8">
-    <div class="card-label">Gebruik — afgelopen 7 dagen</div>
+    <div class="card-label">{_tip('Gebruik — afgelopen 7 dagen', card_tip)}</div>
     <div class="kpi-row">
       <div>
         <div class="kpi-num">{m['messages_7d']}</div>
-        <div class="kpi-label">berichten</div>
+        <div class="kpi-label">{_tip('berichten', msg_tip)}</div>
       </div>
       <div>
         <div class="kpi-num">{m['meetings_7d']}</div>
-        <div class="kpi-label">meetings</div>
+        <div class="kpi-label">{_tip('meetings', meet_tip)}</div>
       </div>
     </div>
     <div class="skills-list">{skills_html}
@@ -399,18 +441,22 @@ def render_card_gebruik(m):
 
 def render_card_kosten(m):
     cost_str = f"≈ €{m['cost_eur']:.2f}" if m["cost_eur"] >= 0.01 else "< €0.01"
-    tavily_pct = int(m["svc"]["tavily_month"] / 10)  # out of 1000
+    tavily_pct = int(m["svc"]["tavily_month"] / 10)
     tavily_col = "#2A7A5A" if tavily_pct < 70 else "#E67E22" if tavily_pct < 90 else "#C0392B"
+
+    card_tip = "Wat Ainstein deze maand heeft gekost aan externe diensten. Kosten voor de server (GCP) staan hier niet in."
+    cost_tip = "Schatting op basis van het aantal aanroepen en de gemiddelde antwoordlengte. Voor exacte cijfers moeten tokens worden bijgehouden in het logboek."
+    tavily_tip = "Tavily is de webzoekdienst die Ainstein gebruikt voor actuele informatie. Het gratis plan geeft 1.000 zoekopdrachten per maand — daarna stopt de dienst tot de volgende maand."
 
     return f"""
   <div class="card" style="border-top-color:#F5C842">
-    <div class="card-label">Kosten — {m['cost_month_label']}</div>
-    <div class="big">{cost_str}</div>
+    <div class="card-label">{_tip('Kosten — ' + m['cost_month_label'], card_tip)}</div>
+    <div class="big">{_tip(cost_str, cost_tip)}</div>
     <div class="meta">Anthropic API — {m['total_entries']} aanroepen totaal</div>
     <div class="divider"></div>
     <div class="row-items">
       <div class="row-item">
-        <div class="row-label">Tavily deze maand</div>
+        <div class="row-label">{_tip('Tavily deze maand', tavily_tip)}</div>
         <div class="row-val" style="color:{tavily_col}">{_dot(tavily_col, 8)}{m['svc']['tavily_month']} / 1.000</div>
       </div>
     </div>
@@ -421,27 +467,37 @@ def render_card_kosten(m):
 def render_card_kennislaag(m):
     if m["last_kl"] is None:
         kl_col, kl_label, kl_note = "#C0392B", "Nooit gedraaid", "Start run_kennisextractie.py"
+        kl_tip = "De kennislaag is nog nooit bijgewerkt. Ainstein werkt zonder actuele kennis van Minkowski en kan daardoor minder scherp antwoorden."
     elif m["kl_age_days"] and m["kl_age_days"] > 30:
         kl_col = "#E67E22"
         kl_label = f"Laatste run: {m['last_kl']}"
         kl_note = f"{m['kl_age_days']} dagen geleden — vernieuwen aanbevolen"
+        kl_tip = f"De kennislaag is {m['kl_age_days']} dagen oud. Nieuwe content op Minkowski-kanalen is nog niet verwerkt. Vernieuwen duurt ongeveer 10 minuten."
     else:
         kl_col = "#2A7A5A"
         kl_label = f"Laatste run: {m['last_kl']}"
         kl_note = "actueel"
+        kl_tip = "De kennislaag is recent bijgewerkt. Ainstein beschikt over actuele kennis van Minkowski's methodologie, positionering en taal."
 
     out_col = "#2A7A5A" if m["outcomes_filled"] else "#C0392B"
     out_label = "Gevuld" if m["outcomes_filled"] else "Leeg — actie vereist"
     out_note = "win/loss records beschikbaar" if m["outcomes_filled"] else "NN IC + Cathalijne invullen (5 min)"
+    out_tip = (
+        "Er zijn win/loss-records beschikbaar van eerdere voorstellen. Ainstein kan hierop leunen om scherpere en betere voorstellen te schrijven."
+        if m["outcomes_filled"] else
+        "Geen records van gewonnen of verloren voorstellen. Ainstein mist daardoor een belangrijk referentiepunt bij het bouwen van nieuwe voorstellen."
+    )
+
+    card_tip = "Ainsteins geheugen van Minkowski — methodologie, positionering, en wat werkt in voorstellen. Hoe recenter bijgewerkt, hoe relevanter de antwoorden."
 
     return f"""
   <div class="card" style="border-top-color:{kl_col}">
-    <div class="card-label">Kennislaag</div>
-    <div class="big" style="color:{kl_col};font-size:18px;line-height:1.4">{kl_label}</div>
+    <div class="card-label">{_tip('Kennislaag', card_tip)}</div>
+    <div class="big" style="color:{kl_col};font-size:18px;line-height:1.4">{_tip(kl_label, kl_tip)}</div>
     <div class="meta">{kl_note}</div>
     <div class="divider"></div>
-    <div class="row-label" style="margin-bottom:6px">08_Outcomes</div>
-    <div>{_dot(out_col)}<strong style="color:{out_col};font-size:14px">{out_label}</strong></div>
+    <div class="row-label" style="margin-bottom:6px">{_tip('08_Outcomes', 'Win/loss-records van eerdere voorstellen. Ainstein gebruikt dit om te leren wat werkt en wat niet.')}</div>
+    <div>{_dot(out_col)}<strong style="color:{out_col};font-size:14px">{_tip(out_label, out_tip)}</strong></div>
     <div class="meta" style="margin-top:4px">{out_note}</div>
   </div>"""
 
@@ -454,9 +510,10 @@ def render_card_diensten(m):
         age_hours = (now - ts).total_seconds() / 3600 if ts else None
         col, _ = traffic_light(age_hours)
         age = age_label(ts, now)
+        tip = SVC_TIPS.get(label, "Een externe dienst waar Ainstein gebruik van maakt.")
         return f"""
       <div class="svc-row">
-        <div class="svc-name">{_dot(col, 9)}{label}</div>
+        <div class="svc-name">{_dot(col, 9)}{_tip(label, tip)}</div>
         <div class="svc-age">{age}{' — ' + extra if extra else ''}</div>
       </div>"""
 
@@ -470,8 +527,8 @@ def render_card_diensten(m):
         + svc_row("Tavily", svc["tavily"], tavily_extra)
     )
 
-    # SSL as a service too
     ssl_days = m["vm"].get("ssl_days")
+    ssl_tip = SVC_TIPS["SSL / DuckDNS"]
     if ssl_days is not None:
         if ssl_days > 30:
             ssl_col = "#2A7A5A"
@@ -482,19 +539,21 @@ def render_card_diensten(m):
         ssl_extra = f"cert verloopt in {ssl_days}d"
         rows += f"""
       <div class="svc-row">
-        <div class="svc-name">{_dot(ssl_col, 9)}SSL / DuckDNS</div>
+        <div class="svc-name">{_dot(ssl_col, 9)}{_tip('SSL / DuckDNS', ssl_tip)}</div>
         <div class="svc-age">{ssl_extra}</div>
       </div>"""
     else:
         rows += f"""
       <div class="svc-row">
-        <div class="svc-name">{_dot('#8492A6', 9)}SSL / DuckDNS</div>
+        <div class="svc-name">{_dot('#8492A6', 9)}{_tip('SSL / DuckDNS', ssl_tip)}</div>
         <div class="svc-age">n.v.t. (lokaal)</div>
       </div>"""
 
+    card_tip = "De externe diensten waar Ainstein van afhankelijk is. Als een dienst rood staat, kan dat een oorzaak zijn als Ainstein niet goed reageert."
+
     return f"""
   <div class="card" style="border-top-color:#1B2E5E">
-    <div class="card-label">Diensten</div>
+    <div class="card-label">{_tip('Diensten', card_tip)}</div>
     <div class="svc-list">{rows}
     </div>
     <div class="hint" style="margin-top:12px">
@@ -505,7 +564,10 @@ def render_card_diensten(m):
 
 def render_card_fouten(m):
     errors = m["errors"]
-    now = m["now"]
+
+    card_tip = "De laatste technische foutmeldingen uit het logboek van Ainstein. Een enkele fout is zelden urgent — een reeks fouten wel."
+    error_tip = "Een fout die is opgetreden, maar het systeem draait nog. Kan een tijdelijk probleem zijn — controleer of het zich herhaalt."
+    critical_tip = "Een ernstige fout. Het systeem werkt mogelijk niet meer correct en verdient directe aandacht."
 
     if not errors:
         content = '<div class="no-errors">Geen fouten gevonden in ainstein.log</div>'
@@ -514,11 +576,12 @@ def render_card_fouten(m):
         for ts, level, msg in reversed(errors):
             ts_str = ts.strftime("%d %b %H:%M") if ts else "?"
             level_col = "#C0392B" if level == "CRITICAL" else "#E67E22"
+            tip = critical_tip if level == "CRITICAL" else error_tip
             rows += f"""
         <div class="error-row">
           <div class="error-meta">
             <span class="error-ts">{ts_str}</span>
-            <span class="error-level" style="color:{level_col}">{level}</span>
+            <span class="error-level" style="color:{level_col}">{_tip(level, tip)}</span>
           </div>
           <div class="error-msg">{msg}</div>
         </div>"""
@@ -529,7 +592,7 @@ def render_card_fouten(m):
 
     return f"""
   <div class="card" style="border-top-color:#C0392B">
-    <div class="card-label">Recente fouten</div>
+    <div class="card-label">{_tip('Recente fouten', card_tip)}</div>
     <div class="error-list">{content}
     </div>
     <div class="hint" style="margin-top:10px">
@@ -575,6 +638,7 @@ main {
   padding: 24px 26px;
   box-shadow: 0 1px 3px rgba(27,46,94,0.07), 0 4px 16px rgba(27,46,94,0.04);
   border-top: 3px solid transparent;
+  overflow: visible;
 }
 .card-label {
   font-size: 10px;
@@ -660,6 +724,56 @@ footer a:hover { opacity: 1; }
   header { padding: 16px 20px; flex-wrap: wrap; }
   .row-items { grid-template-columns: 1fr; }
 }
+
+/* ── Tooltips ── */
+.tip {
+  position: relative;
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(27,46,94,0.22);
+  text-underline-offset: 3px;
+}
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1B2E5E;
+  color: #F5F3EE;
+  font-size: 12px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  text-decoration: none;
+  white-space: normal;
+  width: 230px;
+  padding: 9px 13px;
+  border-radius: 6px;
+  line-height: 1.55;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+  z-index: 300;
+  box-shadow: 0 4px 18px rgba(27,46,94,0.20);
+}
+.tip::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1B2E5E;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+  z-index: 300;
+}
+.tip:hover::after,
+.tip:hover::before { opacity: 1; }
 """
 
 

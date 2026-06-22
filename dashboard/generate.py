@@ -257,8 +257,23 @@ def check_service_connectivity():
     # Anthropic API key aanwezig
     c["anthropic"] = bool(os.environ.get("ANTHROPIC_API_KEY"))
 
-    # Slack tokens aanwezig
-    c["slack"] = bool(os.environ.get("SLACK_BOT_TOKEN") or os.environ.get("SLACK_APP_TOKEN"))
+    # Slack — live auth.test call (verifieert token én bereikbaarheid Slack API)
+    import urllib.request as _urllib
+    slack_token = os.environ.get("SLACK_BOT_TOKEN", "")
+    if slack_token:
+        try:
+            req = _urllib.Request(
+                "https://slack.com/api/auth.test",
+                data=b"",
+                headers={"Authorization": f"Bearer {slack_token}"},
+                method="POST",
+            )
+            with _urllib.urlopen(req, timeout=5) as resp:
+                c["slack"] = json.loads(resp.read()).get("ok", False)
+        except Exception:
+            c["slack"] = False
+    else:
+        c["slack"] = False
 
     # Google Drive service account bestand aanwezig en leesbaar
     sa_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")

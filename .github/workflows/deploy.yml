@@ -41,6 +41,8 @@ jobs:
             sleep 3
             sudo systemctl is-active --quiet ainstein || { sudo systemctl status ainstein --no-pager; exit 1; }
             crontab -l 2>/dev/null | grep -v 'run_backup.sh' | crontab -
+            # Backfill historische Jamie-meetings (idempotent)
+            python3 /home/thomas/Ainstein/scripts/backfill_jamie_meetings.py
             # Dashboard: genereer direct + voeg cron toe als nog niet aanwezig
             python3 /home/thomas/Ainstein/dashboard/generate.py
             (crontab -l 2>/dev/null | grep -q 'dashboard/generate.py') || \

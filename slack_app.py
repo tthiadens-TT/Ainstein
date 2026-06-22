@@ -769,6 +769,105 @@ def cmd_kennisbronnen(body, ack, say):
     t.start()
 
 
+@app.command("/status")
+def cmd_status(body, ack, say):
+    """Post een compacte Ainstein-statusoverzicht in Slack."""
+    ack()
+    channel = body["channel_id"]
+    try:
+        import json
+        import pathlib
+        import subprocess
+        from datetime import datetime, timezone, timedelta
+
+        BASE = pathlib.Path(__file__).parent
+        DECISIONS_LOG = BASE / "logs" / "decisions.jsonl"
+        now = datetime.now(timezone.utc)
+        window_7d = now - timedelta(days=7)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        entries = []
+        if DECISIONS_LOG.exists():
+            with open(DECISIONS_LOG) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            entries.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+
+        def _ts(s):
+            if not s:
+                return None
+            try:
+                return datetime.fromisoformat(s.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                return None
+
+        parsed = [(t, e) for e in entries if (t := _ts(e.get("timestamp")))]
+        last_ts = parsed[-1][0] if parsed else None
+        recent_7d = [(t, e) for t, e in parsed if t >= window_7d]
+        messages_7d = sum(1 for _, e in recent_7d if e.get("channel") or e.get("user_id"))
+        meetings_7d = sum(1 for _, e in recent_7d if e.get("skill") == "meeting_reviewer")
+
+        cost_usd = 0.0
+        for t, e in parsed:
+            if t >= month_start:
+                in_tok, out_tok = e.get("input_tokens"), e.get("output_tokens")
+                if in_tok and out_tok:
+                    cost_usd += (in_tok * 3.0 + out_tok * 15.0) / 1_000_000
+                else:
+                    iters, chars = e.get("iterations", 1), e.get("answer_chars", 0)
+                    cost_usd += (iters * 2000 * 3.0 + chars * 0.25 * 15.0) / 1_000_000
+        cost_eur = cost_usd * 0.92
+
+        def _run(args):
+            try:
+                r = subprocess.run(args, capture_output=True, text=True, timeout=3)
+                return r.stdout.strip() if r.returncode == 0 else None
+            except Exception:
+                return None
+
+        svc = _run(["systemctl", "is-active", "ainstein"])
+        disk_raw = _run(["df", "/home", "--output=pcent"])
+        disk_pct = None
+        if disk_raw:
+            try:
+                disk_pct = int(disk_raw.splitlines()[-1].strip().replace("%", ""))
+            except (ValueError, IndexError):
+                pass
+
+        if last_ts:
+            diff = now - last_ts
+            hours = diff.total_seconds() / 3600
+            if hours < 1:
+                age_txt = "< 1u geleden"
+            elif hours < 24:
+                age_txt = f"{int(hours)}u geleden"
+            else:
+                age_txt = f"{diff.days} dagen geleden"
+        else:
+            age_txt = "onbekend"
+
+        svc_icon = ":white_check_mark:" if svc == "active" else ":red_circle:"
+        disk_icon = ":white_check_mark:" if (disk_pct and disk_pct < 80) else ":warning:"
+
+        text = (
+            f"*Ainstein Status* — {now.strftime('%d %b %Y, %H:%M')} UTC\n\n"
+            f"{svc_icon} `ainstein.service` {svc or 'onbekend'}  ·  "
+            f"{disk_icon} Schijf {disk_pct if disk_pct is not None else '?'}%\n\n"
+            f":bar_chart: *Gebruik (7d)*  {messages_7d} berichten · {meetings_7d} meetings\n"
+            f":moneybag: *Kosten ({now.strftime('%B')})*  ≈ €{cost_eur:.2f} Anthropic API\n"
+            f":clock3: *Laatste activiteit*  {age_txt}\n\n"
+            f"<https://ainstein.duckdns.org/dashboard/|Volledig dashboard :arrow_upper_right:>"
+        )
+        say(text=text, channel=channel, mrkdwn=True)
+    except Exception as e:
+        logger.exception("cmd_status failed: %s", e)
+        say(text=f"_Status ophalen mislukt: {e}_", channel=channel, mrkdwn=True)
+
+
 _SLACK_FILE_HOSTS = {"files.slack.com", "slack-files.com"}
 
 

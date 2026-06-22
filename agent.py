@@ -222,6 +222,11 @@ def run_agent(
         "iterations": 0,
         "total_duration_s": 0.0,
         "answer_chars": 0,
+        "answer_preview": "",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
     }
 
     system = [
@@ -265,6 +270,7 @@ def run_agent(
         trace["iterations"] = iteration
         trace["total_duration_s"] = round(time.time() - _t_start, 2)
         trace["answer_chars"] = len(text)
+        trace["answer_preview"] = text[:600]
         return text, trace
 
     iteration = 0
@@ -289,6 +295,10 @@ def run_agent(
             )
             text = "\n".join(b.text for b in final.content if b.type == "text").strip()
             messages.append({"role": "assistant", "content": final.content})
+            trace["input_tokens"] += getattr(final.usage, "input_tokens", 0)
+            trace["output_tokens"] += getattr(final.usage, "output_tokens", 0)
+            trace["cache_creation_tokens"] += getattr(final.usage, "cache_creation_input_tokens", 0)
+            trace["cache_read_tokens"] += getattr(final.usage, "cache_read_input_tokens", 0)
             return _finish(text or "Ik kon geen sluitend antwoord formuleren — probeer de vraag specifieker te stellen.")
 
         _api_t0 = time.time()
@@ -331,6 +341,10 @@ def run_agent(
             getattr(response.usage, "cache_creation_input_tokens", 0),
             getattr(response.usage, "cache_read_input_tokens", 0),
         )
+        trace["input_tokens"] += getattr(response.usage, "input_tokens", 0)
+        trace["output_tokens"] += getattr(response.usage, "output_tokens", 0)
+        trace["cache_creation_tokens"] += getattr(response.usage, "cache_creation_input_tokens", 0)
+        trace["cache_read_tokens"] += getattr(response.usage, "cache_read_input_tokens", 0)
 
         # Collect text from this response
         text_parts = []

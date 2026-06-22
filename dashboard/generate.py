@@ -339,13 +339,20 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
     top_skills = sorted(skill_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
     cost_usd = 0.0
+    cost_is_exact = False
     for ts, e in parsed:
         if ts >= month_start:
-            iters = e.get("iterations", 1)
-            answer_chars = e.get("answer_chars", 0)
-            input_tokens = iters * AVG_INPUT_TOKENS_PER_ITER
-            output_tokens = answer_chars * OUTPUT_TOKENS_PER_CHAR
-            cost_usd += (input_tokens * COST_PER_M_INPUT + output_tokens * COST_PER_M_OUTPUT) / 1_000_000
+            in_tok = e.get("input_tokens")
+            out_tok = e.get("output_tokens")
+            if in_tok and out_tok:
+                cost_usd += (in_tok * COST_PER_M_INPUT + out_tok * COST_PER_M_OUTPUT) / 1_000_000
+                cost_is_exact = True
+            else:
+                iters = e.get("iterations", 1)
+                answer_chars = e.get("answer_chars", 0)
+                input_tokens = iters * AVG_INPUT_TOKENS_PER_ITER
+                output_tokens = answer_chars * OUTPUT_TOKENS_PER_CHAR
+                cost_usd += (input_tokens * COST_PER_M_INPUT + output_tokens * COST_PER_M_OUTPUT) / 1_000_000
 
     extract_skills = {"extract_knowledge", "extract_knowledge_distilleer", "extract_knowledge_merge"}
     kl_entries = [(ts, e) for ts, e in parsed if e.get("skill") in extract_skills]
@@ -370,11 +377,13 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "meetings_7d": meetings_7d,
         "top_skills": top_skills,
         "cost_anthropic_eur": cost_usd * EUR_RATE,
+        "cost_is_exact": cost_is_exact,
         "cost_month_label": now.strftime("%B %Y"),
         "last_kl": last_kl_ts.strftime("%d %b %Y") if last_kl_ts else None,
         "kl_age_days": kl_age_days,
         "outcomes_filled": outcomes_filled,
         "total_entries": len(entries),
+        "_entries": entries,
         "vm": vm,
         "svc": svc,
         "svc_health": svc_health,
@@ -566,7 +575,10 @@ def render_card_kosten(m):
     tavily_pct = int(m["svc"]["tavily_month"] / 10)
     tavily_col = "#2A7A5A" if tavily_pct < 70 else "#E67E22" if tavily_pct < 90 else "#C0392B"
 
-    anthropic_tip = "Schatting op basis van het aantal aanroepen en de gemiddelde antwoordlengte. Exacte tracking vereist tokenregistratie."
+    anthropic_tip = (
+        "Exacte kosten op basis van geregistreerde tokens." if m.get("cost_is_exact")
+        else "Schatting op basis van het aantal aanroepen en de gemiddelde antwoordlengte."
+    )
     gcp_tip = "De maandelijkse serverkosten op Google Cloud Platform. Loopt 24/7, ongeacht gebruik."
     tavily_tip = "Webzoekdienst voor actuele informatie. Het gratis plan geeft 1.000 zoekopdrachten per maand."
 
@@ -780,6 +792,109 @@ def render_card_fouten(m):
   </div>"""
 
 
+# ── Client card (pilot) ──────────────────────────────────────────────────────
+
+_CLIENT_FOLDERS = ("01_Proposals", "08_Outcomes", "04_Experts")
+_SKIP_NAMES = {"", "TEMPLATE", "templates", "_Archive", "README"}
+
+
+def _extract_client(entry):
+    """Derive a client/context label from a trace entry."""
+    for path in entry.get("files_read", []):
+        parts = path.replace("\\", "/").split("/")
+        for folder in _CLIENT_FOLDERS:
+            if folder in parts:
+                idx = parts.index(folder)
+                if idx + 1 < len(parts):
+                    cand = parts[idx + 1]
+                    if (cand not in _SKIP_NAMES
+                            and "." not in cand
+                            and not cand.startswith("_")
+                            and not (cand[0].isdigit() if cand else True)):
+                        return cand
+    if entry.get("skill") == "meeting_reviewer":
+        return entry.get("meeting_title") or None
+    return None
+
+
+def _skill_nl(skill):
+    return {
+        "build_proposal": "voorstel",
+        "analyse_opportunity": "analyse",
+        "match_experts": "experts",
+        "qualify_lead": "kwalificatie",
+        "prepare_discovery": "discovery-prep",
+        "client_discovery_debrief": "debrief",
+        "map_objections": "bezwaren",
+        "meeting_reviewer": "meeting",
+        "dvv_check": "kwaliteitscheck",
+        "create_content": "content",
+        "sharpen_positioning": "positionering",
+        "extract_knowledge": "kennisanalyse",
+    }.get(skill or "", skill or "?")
+
+
+def build_client_interactions(entries, now):
+    """Return list of latest interaction per client, sorted by recency."""
+    latest = {}
+    for e in entries:
+        client = _extract_client(e)
+        if not client:
+            continue
+        ts = parse_ts(e.get("timestamp"))
+        if ts is None:
+            continue
+        if client not in latest or ts > latest[client]["ts"]:
+            latest[client] = {
+                "client": client,
+                "ts": ts,
+                "skill": e.get("skill"),
+                "preview": e.get("answer_preview", ""),
+            }
+    rows = sorted(latest.values(), key=lambda x: x["ts"], reverse=True)
+    return rows[:8]
+
+
+def render_card_klanten(m):
+    rows = build_client_interactions(m["_entries"], m["now"])
+    now = m["now"]
+
+    if not rows:
+        content = '<div class="no-errors muted">Nog geen klantinteracties herkend.<br>Wordt gevuld zodra Ainstein bestanden uit 01_Proposals leest of meetings verwerkt.</div>'
+    else:
+        content = ""
+        for r in rows:
+            age = age_label(r["ts"], now)
+            skill_lbl = _skill_nl(r["skill"])
+            preview = r["preview"][:140].replace("<", "&lt;").replace(">", "&gt;") if r["preview"] else ""
+            if preview and len(r["preview"]) > 140:
+                preview += "…"
+            client_display = r["client"]
+            if len(client_display) > 42:
+                client_display = client_display[:40] + "…"
+            content += f"""
+      <div class="klant-row">
+        <div class="klant-header">
+          <span class="klant-name">{client_display}</span>
+          <span class="klant-meta">
+            <span class="badge badge-ok" style="background:#E8F4FC;color:#1A4E7C">{skill_lbl}</span>
+            <span class="svc-age">{age}</span>
+          </span>
+        </div>
+        {'<div class="klant-preview">' + preview + '</div>' if preview else ''}
+      </div>"""
+
+    return f"""
+  <div class="card" style="border-top-color:#8492A6;grid-column:1/-1">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+      <div class="card-label" style="margin-bottom:0">{_tip('Klanten — pilot', 'Automatisch afgeleid uit bestanden die Ainstein heeft gelezen en meetings die zijn binnengekomen. Geen handmatige invoer.')}</div>
+      <span style="font-size:10px;color:#B0BAD4;font-style:italic">experimenteel — afgeleid uit bronnen</span>
+    </div>
+    <div class="klant-list">{content}
+    </div>
+  </div>"""
+
+
 # ── CSS ───────────────────────────────────────────────────────────────────────
 
 CSS_TEMPLATE = """
@@ -893,6 +1008,22 @@ main {{
 .error-msg {{ font-size: 11px; color: #3A2020; font-family: monospace; word-break: break-word; }}
 .no-errors {{ font-size: 12px; color: #2A7A5A; padding: 10px 0; }}
 .no-errors.muted {{ color: #9AA5BE; }}
+/* Klanten */
+.klant-list {{ display: flex; flex-direction: column; gap: 6px; }}
+.klant-row {{
+  background: #FAFAF8; border-radius: 5px; padding: 8px 10px;
+  border-left: 3px solid #D8D5CC;
+}}
+.klant-header {{
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; flex-wrap: wrap;
+}}
+.klant-name {{ font-size: 13px; font-weight: 600; color: #001C40; }}
+.klant-meta {{ display: flex; align-items: center; gap: 8px; flex-shrink: 0; }}
+.klant-preview {{
+  font-size: 11px; color: #7A89A8; margin-top: 4px;
+  line-height: 1.5; font-style: italic;
+}}
 footer {{
   text-align: center; padding: 20px; font-size: 11px; color: #9AA5BE;
 }}
@@ -944,6 +1075,7 @@ def render(m, logo_uri, font_face):
     c4 = render_card_kennislaag(m)
     c5 = render_card_diensten(m)
     c6 = render_card_fouten(m)
+    c7 = render_card_klanten(m)
 
     css = CSS_TEMPLATE.format(font_face=font_face)
 
@@ -981,6 +1113,7 @@ def render(m, logo_uri, font_face):
 {c4}
 {c5}
 {c6}
+{c7}
 </main>
 <footer>
   <strong>ainstein-vm</strong> · GCP · 35.253.206.86 &nbsp;·&nbsp;

@@ -46,10 +46,8 @@ Vier aannames die het waard zijn te bevragen:
 ### ~~AINSTEIN-BACKUP-DEST: env var ontbreekt op VM~~ ✅ OPGELOST
 `AINSTEIN_BACKUP_DEST_ID=0AAnoQGN-2hbvUk9PVA` staat in `.env` op VM (geverifieerd 2026-06-22 via SSH). Was een foutieve claim in de roadmap.
 
-### DRIVE-CONNECTOR-BLOKKADE: AI-policy blokkeert Shared Drive
-**Probleem:** `mcp__4e943b1e` connector is geblokkeerd door een Google Workspace AI-policy-label op de Shared Drive. Claude Code-sessies kunnen kennis_laag.md en Drive-bestanden niet rechtstreeks lezen. Geen workaround aan Claude's kant.
-**Actie Thomas/Jörgen:** Google Workspace Admin Console → Shared Drive → verwijder of pas het AI-policy-label aan. Of: beslis dat de connector niet wordt gebruikt en documenteer het alternatief (service account via Python).
-**Impact:** Blokkeert K1 (terugkoppeling kennis-laag) indirect.
+### ~~DRIVE-CONNECTOR-BLOKKADE~~ ✅ GEEN ACTIE NODIG — al opgelost (2026-06-19)
+De `mcp__4e943b1e` connector kan `text/plain` bestanden inderdaad niet lezen ("ineligible to be used in generative AI contexts"). Maar dit is **geen belemmering**: de service account leest plain-text wél normaal, en de service account is altijd de bedoelde leesweg geweest voor `kennis_laag.md` en `_bronmateriaal`. De MCP connector is alleen relevant voor Claude Code review-sessies, niet voor de productie-bot of K1. Gedocumenteerd in `deploy_checklist_and_lessons.md` (2026-06-19). Geen admin-actie nodig.
 
 ---
 

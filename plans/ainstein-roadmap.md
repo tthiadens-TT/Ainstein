@@ -116,6 +116,11 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 ### Kennis terugkoppeling — beslissing aanpak
 **Vraag:** wil je dat Ainstein `kennis_laag.md` meeleest bij elke aanroep (automatisch), of wil je kennisitems handmatig promoveren naar de vaste bronnenlaag?
 
+### MCP-koppelingen — drie open beslissingen
+**Calendar MCP:** token verlopen (`npx @cocal/google-calendar-mcp auth` nodig). Beslissing vóór je dat doet: waarvoor wil je dat Ainstein agenda-toegang heeft?
+**Gmail MCP:** werkt, maar leest `tthiadens@gmail.com`. Beslissing: moet Ainstein de Minkowski-inbox (`thomas@minkowski.org`) kunnen lezen, en voor welk gebruik?
+**Notion MCP:** verbonden, maar 0 pagina's gedeeld. Eenmalige handeling in Notion UI (Settings → Connections). Beslissing: welke pagina's wil je beschikbaar maken?
+
 ---
 
 ## 📋 Backlog — Toekomst (nog niet te bouwen)

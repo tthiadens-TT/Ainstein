@@ -266,6 +266,24 @@ def run_agent(
     except Exception as _gaps_err:
         logger.warning("gaps.md inject failed (non-fatal): %s", _gaps_err)
 
+    # Inject kennis_laag.md — triangulated Minkowski knowledge confirmed across sources.
+    try:
+        from tools import load_kennis_context
+        kennis_ctx = load_kennis_context()
+        if kennis_ctx.strip():
+            system.append({
+                "type": "text",
+                "text": (
+                    "## Kennis-laag (06_Marketing/_kennis/kennis_laag.md)\n\n"
+                    "Getrianguleerde Minkowski-kennis — bevestigd over meerdere onafhankelijke bronnen. "
+                    "Gebruik als feitelijke achtergrond bij voorstellen, expert-matching en positioneringsvragen. "
+                    "Zekerder naarmate meer onafhankelijke oorsprongen overeenstemmen.\n\n"
+                    + kennis_ctx
+                ),
+            })
+    except Exception as _kennis_err:
+        logger.warning("kennis_laag inject failed (non-fatal): %s", _kennis_err)
+
     def _finish(text: str) -> tuple[str, dict]:
         trace["iterations"] = iteration
         trace["total_duration_s"] = round(time.time() - _t_start, 2)

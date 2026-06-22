@@ -651,6 +651,101 @@ def drive_read_gaps(max_chars: int = 5000) -> str | None:
         return None
 
 
+_kennis_cache: dict = {"content": None, "loaded_at": 0.0}
+_kennis_cache_lock = threading.Lock()
+_KENNIS_TTL = 300  # seconds
+
+
+def drive_read_kennis_laag(max_chars: int = 8000) -> str | None:
+    """Read kennis_laag.md from Drive (06_Marketing/_kennis/). Returns content or None on error."""
+    from googleapiclient.http import MediaIoBaseDownload
+
+    service = _get_drive_service()
+    if not service:
+        return None
+    folder_ids = _get_drive_folder_ids()
+    marketing_id = folder_ids.get("06_Marketing")
+    if not marketing_id:
+        return None
+    try:
+        res = service.files().list(
+            q=f"name='_kennis' and '{marketing_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields="files(id)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+    except Exception as e:
+        logger.error("drive_read_kennis_laag: folder lookup failed: %s", e)
+        return None
+    folders = res.get("files", [])
+    if not folders:
+        return None
+    kennis_folder_id = folders[0]["id"]
+    try:
+        results = service.files().list(
+            q=f"name='kennis_laag.md' and '{kennis_folder_id}' in parents and trashed=false",
+            fields="files(id)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+    except Exception as e:
+        logger.error("drive_read_kennis_laag: file lookup failed: %s", e)
+        return None
+    files = results.get("files", [])
+    if not files:
+        return None
+    file_id = files[0]["id"]
+    try:
+        request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        buf.seek(0)
+        content = buf.read().decode("utf-8", errors="replace")
+        if not content.strip():
+            return None
+        if len(content) > max_chars:
+            content = content[:max_chars] + "\n...[rest weggelaten]"
+        return content
+    except Exception as e:
+        logger.error("drive_read_kennis_laag: download failed: %s", e)
+        return None
+
+
+def load_kennis_context(max_chars: int = 8000) -> str:
+    """Return kennis_laag.md content for injection into the agent system prompt.
+
+    Cached for _KENNIS_TTL seconds. Returns empty string when unavailable.
+    """
+    import time as _time
+    global _kennis_cache
+    now = _time.time()
+    with _kennis_cache_lock:
+        if _kennis_cache["content"] is not None and now - _kennis_cache["loaded_at"] < _KENNIS_TTL:
+            return _kennis_cache["content"]
+        content = ""
+        try:
+            if _is_drive_mode():
+                raw = drive_read_kennis_laag(max_chars=max_chars)
+                content = raw or ""
+            else:
+                kennis_path = SOURCE_ROOT / "06_Marketing" / "_kennis" / "kennis_laag.md"
+                if kennis_path.exists():
+                    raw = kennis_path.read_text(encoding="utf-8")
+                    if len(raw) > max_chars:
+                        raw = raw[:max_chars] + "\n...[rest weggelaten]"
+                    content = raw
+        except Exception as e:
+            logger.warning("load_kennis_context failed: %s", e)
+        _kennis_cache["content"] = content
+        _kennis_cache["loaded_at"] = now
+        return content
+
+
 def _log_source_health() -> None:
     """Log source layer health at import time and snapshot Drive metadata."""
     if _is_drive_mode():

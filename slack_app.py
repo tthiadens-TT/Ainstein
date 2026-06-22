@@ -770,7 +770,7 @@ def cmd_kennisbronnen(body, ack, say):
     t.start()
 
 
-@app.command("/status")
+@app.command("/health")
 def cmd_status(body, ack, say):
     """Post een compacte Ainstein-statusoverzicht in Slack."""
     ack()

@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 — ping-knop, SocketMode heartbeat, workflow_dispatch, Futures Ready kaart, /health command*
+*Bijgewerkt: 22 juni 2026 — roadmap audit, Pad A (kennis-injectie), Slack-scraper dagelijks, validatievraag Jörgen/Charlotte, pipeline-visualisatie*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -234,7 +234,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
-| Slack-scraper geautomatiseerd — wekelijks zondag 02:00 via VM cron, scrapet laatste 8 dagen | `5d93daf` | 22 juni 2026 |
+| Slack-scraper geautomatiseerd — werkdagen 01:00 via VM cron (deploy.yml), scrapet laatste 2 dagen | `5d93daf` + deploy | 22 juni 2026 |
 | K1-pad: kennis_laag.md injectie via agent.py (Pad A) — `drive_read_kennis_laag()` + `load_kennis_context()` in tools.py, injectie in agent.py na gaps.md | `4af0453` | 22 juni 2026 |
 | `_slack_notify` certifi-fix — SSL-context met certifi-CA toegevoegd in `run_kennisextractie.py` | `b4118c9` | 21 juni 2026 |
 | DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |
@@ -250,6 +250,9 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Dashboard: live health checks per dienst (groen/rood), GCP CPU/geheugen/kosten, klanten-pilot, token-logging exacte kosten | `b2bee86`–`2d9fd6d` | 22 juni 2026 |
 | Management dashboard (`dashboard/generate.py`) — 4 KPI-kaarten, Minkowski-stijl, nginx + cron via deploy.yml | `5c33ae9` | 22 juni 2026 |
 | CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |
+| Kennis-laag Jörgen/Charlotte validatie verstuurd naar #about-ainstein — 7 items ter bevestiging; dagelijkse monitoring via scheduled task 09:05 | Slack MCP | 22 juni 2026 |
+| Kennis-laag pipeline-visualisatie (bronnen → MAP/REDUCE → injectie → gebruik) — SVG diagram | Claude Code | 22 juni 2026 |
+| Roadmap audit: 12 nieuwe items toegevoegd vanuit sessie-reviews, 2 achterhaalde items verwijderd | sessie | 22 juni 2026 |
 | Kennis-laag map-reduce refactor | `c9bbf42` | 21 juni 2026 |
 | Kennis-laag tijd-dimensie (Trend, gedateerde facetten, Historie) | `1a3820a` | 21 juni 2026 |
 | Website-scraper minkowski.org + futuresready.com + team/experts | `dcbd99b` | 21 juni 2026 |

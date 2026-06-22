@@ -16,12 +16,24 @@ LOGO_PATH = pathlib.Path(__file__).parent / "minkowski_logo.png"
 FONT_PATH = BASE / "assets" / "fonts" / "Sen-ExtraBold.ttf"
 OUTPUT = pathlib.Path(__file__).parent / "index.html"
 
-
 COST_PER_M_INPUT = 3.0
 COST_PER_M_OUTPUT = 15.0
 AVG_INPUT_TOKENS_PER_ITER = 2000
 OUTPUT_TOKENS_PER_CHAR = 0.25
 EUR_RATE = 0.92
+
+# Approximate monthly cost (EUR) per GCP machine type, europe-west4, on-demand
+GCP_COST_TABLE = {
+    "e2-micro": 7.11,
+    "e2-small": 14.21,
+    "e2-medium": 28.42,
+    "e2-standard-2": 56.85,
+    "e2-standard-4": 113.70,
+    "n1-standard-1": 23.43,
+    "n1-standard-2": 46.86,
+    "f1-micro": 4.28,
+    "g1-small": 14.46,
+}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -50,16 +62,6 @@ def age_label(ts, now):
     return f"{days} dagen geleden"
 
 
-def traffic_light(age_hours):
-    if age_hours is None:
-        return "#C0392B", "onbekend"
-    if age_hours < 24:
-        return "#2A7A5A", "actief"
-    if age_hours < 168:
-        return "#E67E22", f"{int(age_hours / 24)}d geleden"
-    return "#C0392B", f"{int(age_hours / 24)}d geleden"
-
-
 def run_cmd(args, timeout=5):
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
@@ -69,19 +71,28 @@ def run_cmd(args, timeout=5):
 
 
 def load_asset_b64(path, mime):
-    """Load a binary asset and return a data URI string."""
     if path.exists():
         return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
     return None
 
 
 def _dot(color, size=9):
-    return f'<span style="display:inline-block;width:{size}px;height:{size}px;border-radius:50%;background:{color};margin-right:6px;vertical-align:middle;position:relative;top:-1px"></span>'
+    return (f'<span style="display:inline-block;width:{size}px;height:{size}px;'
+            f'border-radius:50%;background:{color};margin-right:6px;'
+            f'vertical-align:middle;position:relative;top:-1px"></span>')
 
 
 def _tip(content, tooltip):
     safe = tooltip.replace('"', '&quot;')
     return f'<span class="tip" data-tip="{safe}">{content}</span>'
+
+
+def _badge(ok, label_ok="werkt", label_fail="fout"):
+    if ok is True:
+        return f'<span class="badge badge-ok">{label_ok}</span>'
+    if ok is False:
+        return f'<span class="badge badge-fail">{label_fail}</span>'
+    return '<span class="badge badge-unknown">onbekend</span>'
 
 
 SKILL_TIPS = {
@@ -104,16 +115,6 @@ SKILL_TIPS = {
     "review_feedback": "Ainstein verwerkte feedback op een voorstel of document.",
     "dvv_check": "Ainstein controleerde een document op duidelijkheid, volledigheid en overtuigingskracht.",
     "(geen skill)": "Ainstein verwerkte een algemeen verzoek zonder specifieke werkvorm.",
-}
-
-SVC_TIPS = {
-    "Anthropic API": "De AI-dienst achter Ainsteins intelligentie. Elke vraag die Ainstein verwerkt, gaat via Anthropic.",
-    "Slack": "De chatverbinding waarmee Ainstein berichten ontvangt en verstuurt naar het team.",
-    "Google Drive": "De documentenopslag met voorstellen, expertprofielen en methodologie. Ainstein zoekt hier altijd eerst.",
-    "Jamie webhook": "De koppeling met Jamie. Na elke vergadering stuurt Jamie het transcript automatisch naar Ainstein.",
-    "Tavily": "Een webzoekdienst voor actuele informatie buiten de eigen Minkowski-bronnen.",
-    "Google Cloud VM": "De server waarop Ainstein draait. Als deze offline gaat, stopt alles — Slack, Jamie en het dashboard. Gehost op Google Cloud Platform.",
-    "SSL / DuckDNS": "Het beveiligingscertificaat en het domeinnaam-systeem. Beide zijn nodig om de Jamie-koppeling bereikbaar te houden.",
 }
 
 
@@ -174,6 +175,34 @@ def check_vm_health():
     else:
         result["disk_pct"] = None
 
+    # CPU load (1-min average from /proc/loadavg)
+    load_raw = run_cmd(["cat", "/proc/loadavg"])
+    if load_raw:
+        try:
+            result["load_1m"] = float(load_raw.split()[0])
+        except (ValueError, IndexError):
+            result["load_1m"] = None
+    else:
+        result["load_1m"] = None
+
+    # Memory (from free -m)
+    mem_raw = run_cmd(["free", "-m"])
+    result["mem_pct"] = None
+    result["mem_total_mb"] = None
+    if mem_raw:
+        for line in mem_raw.splitlines():
+            if line.startswith("Mem:"):
+                parts = line.split()
+                if len(parts) >= 3:
+                    try:
+                        total = int(parts[1])
+                        used = int(parts[2])
+                        result["mem_total_mb"] = total
+                        result["mem_pct"] = round(used / total * 100) if total else None
+                    except ValueError:
+                        pass
+
+    # SSL cert expiry
     result["ssl_expires"] = None
     result["ssl_days"] = None
     cert_out = run_cmd(
@@ -200,6 +229,54 @@ def check_vm_health():
     return result
 
 
+def check_service_connectivity():
+    """Live connectivity checks per dienst. Werkt alleen correct op de VM."""
+    c = {}
+
+    # Flask /health endpoint (intern, poort 8080)
+    health_raw = run_cmd(
+        ["bash", "-c", "curl -sf --max-time 3 http://127.0.0.1:8080/health"],
+        timeout=5
+    )
+    c["flask"] = health_raw is not None
+
+    # Anthropic API key aanwezig
+    c["anthropic"] = bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+    # Slack tokens aanwezig
+    c["slack"] = bool(os.environ.get("SLACK_BOT_TOKEN") or os.environ.get("SLACK_APP_TOKEN"))
+
+    # Google Drive service account bestand aanwezig en leesbaar
+    sa_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
+    c["drive"] = bool(sa_path and pathlib.Path(sa_path).exists())
+
+    # Jamie webhook secret aanwezig
+    c["jamie"] = bool(os.environ.get("JAMIE_WEBHOOK_SECRET"))
+
+    # Tavily API key aanwezig
+    c["tavily"] = bool(os.environ.get("TAVILY_API_KEY"))
+
+    return c
+
+
+def get_gcp_info():
+    """Haal GCP instance type op via metadata server. Werkt alleen op GCP."""
+    out = run_cmd(
+        ["bash", "-c",
+         "curl -sf --max-time 2 "
+         "'http://metadata.google.internal/computeMetadata/v1/instance/machine-type' "
+         "-H 'Metadata-Flavor: Google'"],
+        timeout=4
+    )
+    instance_type = None
+    if out:
+        # Format: projects/PROJECT_ID/zones/ZONE/machineTypes/e2-micro
+        instance_type = out.split("/")[-1] if "/" in out else out
+
+    cost = GCP_COST_TABLE.get(instance_type) if instance_type else None
+    return {"instance_type": instance_type, "monthly_eur": cost}
+
+
 # ── Service timestamps from decisions.jsonl ───────────────────────────────────
 
 def extract_service_activity(entries, now):
@@ -217,22 +294,17 @@ def extract_service_activity(entries, now):
         ts = parse_ts(e.get("timestamp"))
         if ts is None:
             continue
-
         if svc["anthropic"] is None or ts > svc["anthropic"]:
             svc["anthropic"] = ts
-
         if e.get("user_id") or e.get("channel"):
             if svc["slack"] is None or ts > svc["slack"]:
                 svc["slack"] = ts
-
         if e.get("files_read"):
             if svc["drive"] is None or ts > svc["drive"]:
                 svc["drive"] = ts
-
         if e.get("skill") == "meeting_reviewer":
             if svc["jamie"] is None or ts > svc["jamie"]:
                 svc["jamie"] = ts
-
         for tool in e.get("tools_called", []):
             if tool.get("name") == "web_search":
                 if svc["tavily"] is None or ts > svc["tavily"]:
@@ -245,7 +317,7 @@ def extract_service_activity(entries, now):
 
 # ── Main metrics ─────────────────────────────────────────────────────────────
 
-def compute_metrics(entries, vm, svc, errors, now):
+def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
     window_7d = now - timedelta(days=7)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -257,7 +329,7 @@ def compute_metrics(entries, vm, svc, errors, now):
     last_age_hours = (now - last_ts).total_seconds() / 3600 if last_ts else None
 
     recent_7d = [(ts, e) for ts, e in parsed if ts >= window_7d]
-    messages_7d = len(recent_7d)
+    messages_7d = sum(1 for _, e in recent_7d if e.get("channel") or e.get("user_id"))
     meetings_7d = sum(1 for _, e in recent_7d if e.get("skill") == "meeting_reviewer")
 
     skill_counts = {}
@@ -297,7 +369,7 @@ def compute_metrics(entries, vm, svc, errors, now):
         "messages_7d": messages_7d,
         "meetings_7d": meetings_7d,
         "top_skills": top_skills,
-        "cost_eur": cost_usd * EUR_RATE,
+        "cost_anthropic_eur": cost_usd * EUR_RATE,
         "cost_month_label": now.strftime("%B %Y"),
         "last_kl": last_kl_ts.strftime("%d %b %Y") if last_kl_ts else None,
         "kl_age_days": kl_age_days,
@@ -305,6 +377,8 @@ def compute_metrics(entries, vm, svc, errors, now):
         "total_entries": len(entries),
         "vm": vm,
         "svc": svc,
+        "svc_health": svc_health,
+        "gcp": gcp,
         "errors": errors,
         "now": now,
     }
@@ -327,13 +401,13 @@ def render_card_status(m):
     st_col, st_label = _status_color(m["last_age_hours"])
 
     if m["last_age_hours"] is None:
-        st_tip = "Geen activiteit gevonden. Ainstein heeft nog geen verzoeken verwerkt, of het logboek is leeg."
+        st_tip = "Nog geen activiteit geregistreerd. Ainstein heeft nog geen verzoek verwerkt."
     elif m["last_age_hours"] < 24:
-        st_tip = "Ainstein heeft onlangs een verzoek ontvangen en verwerkt. Alles werkt normaal."
+        st_tip = "Ainstein heeft onlangs een verzoek verwerkt. Alles werkt normaal."
     elif m["last_age_hours"] < 72:
-        st_tip = "Ainstein heeft meer dan een dag niets gedaan. Dit kan normaal zijn bij weinig gebruik — controleer wel even."
+        st_tip = "Ainstein heeft meer dan een dag niets gedaan. Dit kan normaal zijn bij weinig gebruik."
     else:
-        st_tip = "Ainstein is al meer dan 3 dagen inactief. Controleer of de achtergrondservice nog draait op de server."
+        st_tip = "Ainstein is al meer dan 3 dagen inactief. Controleer of de service draait."
 
     svc_raw = vm.get("service_status")
     if svc_raw == "active":
@@ -342,10 +416,8 @@ def render_card_status(m):
         svc_col, svc_txt = "#E67E22", "inactief"
     elif svc_raw == "failed":
         svc_col, svc_txt = "#C0392B", "gefaald"
-    elif svc_raw is None:
-        svc_col, svc_txt = "#8492A6", "n.v.t."
     else:
-        svc_col, svc_txt = "#E67E22", svc_raw
+        svc_col, svc_txt = "#8492A6", "n.v.t."
 
     disk_pct = vm.get("disk_pct")
     if disk_pct is None:
@@ -357,6 +429,31 @@ def render_card_status(m):
     else:
         disk_col, disk_txt = "#C0392B", f"{disk_pct}% — vol!"
 
+    # CPU load
+    load = vm.get("load_1m")
+    if load is None:
+        cpu_col, cpu_txt = "#8492A6", "n.v.t."
+    elif load < 0.8:
+        cpu_col, cpu_txt = "#2A7A5A", f"{load:.2f} (laag)"
+    elif load < 1.5:
+        cpu_col, cpu_txt = "#E67E22", f"{load:.2f} (gemiddeld)"
+    else:
+        cpu_col, cpu_txt = "#C0392B", f"{load:.2f} (hoog)"
+
+    # Memory
+    mem_pct = vm.get("mem_pct")
+    mem_total = vm.get("mem_total_mb")
+    if mem_pct is None:
+        mem_col, mem_txt = "#8492A6", "n.v.t."
+    elif mem_pct < 70:
+        mem_col, mem_txt = "#2A7A5A", f"{mem_pct}%"
+    elif mem_pct < 85:
+        mem_col, mem_txt = "#E67E22", f"{mem_pct}% — let op"
+    else:
+        mem_col, mem_txt = "#C0392B", f"{mem_pct}% — vol!"
+    if mem_total:
+        mem_txt += f" / {round(mem_total/1024, 1)} GB"
+
     ssl_days = vm.get("ssl_days")
     if ssl_days is None:
         ssl_col, ssl_txt = "#8492A6", "n.v.t."
@@ -367,25 +464,24 @@ def render_card_status(m):
     else:
         ssl_col, ssl_txt = "#C0392B", f"verloopt in {ssl_days}d!"
 
-    deploy_txt = vm.get("last_deploy", "onbekend") or "onbekend"
-    if deploy_txt and len(deploy_txt) > 16:
-        deploy_txt = deploy_txt[:16]
+    deploy_txt = (vm.get("last_deploy") or "onbekend")[:16]
 
     inactive_alert = ""
     if m["last_age_hours"] is None or m["last_age_hours"] >= 72:
         inactive_alert = '<div class="alert">Controleer of ainstein.service actief is op de VM.</div>'
 
-    card_tip = "Geeft aan of Ainstein live en bereikbaar is. Gebaseerd op wanneer het systeem voor het laatst een verzoek verwerkte."
-    svc_tip = "De achtergrondservice die Ainstein laat draaien. Stopt deze, dan reageert Ainstein nergens meer op — Slack noch Jamie."
-    disk_tip = "Hoeveel opslagruimte er nog vrij is op de server. Bij meer dan 85% gebruik kan de server vastlopen en stopt Ainstein met reageren."
-    ssl_tip = "Het beveiligingscertificaat voor HTTPS. Verloopt dit, dan werkt de koppeling met Jamie niet meer."
-    deploy_tip = "De datum van de laatste automatische code-update. Na elke wijziging in GitHub wordt dit automatisch bijgewerkt op de server."
+    svc_tip = "De achtergrondservice op de server. Stopt deze, dan reageert Ainstein nergens meer op."
+    disk_tip = "Opslagruimte op de server. Bij meer dan 85% gebruik kan de server vastlopen."
+    cpu_tip = "CPU-belasting (load average, 1 minuut). Boven 1.5 is de server zwaar belast."
+    mem_tip = "RAM-gebruik op de server. Bij meer dan 85% kan Ainstein trager worden of crashen."
+    ssl_tip = "Het HTTPS-certificaat. Verloopt dit, dan werkt de Jamie-koppeling niet meer."
+    deploy_tip = "Datum van de laatste automatische code-update vanuit GitHub."
 
     return f"""
   <div class="card" style="border-top-color:{st_col}">
-    <div class="card-label">{_tip('Systeemstatus', card_tip)}</div>
+    <div class="card-label">{_tip('Systeemstatus', 'Of Ainstein actief is en de server gezond — gebaseerd op wanneer het systeem voor het laatst een verzoek verwerkte.')}</div>
     <div class="big" style="color:{st_col}">{_dot(st_col)}{_tip(st_label, st_tip)}</div>
-    <div class="meta">Laatste activiteit: {m['last_activity'] or 'onbekend'}</div>
+    <div class="meta">Laatste gebruik: {m['last_activity'] or 'onbekend'}</div>
     {inactive_alert}
     <div class="divider"></div>
     <div class="row-items">
@@ -396,6 +492,14 @@ def render_card_status(m):
       <div class="row-item">
         <div class="row-label">{_tip('Schijfruimte', disk_tip)}</div>
         <div class="row-val" style="color:{disk_col}">{_dot(disk_col, 8)}{disk_txt}</div>
+      </div>
+      <div class="row-item">
+        <div class="row-label">{_tip('CPU load', cpu_tip)}</div>
+        <div class="row-val" style="color:{cpu_col}">{_dot(cpu_col, 8)}{cpu_txt}</div>
+      </div>
+      <div class="row-item">
+        <div class="row-label">{_tip('Geheugen', mem_tip)}</div>
+        <div class="row-val" style="color:{mem_col}">{_dot(mem_col, 8)}{mem_txt}</div>
       </div>
       <div class="row-item">
         <div class="row-label">{_tip('SSL-certificaat', ssl_tip)}</div>
@@ -410,10 +514,6 @@ def render_card_status(m):
 
 
 def render_card_gebruik(m):
-    card_tip = "Hoeveel Ainstein is gebruikt de afgelopen 7 dagen — berichten via Slack en vergaderingen via Jamie."
-    msg_tip = "Het aantal keer dat iemand Ainstein een vraag of opdracht heeft gestuurd via Slack de afgelopen 7 dagen."
-    meet_tip = "Het aantal vergaderingen dat Jamie automatisch heeft doorgestuurd naar Ainstein voor analyse en opvolging."
-
     skills_html = ""
     for skill, count in m["top_skills"]:
         tip = SKILL_TIPS.get(skill, "Een taak die Ainstein heeft uitgevoerd.")
@@ -425,9 +525,12 @@ def render_card_gebruik(m):
     if not skills_html:
         skills_html = '<div class="skill-row muted">Geen activiteit</div>'
 
+    msg_tip = "Het aantal keer dat iemand Ainstein via Slack een vraag of opdracht heeft gestuurd."
+    meet_tip = "Het aantal Jamie-vergaderingen dat Ainstein heeft ontvangen en geanalyseerd."
+
     return f"""
   <div class="card" style="border-top-color:#98D2CF">
-    <div class="card-label">{_tip('Gebruik — afgelopen 7 dagen', card_tip)}</div>
+    <div class="card-label">{_tip('Gebruik — afgelopen 7 dagen', 'Hoeveel Ainstein is gebruikt: berichten via Slack en vergaderingen via Jamie.')}</div>
     <div class="kpi-row">
       <div>
         <div class="kpi-num">{m['messages_7d']}</div>
@@ -444,19 +547,44 @@ def render_card_gebruik(m):
 
 
 def render_card_kosten(m):
-    cost_str = f"≈ €{m['cost_eur']:.2f}" if m["cost_eur"] >= 0.01 else "< €0.01"
+    cost_a = m["cost_anthropic_eur"]
+    cost_a_str = f"≈ €{cost_a:.2f}" if cost_a >= 0.01 else "< €0.01"
+
+    gcp = m["gcp"]
+    instance = gcp.get("instance_type")
+    gcp_cost = gcp.get("monthly_eur")
+    if gcp_cost is not None:
+        gcp_str = f"≈ €{gcp_cost:.2f}/mnd"
+        gcp_type = f"({instance})"
+    elif instance:
+        gcp_str = "onbekend"
+        gcp_type = f"({instance})"
+    else:
+        gcp_str = "n.v.t."
+        gcp_type = "(lokaal)"
+
     tavily_pct = int(m["svc"]["tavily_month"] / 10)
     tavily_col = "#2A7A5A" if tavily_pct < 70 else "#E67E22" if tavily_pct < 90 else "#C0392B"
 
-    card_tip = "Wat Ainstein deze maand heeft gekost aan externe diensten. Kosten voor de server (GCP) staan hier niet in."
-    cost_tip = "Schatting op basis van het aantal aanroepen en de gemiddelde antwoordlengte. Voor exacte cijfers moeten tokens worden bijgehouden in het logboek."
-    tavily_tip = "Tavily is de webzoekdienst die Ainstein gebruikt voor actuele informatie. Het gratis plan geeft 1.000 zoekopdrachten per maand — daarna stopt de dienst tot de volgende maand."
+    anthropic_tip = "Schatting op basis van het aantal aanroepen en de gemiddelde antwoordlengte. Exacte tracking vereist tokenregistratie."
+    gcp_tip = "De maandelijkse serverkosten op Google Cloud Platform. Loopt 24/7, ongeacht gebruik."
+    tavily_tip = "Webzoekdienst voor actuele informatie. Het gratis plan geeft 1.000 zoekopdrachten per maand."
 
     return f"""
   <div class="card" style="border-top-color:#A4B187">
-    <div class="card-label">{_tip('Kosten — ' + m['cost_month_label'], card_tip)}</div>
-    <div class="big">{_tip(cost_str, cost_tip)}</div>
-    <div class="meta">Anthropic API — {m['total_entries']} aanroepen totaal</div>
+    <div class="card-label">{_tip('Kosten — ' + m['cost_month_label'], 'Wat Ainstein deze maand kost aan externe diensten.')}</div>
+    <div class="row-items" style="margin-top:4px">
+      <div class="row-item">
+        <div class="row-label">{_tip('Anthropic API', anthropic_tip)}</div>
+        <div class="row-val">{_tip(cost_a_str, anthropic_tip)}</div>
+        <div style="font-size:11px;color:#B0BAD4;margin-top:2px">{m['total_entries']} aanroepen</div>
+      </div>
+      <div class="row-item">
+        <div class="row-label">{_tip('Google Cloud VM', gcp_tip)}</div>
+        <div class="row-val">{_tip(gcp_str, gcp_tip)}</div>
+        <div style="font-size:11px;color:#B0BAD4;margin-top:2px">{gcp_type}</div>
+      </div>
+    </div>
     <div class="divider"></div>
     <div class="row-items">
       <div class="row-item">
@@ -464,35 +592,35 @@ def render_card_kosten(m):
         <div class="row-val" style="color:{tavily_col}">{_dot(tavily_col, 8)}{m['svc']['tavily_month']} / 1.000</div>
       </div>
     </div>
-    <div class="hint">Anthropic: schatting op iteraties + antwoordlengte.<br>Exacte tracking: usage tokens toevoegen aan decisions.jsonl.</div>
+    <div class="hint">Anthropic: schatting. Exacte tracking: tokens toevoegen aan decisions.jsonl.</div>
   </div>"""
 
 
 def render_card_kennislaag(m):
     if m["last_kl"] is None:
         kl_col, kl_label, kl_note = "#C0392B", "Nooit gedraaid", "Start run_kennisextractie.py"
-        kl_tip = "De kennislaag is nog nooit bijgewerkt. Ainstein werkt zonder actuele kennis van Minkowski en kan daardoor minder scherp antwoorden."
+        kl_tip = "De kennislaag is nog nooit bijgewerkt. Ainstein mist actuele kennis van Minkowski."
     elif m["kl_age_days"] and m["kl_age_days"] > 30:
         kl_col = "#E67E22"
         kl_label = f"Laatste run: {m['last_kl']}"
         kl_note = f"{m['kl_age_days']} dagen geleden — vernieuwen aanbevolen"
-        kl_tip = f"De kennislaag is {m['kl_age_days']} dagen oud. Nieuwe content op Minkowski-kanalen is nog niet verwerkt. Vernieuwen duurt ongeveer 10 minuten."
+        kl_tip = f"De kennislaag is {m['kl_age_days']} dagen oud. Nieuwe content is nog niet verwerkt. Vernieuwen duurt ~10 min."
     else:
         kl_col = "#2A7A5A"
         kl_label = f"Laatste run: {m['last_kl']}"
         kl_note = "actueel"
-        kl_tip = "De kennislaag is recent bijgewerkt. Ainstein beschikt over actuele kennis van Minkowski's methodologie, positionering en taal."
+        kl_tip = "De kennislaag is recent bijgewerkt. Ainstein heeft actuele kennis van Minkowski."
 
     out_col = "#2A7A5A" if m["outcomes_filled"] else "#C0392B"
     out_label = "Gevuld" if m["outcomes_filled"] else "Leeg — actie vereist"
     out_note = "win/loss records beschikbaar" if m["outcomes_filled"] else "NN IC + Cathalijne invullen (5 min)"
     out_tip = (
-        "Er zijn win/loss-records beschikbaar van eerdere voorstellen. Ainstein kan hierop leunen om scherpere voorstellen te schrijven."
+        "Win/loss-records beschikbaar. Ainstein kan hierop leunen bij het bouwen van voorstellen."
         if m["outcomes_filled"] else
-        "Geen records van gewonnen of verloren voorstellen. Ainstein mist daardoor een belangrijk referentiepunt bij het bouwen van nieuwe voorstellen."
+        "Geen win/loss-records. Ainstein mist een belangrijk referentiepunt voor nieuwe voorstellen."
     )
 
-    card_tip = "Ainsteins geheugen van Minkowski — methodologie, positionering, en wat werkt in voorstellen. Hoe recenter bijgewerkt, hoe relevanter de antwoorden."
+    card_tip = "Ainsteins geheugen van Minkowski — methodologie, positionering, en wat werkt in voorstellen."
 
     return f"""
   <div class="card" style="border-top-color:{kl_col}">
@@ -510,82 +638,115 @@ def render_card_diensten(m):
     now = m["now"]
     svc = m["svc"]
     vm = m["vm"]
+    h = m["svc_health"]
 
-    def svc_row(label, ts, extra=""):
-        age_hours = (now - ts).total_seconds() / 3600 if ts else None
-        col, _ = traffic_light(age_hours)
-        age = age_label(ts, now)
-        tip = SVC_TIPS.get(label, "Een externe dienst waar Ainstein gebruik van maakt.")
+    def _svc_dot(ok):
+        if ok is True:
+            return _dot("#2A7A5A", 9)
+        if ok is False:
+            return _dot("#C0392B", 9)
+        return _dot("#8492A6", 9)
+
+    def row(label, ok, status_txt, age_txt, tip):
+        dot = _svc_dot(ok)
+        badge_cls = "badge-ok" if ok is True else "badge-fail" if ok is False else "badge-unknown"
+        badge_label = status_txt
         return f"""
       <div class="svc-row">
-        <div class="svc-name">{_dot(col, 9)}{_tip(label, tip)}</div>
-        <div class="svc-age">{age}{' — ' + extra if extra else ''}</div>
+        <div class="svc-name">{dot}{_tip(label, tip)}</div>
+        <div class="svc-right">
+          <span class="badge {badge_cls}">{badge_label}</span>
+          <span class="svc-age">{age_txt}</span>
+        </div>
       </div>"""
 
-    # GCP VM: online als disk_pct beschikbaar is (systemchecks werken = VM is up)
+    # Google Cloud VM
     vm_disk = vm.get("disk_pct")
-    gcp_tip = SVC_TIPS["Google Cloud VM"]
-    if vm_disk is not None:
-        gcp_col = "#2A7A5A"
-        gcp_extra = f"schijf {vm_disk}% vol"
-        gcp_html = f"""
-      <div class="svc-row">
-        <div class="svc-name">{_dot(gcp_col, 9)}{_tip('Google Cloud VM', gcp_tip)}</div>
-        <div class="svc-age">online — {gcp_extra}</div>
-      </div>"""
-    else:
-        gcp_html = f"""
-      <div class="svc-row">
-        <div class="svc-name">{_dot('#8492A6', 9)}{_tip('Google Cloud VM', gcp_tip)}</div>
-        <div class="svc-age">n.v.t. (lokaal gegenereerd)</div>
-      </div>"""
+    vm_online = vm_disk is not None
+    vm_age = f"schijf {vm_disk}%" if vm_disk is not None else "lokaal"
+    gcp_instance = m["gcp"].get("instance_type") or "onbekend"
 
-    tavily_extra = f"{svc['tavily_month']}/1.000 calls"
+    # Flask /health
+    flask_ok = h.get("flask")
+    flask_age = "/health: ok" if flask_ok else "/health: geen antwoord"
+
+    # Anthropic — credential + last used
+    anth_ok = h.get("anthropic")
+    anth_age = age_label(svc["anthropic"], now) if svc["anthropic"] else "nooit"
+
+    # Slack
+    slack_ok = h.get("slack")
+    slack_age = age_label(svc["slack"], now) if svc["slack"] else "nooit"
+
+    # Google Drive
+    drive_ok = h.get("drive")
+    drive_age = age_label(svc["drive"], now) if svc["drive"] else "nooit"
+
+    # Jamie
+    jamie_ok = h.get("jamie")
+    jamie_age = age_label(svc["jamie"], now) if svc["jamie"] else "nooit"
+
+    # Tavily
+    tavily_ok = h.get("tavily")
+    tavily_age = f"{svc['tavily_month']}/1.000 calls" if svc["tavily"] else "nooit"
+
+    # SSL
+    ssl_days = vm.get("ssl_days")
+    ssl_ok = ssl_days is not None and ssl_days > 10
+    ssl_age = f"{ssl_days}d resterend" if ssl_days is not None else "n.v.t."
 
     rows = (
-        gcp_html
-        + svc_row("Anthropic API", svc["anthropic"])
-        + svc_row("Slack", svc["slack"])
-        + svc_row("Google Drive", svc["drive"])
-        + svc_row("Jamie webhook", svc["jamie"])
-        + svc_row("Tavily", svc["tavily"], tavily_extra)
+        row("Google Cloud VM", vm_online,
+            "online" if vm_online else "n.v.t.",
+            f"{vm_age} · {gcp_instance}",
+            "De server waarop Ainstein draait. Als deze offline gaat, stopt alles.")
+        + row("Flask app", flask_ok,
+              "bereikbaar" if flask_ok else "geen antwoord",
+              flask_age,
+              "De applicatieserver (Flask) die Slack en Jamie verwerkt. Dit is de meest directe indicator dat Ainstein werkt.")
+        + row("Anthropic API", anth_ok,
+              "geconfigureerd" if anth_ok else "niet geconfigureerd",
+              anth_age,
+              "De AI-dienst achter Ainsteins intelligentie. Elke verzoek gaat via Anthropic.")
+        + row("Slack", slack_ok,
+              "geconfigureerd" if slack_ok else "niet geconfigureerd",
+              slack_age,
+              "De chatverbinding waarmee Ainstein berichten ontvangt en verstuurt.")
+        + row("Google Drive", drive_ok,
+              "geconfigureerd" if drive_ok else "niet geconfigureerd",
+              drive_age,
+              "De documentenopslag met voorstellen, expertprofielen en methodologie.")
+        + row("Jamie webhook", jamie_ok,
+              "geconfigureerd" if jamie_ok else "niet geconfigureerd",
+              jamie_age,
+              "De koppeling met Jamie. Na elke vergadering stuurt Jamie het transcript naar Ainstein.")
+        + row("Tavily", tavily_ok,
+              "geconfigureerd" if tavily_ok else "niet geconfigureerd",
+              tavily_age,
+              "Webzoekdienst voor actuele informatie. Gratis plan: 1.000 zoekopdrachten per maand.")
+        + row("SSL / DuckDNS", ssl_ok,
+              "geldig" if ssl_ok else ("verloopt binnenkort" if ssl_days is not None else "n.v.t."),
+              ssl_age,
+              "Het HTTPS-certificaat en domein. Verloopt dit, dan werkt de Jamie-koppeling niet meer.")
     )
 
-    ssl_days = m["vm"].get("ssl_days")
-    ssl_tip = SVC_TIPS["SSL / DuckDNS"]
-    if ssl_days is not None:
-        ssl_col = "#2A7A5A" if ssl_days > 30 else "#E67E22" if ssl_days > 10 else "#C0392B"
-        rows += f"""
-      <div class="svc-row">
-        <div class="svc-name">{_dot(ssl_col, 9)}{_tip('SSL / DuckDNS', ssl_tip)}</div>
-        <div class="svc-age">cert verloopt in {ssl_days}d</div>
-      </div>"""
-    else:
-        rows += f"""
-      <div class="svc-row">
-        <div class="svc-name">{_dot('#8492A6', 9)}{_tip('SSL / DuckDNS', ssl_tip)}</div>
-        <div class="svc-age">n.v.t. (lokaal)</div>
-      </div>"""
-
-    card_tip = "De externe diensten waar Ainstein van afhankelijk is. Als een dienst rood staat, kan dat een oorzaak zijn als Ainstein niet goed reageert."
+    card_tip = "Of elke externe dienst geconfigureerd is en bereikbaar. Rood = actie vereist."
 
     return f"""
   <div class="card" style="border-top-color:#287093">
     <div class="card-label">{_tip('Diensten', card_tip)}</div>
     <div class="svc-list">{rows}
     </div>
-    <div class="hint" style="margin-top:12px">
-      Groen = gezien &lt;24u &nbsp;·&nbsp; Oranje = 1–7d &nbsp;·&nbsp; Rood = &gt;7d of nooit
+    <div class="hint" style="margin-top:10px">
+      Groen = geconfigureerd &amp; bereikbaar &nbsp;·&nbsp; Rood = niet geconfigureerd of fout
     </div>
   </div>"""
 
 
 def render_card_fouten(m):
     errors = m["errors"]
-
-    card_tip = "De laatste technische foutmeldingen uit het logboek van Ainstein. Een enkele fout is zelden urgent — een reeks fouten wel."
-    error_tip = "Een fout die is opgetreden, maar het systeem draait nog. Kan een tijdelijk probleem zijn — controleer of het zich herhaalt."
-    critical_tip = "Een ernstige fout. Het systeem werkt mogelijk niet meer correct en verdient directe aandacht."
+    error_tip = "Een fout die is opgetreden maar het systeem draait nog. Controleer of het zich herhaalt."
+    critical_tip = "Een ernstige fout. Het systeem werkt mogelijk niet meer correct — directe aandacht vereist."
 
     if not errors:
         content = '<div class="no-errors">Geen fouten gevonden in ainstein.log</div>'
@@ -610,7 +771,7 @@ def render_card_fouten(m):
 
     return f"""
   <div class="card" style="border-top-color:#C0392B">
-    <div class="card-label">{_tip('Recente fouten', card_tip)}</div>
+    <div class="card-label">{_tip('Recente fouten', 'De laatste technische foutmeldingen. Een enkele fout is zelden urgent — een reeks fouten wel.')}</div>
     <div class="error-list">{content}
     </div>
     <div class="hint" style="margin-top:10px">
@@ -619,10 +780,9 @@ def render_card_fouten(m):
   </div>"""
 
 
-# ── Full page ─────────────────────────────────────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 
 CSS_TEMPLATE = """
-/* ── Reset & base ── */
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{
   font-family: Helvetica, Arial, "Lucida Grande", sans-serif;
@@ -630,181 +790,124 @@ body {{
   color: #001C40;
   min-height: 100vh;
 }}
-
-/* ── Sen ExtraBold voor wordmark ── */
 {font_face}
-
-/* ── Header ── */
 header {{
   background: #FFFFFF;
   border-bottom: 1px solid #E4E1D8;
   padding: 14px 40px;
 }}
 .header-inner {{
-  max-width: 980px;
+  max-width: 1060px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }}
-.header-left {{
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}}
-.header-logo {{
-  height: 30px;
-  width: auto;
-  display: block;
-}}
-.header-divider {{
-  width: 1px;
-  height: 26px;
-  background: #D8D5CC;
-  flex-shrink: 0;
-}}
+.header-left {{ display: flex; align-items: center; gap: 16px; }}
+.header-logo {{ height: 30px; width: auto; display: block; }}
+.header-divider {{ width: 1px; height: 26px; background: #D8D5CC; flex-shrink: 0; }}
 .header-product-name {{
   display: block;
   font-family: 'Sen', Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  font-weight: 800;
-  color: #001C40;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  font-size: 15px; font-weight: 800; color: #001C40;
+  letter-spacing: -0.01em; line-height: 1.2;
 }}
 .header-product-sub {{
-  display: block;
-  font-size: 10px;
-  color: #8494A8;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-top: 3px;
+  display: block; font-size: 10px; color: #8494A8;
+  letter-spacing: 0.08em; text-transform: uppercase; margin-top: 3px;
 }}
-.generated {{
-  font-size: 11px;
-  color: #9AA5BE;
-  text-align: right;
-  line-height: 1.6;
-}}
-
-/* ── Main grid ── */
+.generated {{ font-size: 11px; color: #9AA5BE; text-align: right; line-height: 1.6; }}
 main {{
-  max-width: 980px;
-  margin: 32px auto;
+  max-width: 1060px;
+  margin: 28px auto;
   padding: 0 24px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }}
-
-/* ── Cards ── */
 .card {{
   background: #FFFFFF;
   border-radius: 8px;
-  padding: 22px 24px;
+  padding: 20px 22px;
   box-shadow: 0 1px 2px rgba(0,28,64,0.06), 0 3px 12px rgba(0,28,64,0.04);
   border-top: 3px solid transparent;
   overflow: visible;
 }}
 .card-label {{
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #9AA5BE;
-  margin-bottom: 14px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #9AA5BE; margin-bottom: 12px;
 }}
-.big {{ font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: #001C40; }}
-.meta {{ font-size: 13px; color: #7A89A8; margin-top: 6px; }}
-.divider {{ border-top: 1px solid #EEEBe4; margin: 14px 0; }}
+.big {{ font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: #001C40; }}
+.meta {{ font-size: 12px; color: #7A89A8; margin-top: 5px; }}
+.divider {{ border-top: 1px solid #EEEAE2; margin: 12px 0; }}
 .hint {{ font-size: 11px; color: #B0BAD4; line-height: 1.5; margin-top: 8px; }}
 .alert {{
-  margin-top: 12px;
-  background: #FEF2E8;
-  border-left: 3px solid #E67E22;
-  border-radius: 4px;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #7A4500;
+  margin-top: 10px; background: #FEF2E8;
+  border-left: 3px solid #E67E22; border-radius: 4px;
+  padding: 7px 11px; font-size: 12px; color: #7A4500;
 }}
-
-/* ── Row grid (status card) ── */
-.row-items {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }}
+.row-items {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }}
 .row-label {{ font-size: 10px; color: #9AA5BE; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }}
-.row-val {{ font-size: 13px; font-weight: 600; color: #001C40; }}
-
-/* ── KPI (gebruik card) ── */
-.kpi-row {{ display: flex; gap: 28px; margin-top: 12px; }}
+.row-val {{ font-size: 12px; font-weight: 600; color: #001C40; }}
+.kpi-row {{ display: flex; gap: 24px; margin-top: 10px; }}
 .kpi-num {{ font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: #001C40; }}
 .kpi-label {{ font-size: 10px; color: #9AA5BE; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }}
-
-/* ── Skills list ── */
-.skills-list {{ margin-top: 14px; border-top: 1px solid #EEEBe4; padding-top: 12px; }}
+.skills-list {{ margin-top: 12px; border-top: 1px solid #EEEAE2; padding-top: 10px; }}
 .skill-row {{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  font-size: 13px;
-  border-bottom: 1px solid #F5F3EE;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 12px; border-bottom: 1px solid #F5F3EE;
 }}
 .skill-row:last-child {{ border-bottom: none; }}
 .skill-name {{ color: #001C40; }}
 .skill-count {{ font-weight: 600; color: #287093; }}
 .skill-row.muted {{ color: #9AA5BE; font-style: italic; justify-content: center; }}
-
-/* ── Services ── */
+/* Services */
 .svc-list {{ display: flex; flex-direction: column; }}
 .svc-row {{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid #F5F3EE;
-  font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid #F5F3EE; font-size: 12px;
 }}
 .svc-row:last-child {{ border-bottom: none; }}
-.svc-name {{ font-weight: 500; color: #001C40; }}
-.svc-age {{ color: #7A89A8; font-size: 12px; }}
-
-/* ── Errors ── */
-.error-list {{ display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }}
+.svc-name {{ font-weight: 500; color: #001C40; display: flex; align-items: center; }}
+.svc-right {{ display: flex; align-items: center; gap: 8px; flex-shrink: 0; }}
+.svc-age {{ color: #9AA5BE; font-size: 11px; }}
+/* Badges */
+.badge {{
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 10px; text-transform: uppercase;
+  white-space: nowrap;
+}}
+.badge-ok    {{ background: #E6F4EE; color: #1A6645; }}
+.badge-fail  {{ background: #FDEEEC; color: #8B2016; }}
+.badge-unknown {{ background: #F0EDE6; color: #7A89A8; }}
+/* Errors */
+.error-list {{ display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }}
 .error-row {{
-  background: #FFF8F7;
-  border-left: 3px solid #E8B4B0;
-  border-radius: 4px;
-  padding: 8px 10px;
+  background: #FFF8F7; border-left: 3px solid #E8B4B0;
+  border-radius: 4px; padding: 7px 10px;
 }}
 .error-meta {{ display: flex; gap: 10px; align-items: center; margin-bottom: 3px; }}
 .error-ts {{ font-size: 11px; color: #9AA5BE; }}
 .error-level {{ font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }}
-.error-msg {{ font-size: 12px; color: #3A2020; font-family: monospace; word-break: break-word; }}
-.no-errors {{ font-size: 13px; color: #2A7A5A; padding: 12px 0; }}
+.error-msg {{ font-size: 11px; color: #3A2020; font-family: monospace; word-break: break-word; }}
+.no-errors {{ font-size: 12px; color: #2A7A5A; padding: 10px 0; }}
 .no-errors.muted {{ color: #9AA5BE; }}
-
-/* ── Footer ── */
 footer {{
-  text-align: center;
-  padding: 24px;
-  font-size: 11px;
-  color: #9AA5BE;
+  text-align: center; padding: 20px; font-size: 11px; color: #9AA5BE;
 }}
 footer a {{ color: #287093; text-decoration: none; opacity: 0.7; }}
 footer a:hover {{ opacity: 1; }}
-
-/* ── Responsive ── */
-@media (max-width: 640px) {{
-  main {{ grid-template-columns: 1fr; margin: 20px auto; }}
-  header {{ padding: 14px 20px; }}
-  .header-left {{ gap: 12px; }}
-  .row-items {{ grid-template-columns: 1fr; }}
+@media (max-width: 900px) {{
+  main {{ grid-template-columns: repeat(2, 1fr); }}
 }}
-
-/* ── Tooltips ── */
+@media (max-width: 600px) {{
+  main {{ grid-template-columns: 1fr; margin: 16px auto; }}
+  header {{ padding: 12px 16px; }}
+}}
+/* Tooltips */
 .tip {{
-  position: relative;
-  cursor: help;
+  position: relative; cursor: help;
   text-decoration: underline;
   text-decoration-style: dotted;
   text-decoration-color: rgba(0,28,64,0.20);
@@ -812,44 +915,25 @@ footer a:hover {{ opacity: 1; }}
 }}
 .tip::after {{
   content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
+  position: absolute; bottom: calc(100% + 10px); left: 50%;
   transform: translateX(-50%);
-  background: #001C40;
-  color: #FFFFFF;
-  font-size: 12px;
-  font-weight: 400;
-  font-style: normal;
-  letter-spacing: 0;
-  text-transform: none;
-  text-decoration: none;
-  white-space: normal;
-  width: 230px;
-  padding: 9px 13px;
-  border-radius: 6px;
-  line-height: 1.55;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.14s ease;
-  z-index: 300;
+  background: #001C40; color: #FFFFFF;
+  font-size: 12px; font-weight: 400; font-style: normal;
+  letter-spacing: 0; text-transform: none; text-decoration: none;
+  white-space: normal; width: 230px; padding: 9px 13px;
+  border-radius: 6px; line-height: 1.55;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.14s ease; z-index: 300;
   box-shadow: 0 4px 18px rgba(0,28,64,0.18);
 }}
 .tip::before {{
-  content: '';
-  position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
+  content: ''; position: absolute; bottom: calc(100% + 4px); left: 50%;
   transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: #001C40;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.14s ease;
-  z-index: 300;
+  border: 5px solid transparent; border-top-color: #001C40;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.14s ease; z-index: 300;
 }}
-.tip:hover::after,
-.tip:hover::before {{ opacity: 1; }}
+.tip:hover::after, .tip:hover::before {{ opacity: 1; }}
 """
 
 
@@ -863,11 +947,10 @@ def render(m, logo_uri, font_face):
 
     css = CSS_TEMPLATE.format(font_face=font_face)
 
-    logo_html = ""
     if logo_uri:
         logo_html = f'<img class="header-logo" src="{logo_uri}" alt="Minkowski">'
     else:
-        logo_html = '<span style="font-family:\'Sen\',Helvetica,sans-serif;font-weight:800;font-size:18px;color:#A4B187;letter-spacing:-0.01em">Minkowski</span>'
+        logo_html = '<span style="font-family:\'Sen\',Helvetica,sans-serif;font-weight:800;font-size:18px;color:#A4B187">Minkowski</span>'
 
     return f"""<!DOCTYPE html>
 <html lang="nl">
@@ -878,7 +961,6 @@ def render(m, logo_uri, font_face):
 <style>{css}</style>
 </head>
 <body>
-
 <header>
   <div class="header-inner">
     <div class="header-left">
@@ -892,7 +974,6 @@ def render(m, logo_uri, font_face):
     <div class="generated">Gegenereerd op<br>{m['generated_at']}</div>
   </div>
 </header>
-
 <main>
 {c1}
 {c2}
@@ -901,14 +982,12 @@ def render(m, logo_uri, font_face):
 {c5}
 {c6}
 </main>
-
 <footer>
   <strong>ainstein-vm</strong> · GCP · 35.253.206.86 &nbsp;·&nbsp;
   <a href="https://ainstein.duckdns.org" target="_blank">ainstein.duckdns.org</a>
   &nbsp;·&nbsp;
   <a href="slack://channel?team=T0B0ABL6T&id=C0B6B69Q812">#ainstein-status</a>
 </footer>
-
 </body>
 </html>"""
 
@@ -920,7 +999,7 @@ def main():
     now = datetime.now(timezone.utc)
 
     logo_uri = load_asset_b64(LOGO_PATH, "image/png")
-    print(f"  Logo: {'geladen' if logo_uri else 'niet gevonden — fallback tekst'}")
+    print(f"  Logo: {'geladen' if logo_uri else 'niet gevonden'}")
 
     font_b64 = load_asset_b64(FONT_PATH, "font/truetype")
     if font_b64:
@@ -928,16 +1007,19 @@ def main():
         print("  Sen ExtraBold: ingeladen")
     else:
         font_face = ""
-        print("  Sen ExtraBold: niet gevonden")
 
     entries = load_decisions()
     print(f"  {len(entries)} entries uit decisions.jsonl")
     errors = load_log_errors()
-    print(f"  {len(errors)} ERROR-regels gevonden in ainstein.log")
     vm = check_vm_health()
-    print(f"  VM-checks: service={vm.get('service_status')}, disk={vm.get('disk_pct')}%, ssl={vm.get('ssl_days')}d")
+    print(f"  VM: service={vm.get('service_status')}, disk={vm.get('disk_pct')}%, "
+          f"load={vm.get('load_1m')}, mem={vm.get('mem_pct')}%, ssl={vm.get('ssl_days')}d")
+    svc_health = check_service_connectivity()
+    print(f"  Health checks: {svc_health}")
+    gcp = get_gcp_info()
+    print(f"  GCP: instance={gcp.get('instance_type')}, cost=€{gcp.get('monthly_eur')}/mnd")
     svc = extract_service_activity(entries, now)
-    m = compute_metrics(entries, vm, svc, errors, now)
+    m = compute_metrics(entries, vm, svc, svc_health, gcp, errors, now)
     html = render(m, logo_uri, font_face)
     OUTPUT.parent.mkdir(exist_ok=True)
     OUTPUT.write_text(html, encoding="utf-8")

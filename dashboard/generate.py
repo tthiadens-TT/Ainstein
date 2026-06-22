@@ -414,6 +414,24 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
     last_kl_ts = kl_entries[-1][0] if kl_entries else None
     kl_age_days = (now - last_kl_ts).days if last_kl_ts else None
 
+    # Futures Ready metrics
+    window_30d = now - timedelta(days=30)
+    skills_30d = set()
+    for ts, e in parsed:
+        if ts >= window_30d and e.get("skill"):
+            skills_30d.add(e.get("skill"))
+    files_read_all = set()
+    for _, e in parsed:
+        for f in (e.get("files_read") or []):
+            files_read_all.add(f)
+    n_bronnen = 0
+    bronnen_file = BASE / "scripts" / "bronnen.json"
+    if bronnen_file.exists():
+        try:
+            n_bronnen = len(json.loads(bronnen_file.read_text()))
+        except Exception:
+            pass
+
     outcomes_filled = False
     if DRIVE_SNAPSHOT.exists():
         try:
@@ -444,6 +462,9 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "outcomes_filled": outcomes_filled,
         "total_entries": len(entries),
         "_entries": entries,
+        "skills_30d": skills_30d,
+        "n_files_read": len(files_read_all),
+        "n_bronnen": n_bronnen,
         "vm": vm,
         "svc": svc,
         "svc_health": svc_health,
@@ -990,6 +1011,101 @@ def render_card_diensten(m):
   </div>"""
 
 
+def render_card_futures_ready(m):
+    kl_age = m.get("kl_age_days")
+    n_bronnen = m.get("n_bronnen", 0)
+    skills_30d = m.get("skills_30d", set())
+    n_files = m.get("n_files_read", 0)
+    meetings_month = m.get("meetings_month", 0)
+    last_jamie = m.get("last_jamie_title") or "—"
+
+    # ── Mindset: kennislaag actualiteit ────────────────────────────────────────
+    if kl_age is None:
+        ms_ok = False
+        ms_label = "Kennislaag nog niet opgebouwd"
+        ms_note = "Draai run_kennisextractie.py om te starten"
+    elif kl_age > 30:
+        ms_ok = None
+        ms_label = f"{n_bronnen} bronnen · {kl_age}d oud"
+        ms_note = "Vernieuwen aanbevolen — nieuwe content niet verwerkt"
+    else:
+        ms_ok = True
+        ms_label = f"{n_bronnen} bronnen · {kl_age}d actueel"
+        ms_note = "LinkedIn, Medium, Substack, website, Slack, proposals, meetings"
+
+    # ── Skillset: breedte van inzet ────────────────────────────────────────────
+    # Exclude kennisextractie-skills (pipeline, niet direct ingezet)
+    user_skills = skills_30d - {"extract_knowledge_distilleer", "extract_knowledge_merge"}
+    n_skills = len(user_skills)
+    if n_skills >= 4:
+        ss_ok = True
+        ss_label = f"{n_skills} skills actief (30d)"
+    elif n_skills >= 2:
+        ss_ok = None
+        ss_label = f"{n_skills} skills actief (30d)"
+    else:
+        ss_ok = False
+        ss_label = f"{n_skills} skill{'s' if n_skills != 1 else ''} actief (30d)"
+    skills_txt = ", ".join(sorted(user_skills)) if user_skills else "geen"
+    ss_note = (skills_txt[:72] + "…") if len(skills_txt) > 72 else skills_txt
+
+    # ── Toolset: kennisbreedte ─────────────────────────────────────────────────
+    if n_files >= 20 or meetings_month >= 4:
+        ts_ok = True
+    elif n_files >= 6 or meetings_month >= 2:
+        ts_ok = None
+    else:
+        ts_ok = False
+    ts_label = f"{n_files} docs gelezen · {meetings_month} meetings deze maand"
+    ts_note = f"Laatste meeting: {last_jamie[:60]}{'…' if len(last_jamie) > 60 else ''}"
+
+    # ── Overall ────────────────────────────────────────────────────────────────
+    dims = [ms_ok, ss_ok, ts_ok]
+    n_green = dims.count(True)
+    n_red = dims.count(False)
+    if n_red == 0 and n_green == 3:
+        ov_label, ov_col = "Gereed", "#2A7A5A"
+    elif n_red >= 2:
+        ov_label, ov_col = "Basis", "#C0392B"
+    else:
+        ov_label, ov_col = "Groeiend", "#E67E22"
+
+    def dim_row(label, ok, status_label, note, tip):
+        col = "#2A7A5A" if ok is True else "#C0392B" if ok is False else "#E67E22"
+        return (
+            f'<div style="display:flex;align-items:flex-start;gap:12px;'
+            f'padding:10px 0;border-bottom:1px solid #EDE9E0">'
+            f'{_dot(col, 8)}'
+            f'<div style="flex:1;min-width:0">'
+            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;'
+            f'color:#8492A6;font-weight:700;margin-bottom:2px">{_tip(label, tip)}</div>'
+            f'<div style="font-size:13px;font-weight:600;color:#1B2E5E">{status_label}</div>'
+            f'<div style="font-size:12px;color:#8492A6;margin-top:2px;'
+            f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{note}</div>'
+            f'</div></div>'
+        )
+
+    rows = (
+        dim_row("Mindset", ms_ok, ms_label, ms_note,
+                "Wat Ainstein weet: de kennislaag met Minkowski-positionering, methodologie en klantkennis.")
+        + dim_row("Skillset", ss_ok, ss_label, ss_note,
+                  "Wat Ainstein kan: de skills die actief zijn ingezet in de afgelopen 30 dagen.")
+        + dim_row("Toolset", ts_ok, ts_label, ts_note,
+                  "Waarmee Ainstein werkt: documenten gelezen, meetings verwerkt, bronnen aangeraakt.")
+    )
+
+    return f"""
+  <div class="card" style="border-top-color:{ov_col}">
+    <div class="card-label">{_tip('Futures Ready', 'In hoeverre Ainstein klaar is om Minkowski te ondersteunen — op drie assen.')}</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+      {_dot(ov_col, 10)}
+      <span style="font-size:20px;font-weight:800;color:{ov_col};font-family:\'Sen\',Helvetica,sans-serif">{ov_label}</span>
+      <span style="font-size:12px;color:#8492A6">— Ainstein gereedheid</span>
+    </div>
+    {rows}
+  </div>"""
+
+
 def render_card_fouten(m):
     errors = m["errors"]
     error_tip = "Een fout die is opgetreden maar het systeem draait nog. Controleer of het zich herhaalt."
@@ -1331,6 +1447,7 @@ def render(m, logo_uri, font_face):
     c2 = render_card_gebruik(m)
     c3 = render_card_kosten(m)
     c4 = render_card_kennislaag(m)
+    c4b = render_card_futures_ready(m)
     c5 = render_card_diensten(m)
     c6 = render_card_fouten(m)
     c7 = render_card_klanten(m)
@@ -1370,6 +1487,7 @@ def render(m, logo_uri, font_face):
 {c2}
 {c3}
 {c4}
+{c4b}
 {c5}
 {c6}
 {c7}

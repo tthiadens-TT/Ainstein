@@ -149,6 +149,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren (dit bestand) | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost — fix gevalideerd via volledige run | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run + beoordeling — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
+| `send_slack_message` tool toegevoegd aan agent — Ainstein kan nu proactief berichten sturen naar Slack-kanalen | `fdda619` | 22 juni 2026 |
 | Kennis-laag map-reduce refactor — distilleer per bron (map) + kruis distillaties (reduce); ÍS de structurele fix voor het contextprobleem | `c9bbf42` | 21 juni 2026 |
 | Kennis-laag tijd-dimensie — Trend (opkomend/stabiel/vervagend), gedateerde facetten, Historie, `te herverifiëren` | `1a3820a` | 21 juni 2026 |
 | Website-scraper minkowski.org (64 art.) + futuresready.com (10) + team/experts (35) | `dcbd99b` | 21 juni 2026 |

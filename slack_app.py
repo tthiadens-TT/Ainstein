@@ -18,6 +18,7 @@ Usage in Slack:
 
 import io
 import os
+import pathlib
 import re
 import ssl
 import sys

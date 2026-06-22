@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 — dashboard uitgebreid (live health checks, kosten, klanten-pilot, /status)*
+*Bijgewerkt: 22 juni 2026 — ping-knop, SocketMode heartbeat, workflow_dispatch, Futures Ready kaart, /health command*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -163,11 +163,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Actie Thomas:** open een Ainstein-gegenereerd deck op Windows of Mac zonder Sen geïnstalleerd. Controleer of het font correct wordt weergegeven.
 **Prioriteit:** doen vóór eerstvolgende klantverstrekking.
 
-### `/status` command registreren in Slack app
-**Wat:** de code is live, maar Slack kent het command nog niet.
-**Actie Thomas:** ga naar [api.slack.com/apps](https://api.slack.com/apps) → Ainstein-app → *Slash Commands* → *Create New Command* → naam `/status`, request URL mag leeg (SocketMode). Opslaan + app opnieuw installeren.
-**Effort:** 2 minuten.
-**Prioriteit:** medium.
 
 ### TAVILY_API_KEY instellen op VM
 **Wat:** Tavily is geconfigureerd als primaire websearch, maar `TAVILY_API_KEY` staat niet in `.env` op de VM (staat als commentaar in `.env.example`). Bot valt terug op DDGS.
@@ -254,7 +249,14 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |
 | `send_slack_message` tool toegevoegd | `fdda619` | 22 juni 2026 |
 | DM-status verificatie in #ainstein-status thread | `e232ef9` | 22 juni 2026 |
-| Dashboard: live health checks per dienst (groen/rood), GCP CPU/geheugen/kosten, klanten-pilot, token-logging exacte kosten, `/status` Slack-command | `b2bee86`–`2d9fd6d` | 22 juni 2026 |
+| Dashboard: ping-knop in alert bar → POST `/webhooks/ping` → #ainstein-status | `69e99e2` | 22 juni 2026 |
+| Dashboard: SocketMode heartbeat — slack_app.py schrijft elke 30 min naar `logs/socketmode_heartbeat.txt`, dashboard toont badge | `69e99e2` | 22 juni 2026 |
+| Dashboard: Futures Ready kaart — mindset/skillset/toolset gereedheid op basis van kennislaag + skills_30d + docs gelezen | `dc32484` | 22 juni 2026 |
+| Deploy: `workflow_dispatch` trigger in deploy.yml — handmatige herstart via GitHub Actions UI (geen SSH nodig) | `69e99e2` | 22 juni 2026 |
+| Slack: `/health` command geregistreerd in Slack app (`/status` was bezet door andere app) | handmatig | 22 juni 2026 |
+| Dashboard: live Slack auth.test check (niet alleen env var aanwezigheid) | `20e0e2f` | 22 juni 2026 |
+| DM naar Jörgen: dashboard URL + uitleg van alle kaarten | via Slack MCP | 22 juni 2026 |
+| Dashboard: live health checks per dienst (groen/rood), GCP CPU/geheugen/kosten, klanten-pilot, token-logging exacte kosten | `b2bee86`–`2d9fd6d` | 22 juni 2026 |
 | Management dashboard (`dashboard/generate.py`) — 4 KPI-kaarten, Minkowski-stijl, nginx + cron via deploy.yml | `5c33ae9` | 22 juni 2026 |
 | CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |
 | Kennis-laag map-reduce refactor | `c9bbf42` | 21 juni 2026 |

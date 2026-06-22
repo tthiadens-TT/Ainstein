@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 (sessie-afsluiting)*
+*Bijgewerkt: 22 juni 2026 (sessie-afsluiting + infrastructuur-checks 28 mei)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -131,6 +131,9 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| `AINSTEIN_BACKUP_DEST_ID` ingesteld op VM (Drive ID `0AAnoQGN-2hbvUk9PVA`) | handmatig | 28 mei 2026 |
+| K3 Dubbele deploy — geen deploy-cron op VM, alleen backup-crons; GitHub Actions is enige deploypad | `crontab -l` check | 28 mei 2026 |
+| Approval gate — bewust verwijderd in `6305c4b` ("Geen gate nodig voor solo-project"), gesloten | commit `6305c4b` | 28 mei 2026 |
 | Ainstein Slack bot (SocketMode) | live | — |
 | 08_Outcomes setup (win/loss geheugen) | `8425f0b` | — |
 | Wekelijkse Drive backup | `39cd42d` | — |

@@ -36,9 +36,11 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, verwerkt ze via `meeting_reviewer` skill, post naar `#ainstein-status` (kanaalpost + volledige analyse in thread + DM-statusbevestiging) + DM naar Minkowski-deelnemers
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
-- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; `run_kennisextractie.py` handmatig op VM; map-reduce pipeline; tijd-dimensie actief
+- **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen; map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief; bronconfig: `scripts/bronnen.json`
 - **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
 - **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`); Sen ExtraBold OOXML-embedded; triggerable via Slack `/pptx`
+- **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen
 
 ### Wat pending is
 - Geen open PRs. Alles staat op main.
@@ -106,7 +108,11 @@ Slack (SocketMode)          Jamie (webhook)
 - Webhook URL (permanent): `https://ainstein.duckdns.org/webhooks/jamie`
 - Git flow: Claude Code pusht → GitHub `main` → **GitHub Actions deployt automatisch naar VM**
 
-**Roadmap:** zie `plans/ainstein-roadmap.md`.
+**Roadmap (buiten huidige scope):**
+- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
+- Automatisch `build_proposal` starten als sectie 11 van debrief dat aangeeft
+- Ondersteuning voor andere brontools naast Jamie
+- Upgrade webhook URL naar eigen domein zodra Thomas toegang heeft tot `minkowski.nl`
 
 ---
 

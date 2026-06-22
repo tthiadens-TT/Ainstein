@@ -63,11 +63,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Actie:** bestand inspecteren op VM, scraper-output checken op encoding/formaat-fouten.
 **Prioriteit:** medium.
 
-### Bug: `_slack_notify` gebruikt geen certifi
-**Wat:** `_slack_notify()` in `run_kennisextractie.py` gebruikt `urllib.request.urlopen` zonder SSL-context. Alle scrapers gebruiken wél certifi. Faalde lokaal op macOS; werkt vermoedelijk op VM (Linux) — verifiëren.
-**Actie:** consistent maken met scrapers. Klein.
-**Prioriteit:** laag.
-
 ### `audit_claude_md.py` toevoegen aan GitHub Actions CI
 **Wat:** `scripts/audit_claude_md.py` draait nu alleen handmatig. De deploy-workflow doet alleen een syntax-check. Als je een nieuwe skill of module toevoegt zonder CLAUDE.md bij te werken, pikt CI dit niet op.
 **Actie:** `python3 scripts/audit_claude_md.py` toevoegen als stap in `.github/workflows/deploy.yml` na de syntax-check.
@@ -246,6 +241,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
+| `_slack_notify` certifi-fix — SSL-context met certifi-CA toegevoegd in `run_kennisextractie.py` | `b4118c9` | 21 juni 2026 |
 | DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |
 | `send_slack_message` tool toegevoegd | `fdda619` | 22 juni 2026 |
 | DM-status verificatie in #ainstein-status thread | `e232ef9` | 22 juni 2026 |

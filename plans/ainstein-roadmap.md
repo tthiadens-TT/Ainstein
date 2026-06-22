@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 (sessie-afsluiting + infrastructuur-checks 28 mei)*
+*Bijgewerkt: 22 juni 2026 — sessie-afsluiting audit + architectuurbespreking*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -16,114 +16,133 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 **Geen actief blokkerend probleem op dit moment.**
 
-*Kennis-laag contextprobleem opgelost — run van 21 juni 2026 succesvol afgerond.*
-
 ---
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-### 08_Outcomes vullen — meest urgente actie
+### 08_Outcomes vullen — actie Thomas/Jörgen
 **Wat:** Concrete win/loss-records toevoegen aan `08_Outcomes` in Drive.
-**Waarom:** De kennis-laag run van 21 juni 2026 bevestigde dit expliciet als de grootste blinde vlek: Ainstein heeft instructie om `08_Outcomes` te raadplegen bij elk voorstel, maar de map is leeg. Commerciële lessen gaan verloren.
-**Concrete lessen die nu wegvallen:**
+**Waarom:** Ainstein heeft instructie om `08_Outcomes` te raadplegen bij elk voorstel, maar de map is leeg. Commerciële lessen gaan verloren.
+**Concrete cases die nu ontbreken:**
 - NN IC — gewonnen (mei 2026): wat werkte, welke argumentatie, welk tarief
 - Cathalijne — verloren op tarief bij Pierre: wat was het gat, wat had anders gekund
-**Actie Thomas/Jörgen:** deze twee cases invullen. Vijf minuten werk, directe waarde voor Ainstein bij elk volgend voorstel.
+**Actie Thomas/Jörgen:** template invullen. Vijf minuten werk, directe waarde voor elk volgend voorstel.
 
 ---
 
-## 📋 Backlog
+## 📋 Backlog — Technisch (bouwwerk)
 
-### 1. CLAUDE.md uitbreiden — niet-gedocumenteerde features
-**Wat:** Meerdere features zijn geïmplementeerd maar ontbreken volledig in CLAUDE.md (sessiememorie). Ainstein weet dus niet dat ze bestaan.
-**Ontbrekend:**
-- `pptx_builder.py` — Minkowski-branded PPTX builder (meerdere brand-fixes, actief)
-- `create_report_doc.py` — geformateerde Google Docs rapporten
-- `skills/meeting_reviewer.md` — onafhankelijke meeting-review naast Jamie
-- `skills/extract_knowledge.md` + `extract_knowledge_distilleer.md` + `extract_knowledge_merge.md` — kennis-laag skills
-- `list_recent_files` tool in `tools.py` — recente Drive-bestanden opvragen
-**Waarom:** gebouwd in lokale sessies, nooit gedocumenteerd in CLAUDE.md. Beter doen in lokale sessie (meer context beschikbaar).
-**Actie:** lokale sessie starten, bestanden lezen, CLAUDE.md aanvullen.
+### Klant-Agent — adversariale voorstelreview
+**Wat:** Tweede API-aanroep na `build_proposal`. Speelt kritische klant (CHRO, inkoper, directeur) — genereert 3–5 scherpe bezwaren op het concept. Ainstein verwerkt ze en levert versterkt eindvoorstel. Thomas ziet alleen het eindresultaat + optioneel een "Verwerkte kritiek"-sectie.
+**Architectuur:** tweede `client.messages.create()` aanroep in `agent.py`, geen tools, geen loop. Max 1500 tokens, 60s timeout. Bezwaartaxonomie uit `map_objections.md` als kader.
+**Status:** volledig plan uitgeschreven. Vier beslissingen nodig van Thomas vóór bouw:
+1. Bezwaren zichtbaar in Slack? (altijd als thread-reply / alleen eindvoorstel)
+2. Altijd aan bij `build_proposal`, of opt-in?
+3. Timeout >3 min → concept zonder Klant-Agent. Akkoord?
+4. Taal bezwaren: altijd Nederlands of volgt het voorstel?
+**Aanbeveling:** altijd aan, bezwaren als thread-reply, Nederlands, timeout-fallback. Eén "nee" van Thomas is genoeg om een default aan te passen.
+**Effort:** 2,5–3,5 uur.
 
-### 2. Lokale sessie-audit — 25+ sessies doorzoeken
-**Wat:** Thomas heeft 25+ lokale Claude Code-sessies die niet toegankelijk zijn vanuit remote omgevingen. Deze sessies bevatten mogelijk open items, beslissingen en features die niet zijn vastgelegd.
-**Waarom:** de sessie-audit van 21 juni 2026 was onvolledig — slechts 11 van de 25+ sessies waren leesbaar. Resterende sessies (bijv. "Outstanding tasks review", "Set up external agent audit", "Optimize query speed with indexing", "Add GitHub logging for non-code events") kunnen open werk bevatten.
-**Actie Thomas:** lokale sessie starten met instructie: "Lees alle sessiebestanden in dit project, extraheer open items, werk roadmap bij."
+### design_program skill — van voorstel naar programmaontwerp
+**Wat:** Na acceptatie van een voorstel helpt Ainstein de uitvoeringsfase ontwerpen: dag-voor-dag structuur, modulelogica, expert-matching voor de uitvoering.
+**Aanpak:** nieuwe skill `design_program.md`, bouwt voort op `build_proposal` output.
+**Effort:** 3–4 uur. Eerst Klant-Agent bouwen.
 
-### 3. Kennis-laag automatiseren
-**Wat:** `run_kennisextractie.py` automatisch laten draaien via GitHub Actions scheduling.
-**Waarom:** nu handmatig op VM — niet schaalbaar.
-**Trigger (nog niet bereikt):** ≥1 promotie van kennis naar bronnenlaag door Thomas/Jörgen, óf een say-vs-sell-gat dat aantoonbaar tot een commerciële actie heeft geleid.
-**Status:** run van 21 juni geslaagd, fix gevalideerd. Evidence-bar nog niet gehaald.
+### Bug: `slack_nn-schade-inkomen_2026-05.md` onleesbaar
+**Wat:** dit bestand is onleesbaar in twee onafhankelijke bronnen (Slack-scraper + Jamie). Structureel technisch probleem.
+**Actie:** bestand inspecteren op VM, scraper-output checken op encoding/formaat-fouten.
+**Prioriteit:** medium.
 
-### 4. Kennis terugkoppeling naar bronnenlaag
+### Bug: `_slack_notify` gebruikt geen certifi
+**Wat:** `_slack_notify()` in `run_kennisextractie.py` gebruikt `urllib.request.urlopen` zonder SSL-context. Alle scrapers gebruiken wél certifi. Faalde lokaal op macOS; werkt vermoedelijk op VM (Linux) — verifiëren.
+**Actie:** consistent maken met scrapers. Klein.
+**Prioriteit:** laag.
+
+### Kennis-laag automatiseren
+**Wat:** `run_kennisextractie.py` automatisch via GitHub Actions scheduling.
+**Trigger (nog niet bereikt):** ≥1 promotie van kennis naar bronnenlaag, óf een say-vs-sell-gat dat aantoonbaar tot een commerciële actie leidde.
+**Prioriteit:** laag — evidence bar nog niet gehaald.
+
+### Kennis terugkoppeling naar bronnenlaag
 **Wat:** mechanisme om geëxtraheerde kennis te bevorderen naar de vaste bronnenlaag (01–08) na handmatige bevestiging.
-**Waarom:** nu blijft kennis in `06_Marketing/_kennis/kennis_laag.md` — losgekoppeld van de bronnenlaag die Ainstein gebruikt bij voorstellen en matching.
 **Aanpak nog open:** mens promoot handmatig, of Ainstein leest `kennis_laag.md` mee bij elke aanroep.
+**Prioriteit:** laag.
 
-### 5. Webhook URL upgraden naar `webhook.minkowski.nl`
+### Webhook URL upgraden naar `webhook.minkowski.nl`
 **Wat:** DuckDNS-URL vervangen door professioneel Minkowski-domein.
-**Aanpak:** A-record `webhook.minkowski.nl → 35.253.206.86` toevoegen + certbot opnieuw uitvoeren (nginx config hoeft niet aan).
-**Blokkade:** Thomas heeft nog geen toegang tot het Minkowski domein.
+**Aanpak:** A-record `webhook.minkowski.nl → 35.253.206.86` + certbot opnieuw uitvoeren.
+**Blokkade:** Thomas heeft nog geen toegang tot het Minkowski domein. Niets aan te doen tot dan.
 
-### 6. Ainstein voert acties zelf uit na Slack-bevestiging
-**Wat:** als Thomas/Jörgen "doe het maar" zegt in Slack, voert Ainstein de actie direct uit — bijv. `build_proposal` starten, expert zoeken, notitie aanmaken.
-**Waarom:** nu stelt Ainstein voor en stopt — de vervolgstap is nog steeds handmatig.
-**Architectuur:** Slack-reactie triggert vervolgactie via bestaande skill-flow. Complex — aparte sessie.
+### Prompt Coaching format fixen
+**Wat:** "max 4 regels" limiet in brain.md conflicteert met het vereiste formaat.
+**Actie:** limiet versoepelen of coaching-blok compacter maken.
+**Prioriteit:** laag.
 
-### 7. Prompt Coaching praktijktest
+### Kennis-laag schaalplafond
+**Wat:** REDUCE herschrijft bij elke run de volledige `kennis_laag.md`. Schaalt niet voorbij ~70 entiteiten.
+**Aanpak (later):** incrementeel mergen.
+**Prioriteit:** laag — pas relevant bij ~70 entiteiten.
+
+### Semantische zoeklaag (RAG/Embeddings)
+**Wat:** Vervang keyword grep in `search_files()` door vector embeddings.
+**Tooling:** `text-embedding-3-small` of `sentence-transformers`; vectorstore FAISS of Chroma op VM.
+**Prioriteit:** laag — bronnenlaag heeft ~50 docs, keyword grep volstaat.
+
+### Interactieve voorstel-refinement loop
+**Wat:** Slack thread-reactie triggert `refine_proposal` skill met vorige output als context.
+**Prioriteit:** medium.
+
+### Website-analyse via Slack (DVV+AUB+SEO)
+**Wat:** URL via Slack → Ainstein analyseert op DVV, AUB, SEO.
+**Blokkade:** Playwright installeren op VM.
+**Prioriteit:** medium.
+
+---
+
+## 📋 Backlog — Beslissingen (Thomas/Jörgen)
+
+### Say-vs-sell gaten adresseren
+**Gevonden in kennis-laag run 21 juni 2026:**
+- NN Group als ankerklant — 300+ deelnemers, multi-year, nauwelijks zichtbaar
+- Wheel of Reasoning — ingezet in programma's, afwezig in publieke communicatie
+- Agentic AI als leiderschapsthema — intern aanwezig (LEAD3), geen publieke positie
+- "Making history by changing the future" — actief 2021–2023, afwezig 2026. Bewust of drift?
+**Actie Thomas/Jörgen:** beslissen welke gaten worden geadresseerd en in welk medium.
+
+### Prompt Coaching praktijktest
 **Wat:** valideren of de Prompt Coaching sectie (brain.md) in de praktijk werkt.
-**Waarom:** geïmplementeerd (commit `05ed433`) maar nooit geëvalueerd op effectiviteit.
 **Actie Thomas/Jörgen:** testen met vage vragen in Slack, beoordelen of de coaching scherp en nuttig is.
 
-### 8. Bug: `slack_nn-schade-inkomen_2026-05.md` onleesbaar
-**Wat:** dit bestand is onleesbaar in twee onafhankelijke bronnen (Slack-scraper + Jamie). Structureel technisch probleem dat herhaling laat zien.
-**Waarom:** als scraper-bestanden stelselmatig onleesbaar zijn, mist Ainstein bronmateriaal bij kennisextractie.
-**Actie:** bestand inspecteren op VM, scraper-output checken op encoding/formaat-fouten.
+### Kennis terugkoppeling — beslissing aanpak
+**Vraag:** wil je dat Ainstein `kennis_laag.md` meeleest bij elke aanroep (automatisch), of wil je kennisitems handmatig promoveren naar de vaste bronnenlaag?
 
-### 9. `.env` opruimen — dubbele AINSTEIN_STATUS_CHANNEL regels
-**Wat:** De `.env` op VM bevat drie regels voor `AINSTEIN_STATUS_CHANNEL` (één oude D0B4L386484, twee keer nieuwe C0B6B69Q812). Werkt correct (laatste waarde wint), maar is rommelig.
-**Actie Thomas:** op VM: `sed -i '/^AINSTEIN_STATUS_CHANNEL=/d' /home/thomas/Ainstein/.env && echo "AINSTEIN_STATUS_CHANNEL=C0B6B69Q812" >> /home/thomas/Ainstein/.env`
+---
+
+## 📋 Backlog — Toekomst (nog niet te bouwen)
+
+### Episodisch geheugen
+**Wat:** na elke proposalsessie gestructureerde lessen opslaan in `08_Episodes` in Drive.
+**Prioriteit:** medium — pas nuttig als ≥10 sessies gedocumenteerd zijn.
+
+### prioritise_pipeline skill
+**Wat:** leads prioriteren op basis van ICP-fit, timing, openstaande kansen.
+**Prioriteit:** na Klant-Agent en design_program.
+
+### Ainstein voert acties zelf uit na Slack-bevestiging
+**Wat:** "doe het maar" in Slack triggert vervolgactie direct.
+**Prioriteit:** complex — aparte sessie, pas als Klant-Agent stabiel draait.
+
+### Lead-radar (proactief)
+**Wat:** Ainstein scant wekelijks signalen (LinkedIn, nieuws) en meldt prospects.
+**Prioriteit:** laag — pas bouwen als ICP en GTM-laag bewezen werken in de praktijk.
+
+### Pipeline tracker
+**Wat:** lichtgewicht commerciële pipeline — welke leads, welke fase, volgende actie.
 **Prioriteit:** laag.
 
-### 13. Prompt Coaching format fixen
-**Wat:** "max 4 regels" limiet in brain.md conflicteert met het vereiste formaat (divider + header + zin + blockquote = al 4 regels minimaal).
-**Prioriteit:** laag — werkt in de praktijk, is een detail.
-**Actie:** limiet versoepelen of coaching-blok compacter maken.
-
-### 11. Episodisch geheugen — Ainstein onthoudt wat werkte
-**Wat:** Na elke proposalsessie structureel gestructureerde "lessen" opslaan in een aparte laag (bijv. `08_Episodes` in Drive): klanttype, vraagstuk, format, budget, wat resoneerde, wat miste.
-**Waarom:** De bronnenlaag bevat de proposals zelf; niemand legt de patronen eruit vast. Over tijd kan Ainstein dan zeggen "bij financiële instellingen met dit vraagstuk werkte experiential format in 4 van de 6 cases." Nu gaat die kennis verloren.
-**Aanpak:** Template ontwerpen + trigger (handmatig via `/episode` of automatisch na `build_proposal`). Bot schrijft, Thomas keurt goed.
-**Prioriteit:** Medium — afhankelijk van volume. Pas nuttig als ≥10 sessies gedocumenteerd zijn.
-
-### 12. Semantische zoeklaag (RAG/Embeddings)
-**Wat:** Vervang keyword grep in `search_files()` door vector embeddings. Docs uit Drive worden geïndexeerd als vectoren; Ainstein zoekt op betekenis, niet op woorden.
-**Waarom:** Nu mist Ainstein een doc over "begeleiding" als je zoekt op "facilitatie". Met embeddings matcht de betekenis.
-**Tooling:** `text-embedding-3-small` (OpenAI) of `sentence-transformers` lokaal; vectorstore FAISS of Chroma op VM.
-**Prioriteit:** Laag nu — bronnenlaag heeft ~50 docs, keyword grep volstaat. Relevant zodra bronnenlaag groeit naar 100+ docs of retrieval-fouten aantoonbaar toenemen.
-
-### 10. Say-vs-sell gaten adresseren
-**Wat:** de kennis-laag run van 21 juni 2026 identificeerde concrete communicatiegaten. Dit zijn beslissingen voor Thomas/Jörgen, geen technische items.
-**Gevonden gaten (verkocht, niet verkondigd):**
-- NN Group als ankerklant — 300+ deelnemers, multi-year commitment, nauwelijks zichtbaar in publieke communicatie
-- Wheel of Reasoning — consequent ingezet in programma's, volledig afwezig in Jörgens publieke communicatie
-- Agentic AI als leiderschapsthema — intern aanwezig (LEAD3), niet uitgewerkt als publieke positie
-**Gevonden drift (verkondigd, verdwijnend):**
-- "Making history by changing the future" — actief (2021–2023) → afwezig (2026). Bewust besluit of stille drift?
-- Duurzaamheid/klimaat — aanwezig in publieke communicatie 2021–2023, niet meer zichtbaar in 2026
-**Actie Jörgen/Thomas:** beslissen welke gaten geadresseerd worden en in welk medium.
-
-### 14. Bug: `_slack_notify` in `run_kennisextractie.py` gebruikt geen certifi
-**Wat:** De Slack-notificatie na een kennis-laag run faalde lokaal met `[SSL: CERTIFICATE_VERIFY_FAILED]`. `_slack_notify()` doet `urllib.request.urlopen` zonder SSL-context, terwijl alle scrapers (scrape_slack/substack/medium/website) wél `ssl.create_default_context(cafile=certifi.where())` gebruiken.
-**Onzeker:** faalde alleen lokaal (macOS); op de VM (Linux, systeem-certs) werkt het mogelijk wel — verifiëren.
-**Actie:** `_slack_notify` consistent maken met de scrapers (certifi + fallback). Klein.
+### Competitive intelligence skill
+**Wat:** vergelijking Minkowski vs. concurrent op verzoek.
 **Prioriteit:** laag.
-
-### 15. Kennis-laag schaalplafond — hele laag wordt elke run herschreven
-**Wat:** REDUCE schrijft bij elke run de volledige `kennis_laag.md` opnieuw. Bij 37 entiteiten ~23k tokens output; richting ~70–100 entiteiten loopt ook `max_tokens=32000` vol.
-**Aanpak (later):** incrementeel mergen — REDUCE levert alleen gewijzigde/nieuwe blokken + patch-instructie, het script past ze toe.
-**Prioriteit:** laag — pas relevant bij ~70 entiteiten. Niet vroeg optimaliseren.
 
 ---
 
@@ -131,9 +150,12 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 | Item | Commit/PR | Datum |
 |---|---|---|
-| `AINSTEIN_BACKUP_DEST_ID` ingesteld op VM (Drive ID `0AAnoQGN-2hbvUk9PVA`) | handmatig | 28 mei 2026 |
-| K3 Dubbele deploy — geen deploy-cron op VM, alleen backup-crons; GitHub Actions is enige deploypad | `crontab -l` check | 28 mei 2026 |
-| Approval gate — bewust verwijderd in `6305c4b` ("Geen gate nodig voor solo-project"), gesloten | commit `6305c4b` | 28 mei 2026 |
+| `.env` opruimen — dubbele AINSTEIN_STATUS_CHANNEL regels gefixed | handmatig op VM | 22 juni 2026 |
+| Drie audit-gaps gesloten: run_backup.sh in git, RATE_LIMIT_MAX in .env.example, pip-audit (0 kwetsbaarheden) | `cfba2fb` | 22 juni 2026 |
+| Architectuurbeslissing: single-agent blijft; Klant-Agent = tweede API-call, geen apart systeem | sessie 22 juni 2026 | — |
+| `AINSTEIN_BACKUP_DEST_ID` ingesteld op VM | handmatig | 28 mei 2026 |
+| K3 Dubbele deploy — geen deploy-cron op VM, alleen backup-crons; GitHub Actions enige deploypad | `crontab -l` check | 28 mei 2026 |
+| Approval gate — bewust verwijderd (`6305c4b`), solo-project | commit `6305c4b` | 28 mei 2026 |
 | Ainstein Slack bot (SocketMode) | live | — |
 | 08_Outcomes setup (win/loss geheugen) | `8425f0b` | — |
 | Wekelijkse Drive backup | `39cd42d` | — |
@@ -142,20 +164,20 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Feedback loop (gaps.md in prompts, auto-review #ainstein-status) | live | — |
 | Plan A: Prompt Coaching | `05ed433` | mei 2026 |
 | Web search via Tavily + DDGS fallback | `7154a08` | mei 2026 |
-| Dynamic Slack user lookup (vervangt MINKOWSKI_STAFF_MAP) | `cf18ff4` | mei 2026 |
+| Dynamic Slack user lookup | `cf18ff4` | mei 2026 |
 | Vision/image support (JPEG/PNG) | `110b681` | mei 2026 |
-| Kennis-laag bewijs-fase (scrapers + extractie in `scripts/`) | `1a3820a` e.a. | mei/juni 2026 |
+| Kennis-laag bewijs-fase (scrapers + extractie) | `1a3820a` e.a. | mei/juni 2026 |
 | Kennis-laag REDUCE fix (timeout 900s, max_tokens 32k, resumability) | `1a3820a` | 21 juni 2026 |
 | Plan B: Jamie webhook pipeline | PR #27 | mei 2026 |
 | Ainstein karakter-update (uitdager/denkpartner) | PR #28 | 16 juni 2026 |
 | Jamie meeting test (Hei-dag Waardestromen) — DM + taakreview werkt | live | 21 juni 2026 |
-| Backlog centraliseren (dit bestand) | zie commit | 21 juni 2026 |
-| Kennis-laag contextprobleem opgelost — fix gevalideerd via volledige run | `1a3820a` | 21 juni 2026 |
-| Kennis-laag volledige run + beoordeling — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
-| `send_slack_message` tool toegevoegd aan agent — Ainstein kan nu proactief berichten sturen naar Slack-kanalen | `fdda619` | 22 juni 2026 |
-| DM-status verificatie in #ainstein-status thread — na DMs post Ainstein wie er daadwerkelijk een DM ontving (`<@user_id>`) | `e232ef9` | 22 juni 2026 |
-| CLAUDE.md: Current State bijgewerkt, Jamie skill-mapping gecorrigeerd (`meeting_reviewer`), sessie-rituelen gedocumenteerd | `1e3cd2e` | 22 juni 2026 |
-| Kennis-laag map-reduce refactor — distilleer per bron (map) + kruis distillaties (reduce); ÍS de structurele fix voor het contextprobleem | `c9bbf42` | 21 juni 2026 |
-| Kennis-laag tijd-dimensie — Trend (opkomend/stabiel/vervagend), gedateerde facetten, Historie, `te herverifiëren` | `1a3820a` | 21 juni 2026 |
-| Website-scraper minkowski.org (64 art.) + futuresready.com (10) + team/experts (35) | `dcbd99b` | 21 juni 2026 |
-| LinkedIn/Medium/Substack scrapers + bronnen.json (10 bronnen, oorsprong-labels) | `b716a23` | 21 juni 2026 |
+| Backlog centraliseren | zie commit | 21 juni 2026 |
+| Kennis-laag contextprobleem opgelost | `1a3820a` | 21 juni 2026 |
+| Kennis-laag volledige run — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
+| `send_slack_message` tool toegevoegd | `fdda619` | 22 juni 2026 |
+| DM-status verificatie in #ainstein-status thread | `e232ef9` | 22 juni 2026 |
+| CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |
+| Kennis-laag map-reduce refactor | `c9bbf42` | 21 juni 2026 |
+| Kennis-laag tijd-dimensie (Trend, gedateerde facetten, Historie) | `1a3820a` | 21 juni 2026 |
+| Website-scraper minkowski.org + futuresready.com + team/experts | `dcbd99b` | 21 juni 2026 |
+| LinkedIn/Medium/Substack scrapers + bronnen.json (10 bronnen) | `b716a23` | 21 juni 2026 |

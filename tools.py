@@ -1819,6 +1819,27 @@ def _fs_list_recent_files(hours: int, user: str | None, limit: int) -> dict:
     }
 
 
+def send_slack_message(channel: str, text: str, thread_ts: str | None = None) -> dict:
+    """Post a message to a Slack channel or user via the bot token."""
+    token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
+    if not token:
+        return {"error": "SLACK_BOT_TOKEN not set — cannot send Slack message."}
+    try:
+        from slack_sdk import WebClient as _WebClient
+        client = _WebClient(token=token)
+        kwargs: dict = {"channel": channel, "text": text, "mrkdwn": True}
+        if thread_ts:
+            kwargs["thread_ts"] = thread_ts
+        resp = client.chat_postMessage(**kwargs)
+        return {
+            "ok": True,
+            "channel": resp["channel"],
+            "ts": resp["ts"],
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ---------------------------------------------------------------------------
 # Tool schemas for the Anthropic API
 # ---------------------------------------------------------------------------
@@ -2107,6 +2128,41 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "send_slack_message",
+        "description": (
+            "Send a message to a Slack channel or user. "
+            "Use this to proactively share findings, summaries, or advice in a project channel — "
+            "for example after researching a project and wanting to brief the team. "
+            "The channel can be a channel ID (e.g. 'C0B0H8Q1QTF'), a channel name (e.g. '#jetske-ultee'), "
+            "or a user ID for a direct message. "
+            "Always confirm with the user BEFORE sending, unless they have explicitly asked you to send."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string",
+                    "description": (
+                        "Channel ID (e.g. 'C0B0H8Q1QTF'), channel name (e.g. '#jetske-ultee'), "
+                        "or user ID for a DM."
+                    ),
+                },
+                "text": {
+                    "type": "string",
+                    "description": "The message text to send. Supports Slack mrkdwn formatting.",
+                },
+                "thread_ts": {
+                    "type": "string",
+                    "description": (
+                        "Optional. Timestamp of a parent message to reply in a thread. "
+                        "Format: '1234567890.123456'."
+                    ),
+                },
+            },
+            "required": ["channel", "text"],
+        },
+    },
+    {
         "name": "export_proposal_deck",
         "description": (
             "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal. "
@@ -2218,6 +2274,12 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
             )
         except Exception as e:
             result = {"error": str(e)}
+    elif tool_name == "send_slack_message":
+        result = send_slack_message(
+            channel=tool_input["channel"],
+            text=tool_input["text"],
+            thread_ts=tool_input.get("thread_ts"),
+        )
     elif tool_name == "export_proposal_deck":
         try:
             from gdoc_tools import get_doc_content, _extract_doc_id

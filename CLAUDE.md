@@ -11,8 +11,19 @@
 5. **Check GitHub vóór je Thomas iets laat doen** — gebruik de GitHub MCP tools om te verifiëren of iets al gedaan is. Zeg nooit "merge de PR" of "herstart de VM" zonder eerst te checken of het al gebeurd is.
 6. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
 7. **Voordat je iets bouwt dat extern bereikbaar moet zijn** — beantwoord de 4 deployment-vragen en de account-checklist (zie sectie "Way of Working" onderaan).
+8. **Check of je remote draait** — Claude Code web/remote sessies hebben geen toegang tot lokale sessiebestanden (JSONL). Vermeld dit expliciet als Thomas vraagt om een sessie-audit of verwijst naar lokale sessies. Verwijs hem door naar een lokale sessie voor die taak.
 
 Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk eerst.
+
+---
+
+## Session End Protocol
+
+**Aan het einde van elke sessie, doe dit voordat je afsluit:**
+
+1. **Werk `plans/ainstein-roadmap.md` bij** — verplaats afgeronde items naar ✅ Gedaan, voeg nieuwe open items toe. Doe dit altijd, ook als Thomas er niet om vraagt.
+2. **Update de datum** bovenaan de roadmap.
+3. **Push naar main** via GitHub MCP — zodat de volgende sessie (lokaal of remote) altijd de actuele staat ziet.
 
 ---
 
@@ -58,7 +69,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 | GCP firewall poort 80 + 443 | ✅ Open | `allow-http` en `allow-https` regels aangemaakt. |
 | Jamie payload veldnamen | ✅ Bevestigd | `metadata.id` (meeting ID), `data.title`, `data.summary.markdown`, `data.transcript[].speakerName`. Bij afwijkend schema in echte meeting: `jamie.py` logt raw payload naar `#ainstein-status`. |
 | Transcript truncatie | ✅ Geïmplementeerd | Max 24.000 chars (eerste 12k + laatste 12k). Voorkomt token-overflow bij lange transcripten. Zie `transcript_processor.py`. |
-| Slack OAuth scopes (volledig) | ✅ Geconfigureerd | `chat:write`, `reactions:read`, `users:read`, `users:read.email`, `app_mentions:read`, `files:write`. SocketMode: `connections:write`. Niet opnieuw instellen — al geregeld. |
+| Slack OAuth scopes (volledig) | ✅ Geconfigureerd | `chat:write`, `reactions:read`, `users:read`, `users:read.email`, `app_mentions:mark`, `files:write`. SocketMode: `connections:write`. Niet opnieuw instellen — al geregeld. |
 
 **Wanneer Thomas me corrigeert ("dat wist je al"): direct deze tabel updaten. Niet wachten.**
 
@@ -292,6 +303,7 @@ Your job is not to sound intelligent — your job is to show Minkowski what it c
 - **HTTPS:** Let's Encrypt via certbot — auto-renews, no manual action needed
 - **Webhook URL (permanent):** `https://ainstein.duckdns.org/webhooks/jamie`
 - **DuckDNS:** `ainstein.duckdns.org` → `35.253.206.86` (login: thomas@minkowski.org via Google)
+- **Scripts draaien op VM:** altijd vanuit `~/Ainstein` (`cd ~/Ainstein`). Eerste keer of na `requirements.txt`-update: `pip3 install -r requirements.txt -q`. Lange runs (>5 min): starten via `screen -S <naam> python3 scripts/<naam>.py` zodat ze doorlopen bij terminal-disconnect. Terugkijken: `screen -r <naam>`.
 
 ### Git Flow + Auto-Deploy
 Claude Code pusht naar GitHub. GitHub Actions deployt automatisch naar de VM bij elke merge naar `main`. **Thomas hoeft NOOIT handmatig te pullen of te herstarten op de VM.**
@@ -341,3 +353,6 @@ Claude Code → git push → GitHub (main) → GitHub Actions "Deploy to Ainstei
 
 ### Één plan per chat-sessie
 Plan mode ondersteunt één actief plan per sessie. Aanpak bij meerdere plannen: Plan A volledig uitvoeren → committen & pushen → Plan B in een nieuwe sessie starten.
+
+### Geef één aanbeveling, niet een keuzemenu
+Bij praktische vragen (commando's, aanpak, tools): geef één concrete aanbeveling en voer die uit. Geen "je kunt A doen, of B, of C." Als er één duidelijk beste optie is, kies die. Als het echt afhangt van context, stel één gerichte vraag — geen lijst van alternatieven.

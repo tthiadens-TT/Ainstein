@@ -393,7 +393,6 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "cost_anthropic_eur": cost_usd * EUR_RATE,
         "cost_is_exact": cost_is_exact,
         "cost_month_label": now.strftime("%B %Y"),
-        "cost_claude_subscription_eur": float(os.environ.get("MINKOWSKI_CLAUDE_SUBSCRIPTION_EUR", "0")),
         "last_kl": last_kl_ts.strftime("%d %b %Y") if last_kl_ts else None,
         "kl_age_days": kl_age_days,
         "outcomes_filled": outcomes_filled,
@@ -596,14 +595,9 @@ def render_card_kosten(m):
     )
     gcp_tip = "De maandelijkse serverkosten op Google Cloud Platform. Loopt 24/7, ongeacht gebruik."
     tavily_tip = "Webzoekdienst voor actuele informatie. Het gratis plan geeft 1.000 zoekopdrachten per maand."
-    sub_tip = "Het Minkowski Claude-abonnement (Claude Code / Pro). Stel in via MINKOWSKI_CLAUDE_SUBSCRIPTION_EUR in .env op de VM."
 
-    sub_eur = m.get("cost_claude_subscription_eur", 0.0)
-    sub_str = f"€{sub_eur:.0f}/mnd" if sub_eur else "instel via .env"
-    sub_note = "MINKOWSKI_CLAUDE_SUBSCRIPTION_EUR"
-
-    total_eur = cost_a + sub_eur + (gcp.get("monthly_eur") or 0.0)
-    total_str = f"€{total_eur:.2f}/mnd" if (sub_eur or gcp.get("monthly_eur")) else ""
+    total_eur = cost_a + (gcp.get("monthly_eur") or 0.0)
+    total_str = f"€{total_eur:.2f}/mnd" if gcp.get("monthly_eur") else ""
 
     hint_txt = (
         "Anthropic: exacte kosten op basis van tokens."
@@ -613,7 +607,7 @@ def render_card_kosten(m):
 
     return f"""
   <div class="card" style="border-top-color:#A4B187">
-    <div class="card-label">{_tip('Kosten — ' + m['cost_month_label'], 'Wat Ainstein en de Claude-licentie deze maand kosten.')}</div>
+    <div class="card-label">{_tip('Kosten — ' + m['cost_month_label'], 'Wat Ainstein deze maand kost aan externe diensten.')}</div>
     <div class="row-items" style="margin-top:4px">
       <div class="row-item">
         <div class="row-label">{_tip('Anthropic API', anthropic_tip)}</div>
@@ -624,11 +618,6 @@ def render_card_kosten(m):
         <div class="row-label">{_tip('Google Cloud VM', gcp_tip)}</div>
         <div class="row-val">{_tip(gcp_str, gcp_tip)}</div>
         <div style="font-size:11px;color:#B0BAD4;margin-top:2px">{gcp_type}</div>
-      </div>
-      <div class="row-item">
-        <div class="row-label">{_tip('Claude-abonnement', sub_tip)}</div>
-        <div class="row-val">{_tip(sub_str, sub_tip)}</div>
-        <div style="font-size:11px;color:#B0BAD4;margin-top:2px">{sub_note}</div>
       </div>
       {('<div class="row-item"><div class="row-label" style="color:#001C40;font-weight:700">Totaal/mnd</div><div class="row-val" style="font-weight:700">' + total_str + '</div></div>') if total_str else ''}
     </div>

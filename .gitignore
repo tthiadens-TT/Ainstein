@@ -42,5 +42,5 @@ logs/
 TASKS.md
 dashboard.html
 
-# Review output is tracked — history builds over time
-# reviews/
+# Review output — operationele logs, geen code; open items extracten naar CLAUDE.md Backlog
+reviews/

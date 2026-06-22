@@ -6,7 +6,7 @@
 
 1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
 2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
-3. **Lees de backlog** — open `plans/ainstein-roadmap.md`. Dit is de enige bron van waarheid voor openstaande items, prioriteiten en volgende stappen. Niet CLAUDE.md, niet losse documenten.
+3. **Lees de Backlog** — zie de Backlog-sectie onderaan dit CLAUDE.md. Dit is de enige bron van waarheid voor openstaande items. Niet `plans/`, niet losse documenten, niet memory.
 4. **Lees de Verified Configurations sectie** — weet wat al bevestigd en werkend is. Markeer dit NOOIT als risico of onbekend.
 5. **Check GitHub vóór je Thomas iets laat doen** — gebruik de GitHub MCP tools om te verifiëren of iets al gedaan is. Zeg nooit "merge de PR" of "herstart de VM" zonder eerst te checken of het al gebeurd is.
 6. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
@@ -29,24 +29,22 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 21 juni 2026*
+*Bijgewerkt: 22 juni 2026*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
-- **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, analyseert ze via `client_discovery_debrief` of `create_content`, post naar `#ainstein-status` + DM naar Minkowski-deelnemers
+- **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, verwerkt ze via `meeting_reviewer` skill, post naar `#ainstein-status` (kanaalpost + volledige analyse in thread + DM-statusbevestiging) + DM naar Minkowski-deelnemers
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
-- **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
-- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; Jamie-transcripten als bakje; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen; map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief (trends per entiteit: opkomend/stabiel/vervagend, te-herverifiëren vlag bij verouderde bevestigingen); bronconfig: `scripts/bronnen.json`
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; `run_kennisextractie.py` handmatig op VM; map-reduce pipeline; tijd-dimensie actief
 - **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
-- **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`) converteert een Google Doc voorstel naar Minkowski-branded PowerPoint; uploadt naar `00_Werkdocumenten`; triggerable via Slack `/pptx`
-- **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen; handmatig aanroepen (niet auto-getriggerd via Jamie)
+- **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`); Sen ExtraBold OOXML-embedded; triggerable via Slack `/pptx`
 
 ### Wat pending is
-- **Geen open PRs.** Alles staat op main.
+- Geen open PRs. Alles staat op main.
 
 ### Wat next is
-→ Zie `plans/ainstein-roadmap.md` — dit is de enige plek waar openstaande items worden bijgehouden.
+→ Zie de **Backlog**-sectie onderaan dit CLAUDE.md.
 
 ---
 
@@ -108,11 +106,7 @@ Slack (SocketMode)          Jamie (webhook)
 - Webhook URL (permanent): `https://ainstein.duckdns.org/webhooks/jamie`
 - Git flow: Claude Code pusht → GitHub `main` → **GitHub Actions deployt automatisch naar VM**
 
-**Roadmap (buiten huidige scope):**
-- Ainstein voert acties zelf uit na Slack-bevestiging ("doe het maar")
-- Automatisch `build_proposal` starten als sectie 11 van debrief dat aangeeft
-- Ondersteuning voor andere brontools naast Jamie
-- Upgrade webhook URL naar eigen domein zodra Thomas toegang heeft tot `minkowski.nl`
+**Roadmap:** zie Backlog-sectie onderaan dit CLAUDE.md.
 
 ---
 
@@ -316,7 +310,7 @@ Claude Code → git push → GitHub (main) → GitHub Actions "Deploy to Ainstei
 - HMAC secret: stored in `.env` op VM als `JAMIE_WEBHOOK_SECRET` — never commit, never share in chat
 - Transcript channel: `AINSTEIN_TRANSCRIPT_CHANNEL` (currently `#ainstein-status`, ID `C0B6B69Q812`)
 - Slack user lookup: dynamic via `users.lookupByEmail` — `users:read.email` scope geconfigureerd ✅
-- Meeting type → skill: client call → `client_discovery_debrief`, intern → `create_content`
+- Meeting type → skill: alle types → `meeting_reviewer` (adapteert via prompt op basis van type)
 - Transcript truncatie: max 24.000 chars (eerste 12k + laatste 12k) — zie `transcript_processor.py`
 
 ---
@@ -356,3 +350,50 @@ Plan mode ondersteunt één actief plan per sessie. Aanpak bij meerdere plannen:
 
 ### Geef één aanbeveling, niet een keuzemenu
 Bij praktische vragen (commando's, aanpak, tools): geef één concrete aanbeveling en voer die uit. Geen "je kunt A doen, of B, of C." Als er één duidelijk beste optie is, kies die. Als het echt afhangt van context, stel één gerichte vraag — geen lijst van alternatieven.
+
+### Sessie-rituelen
+
+**Opening (Thomas doet dit):**
+Stuur één intentiezin aan het begin: *"Vandaag wil ik bereiken dat X."*
+Zonder intentiezin stuurt Claude de sessie op basis van wat hij tegenkomt — dat is niet de bedoeling.
+
+**Sluiting (Claude doet dit, Thomas bevestigt):**
+1. **Current State bijwerken** in dit CLAUDE.md als er iets live is gegaan of veranderd is
+2. **Backlog bijwerken** — nieuwe items toevoegen, afgeronde verwijderen
+3. **Memory bijwerken** als er iets geleerd is (feedback, way of working, architectuurkeuze)
+4. **Uncommitted changes committen** — geen wijzigingen achterlaten
+5. **`claude/*` branches periodiek opruimen** (accumuleren door worktrees): `git -C ~/Ainstein branch --list 'claude/*' | xargs git -C ~/Ainstein branch -d 2>/dev/null`
+
+**reviews/ zijn operationele logs, geen code.** Open items uit reviews extracten naar de Backlog. De bestanden zelf staan in `.gitignore`.
+
+---
+
+## Backlog
+
+*Enige bron van waarheid voor openstaande items. Bijwerken bij elke sessiesluiting.*
+
+### Thomas-acties (geen code)
+- [ ] `TAVILY_API_KEY` op VM instellen — Tavily is geïnstalleerd, key ontbreekt nog (verify: mogelijk al gedaan na 2026-06-16)
+- [ ] PPTX visueel testen op Windows/Mac zonder Sen-font — vóór eerstvolgende klantverstrekking
+- [ ] Definieer één succes-metric voor Ainstein: wat vraag je Jörgen? Wat telt als "werkt"?
+- [ ] Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot Minkowski-domein
+
+### Klein (< 1 uur)
+- [ ] `tools.py` `_web_search_tavily`: `search_depth="advanced"` hardcoded → env-var `TAVILY_SEARCH_DEPTH` (default `"basic"`) voor quotumbeheer
+- [ ] `pptx_builder.py`: hardcoded `rid = "rIdSenEB"` → lage prioriteit, alleen relevant bij tweede font
+
+### Functioneel (features)
+- [ ] **Website-analyse via Slack** (DVV+AUB+SEO) — Playwright op VM vereist — effort 4–6u
+- [ ] **Interactieve voorstel-refinement** — Doc-comments → herschrijven → PPTX export — effort ~7u
+- [ ] **Leerarchitectuur stap 1** — wekelijkse gaps-analyse → Slack-voorstel aan Thomas — effort 2–3u
+- [ ] **Leerarchitectuur stap 2** — episodisch geheugen in `08_Episodes` — effort 3–4u
+- [ ] **AUB-audit bronnenlaag** — maandelijks Slack-rapport "5 zwakste plekken" — effort 3–4u
+- [ ] **Pipeline tracker** — lopende acquisitie bijhouden (Google Sheet) — effort 2–3u
+- [ ] **Lead-radar** — wekelijkse cron, proactieve leads via web search — pas bouwen als GTM-laag bewezen — effort 3–4u
+- [ ] **Competitive intelligence skill** — gerichte zoekstrategie per prospect — effort 2–3u
+- [ ] **Ainstein voert acties uit** na Slack-bevestiging ("doe het maar") — architectuurkeuze vereist
+
+### Architectuur / technische schuld
+- [ ] **RAG / Vector database** — scan-laag bottleneck bij 200+ bestanden — effort 10–15u
+- [ ] **Cloud Logging** (GCP) — lokale VM-logs vervangen — effort 3–4u
+- [ ] **conversations.db versleuteling** — SQLCipher of encrypted disk — effort 4–6u

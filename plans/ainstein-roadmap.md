@@ -43,10 +43,8 @@ Vier aannames die het waard zijn te bevragen:
 
 ## URGENT — direct oppakken
 
-### AINSTEIN-BACKUP-DEST: env var ontbreekt op VM
-**Probleem:** `AINSTEIN_BACKUP_DEST_ID` is niet gezet in `.env` op VM. Drive-backup-script stopt met een fout — **backup kan stil falen** zonder dat Thomas het merkt.
-**Actie Thomas:** SSH naar VM → `nano .env` → `AINSTEIN_BACKUP_DEST_ID=<Drive-folder-ID>` toevoegen → `systemctl restart ainstein`
-**Blokkade:** Geen — alleen handeling Thomas.
+### ~~AINSTEIN-BACKUP-DEST: env var ontbreekt op VM~~ ✅ OPGELOST
+`AINSTEIN_BACKUP_DEST_ID=0AAnoQGN-2hbvUk9PVA` staat in `.env` op VM (geverifieerd 2026-06-22 via SSH). Was een foutieve claim in de roadmap.
 
 ### DRIVE-CONNECTOR-BLOKKADE: AI-policy blokkeert Shared Drive
 **Probleem:** `mcp__4e943b1e` connector is geblokkeerd door een Google Workspace AI-policy-label op de Shared Drive. Claude Code-sessies kunnen kennis_laag.md en Drive-bestanden niet rechtstreeks lezen. Geen workaround aan Claude's kant.

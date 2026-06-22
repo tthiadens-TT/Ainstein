@@ -18,5 +18,5 @@ jobs:
           script: |
             cd /home/thomas/Ainstein
             set -a; source .env; set +a
-            .venv311/bin/python3 scripts/backup_drive.py
-            echo "Backup exit code: $?"
+            .venv311/bin/python3 scripts/backup_drive.py 2>&1 | tee -a logs/backup.log
+            echo "Backup exit code: ${PIPESTATUS[0]}"

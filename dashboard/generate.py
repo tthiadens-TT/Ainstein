@@ -285,6 +285,22 @@ def check_service_connectivity():
     # Tavily API key aanwezig
     c["tavily"] = bool(os.environ.get("TAVILY_API_KEY"))
 
+    # SocketMode heartbeat — slack_app.py schrijft elke 30 min via auth.test
+    hb_file = BASE / "logs" / "socketmode_heartbeat.txt"
+    c["socketmode_age_h"] = None
+    c["socketmode_ok"] = None
+    if hb_file.exists():
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            hb_raw = hb_file.read_text().strip()
+            hb_ts = _dt.fromisoformat(hb_raw.replace("Z", "+00:00"))
+            hb_age_h = (_dt.now(_tz.utc) - hb_ts).total_seconds() / 3600
+            # Heartbeat elke 30 min → stale als >1.5u (mist 3 cycli)
+            c["socketmode_age_h"] = round(hb_age_h, 1)
+            c["socketmode_ok"] = hb_age_h < 1.5
+        except Exception:
+            pass
+
     return c
 
 
@@ -520,11 +536,44 @@ def render_alert_bar(m):
     icon = "✕" if severity == "critical" else "!"
     items_html = " &nbsp;·&nbsp; ".join(f"<strong>{i}</strong>" for i in issues)
 
+    ping_script = """
+<script>
+function ainsteinPing() {
+  var btn = document.getElementById('ping-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Bezig...';
+  var issues = [];
+  document.querySelectorAll('.alert-bar strong').forEach(function(el) { issues.push(el.textContent); });
+  fetch('/webhooks/ping', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({issues: issues.join(', ') || 'dashboard-alert'})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.textContent = data.ok ? '✓ Ping verstuurd naar #ainstein-status' : ('✕ ' + (data.error || 'fout'));
+    btn.style.background = data.ok ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
+  })
+  .catch(function() { btn.textContent = '✕ Netwerk fout'; btn.style.background = 'rgba(0,0,0,0.3)'; });
+}
+</script>"""
+
+    ping_btn = (
+        '<button id="ping-btn" onclick="ainsteinPing()" '
+        'style="margin-left:16px;padding:4px 14px;border:none;border-radius:4px;'
+        'background:rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:13px;'
+        'white-space:nowrap;vertical-align:middle">'
+        'Ping #ainstein-status</button>'
+    )
+
     return (
-        f'<div class="alert-bar" style="background:{bg}">'
-        f'<span class="alert-icon">{icon}</span>'
-        f'{label}: {items_html}'
-        f'</div>'
+        ping_script
+        + f'<div class="alert-bar" style="background:{bg};display:flex;align-items:center;flex-wrap:wrap;gap:6px">'
+        + f'<span class="alert-icon">{icon}</span>'
+        + f'<span>{label}: {items_html}</span>'
+        + ping_btn
+        + '</div>'
     )
 
 
@@ -879,6 +928,16 @@ def render_card_diensten(m):
     ssl_ok = ssl_days is not None and ssl_days > 10
     ssl_age = f"{ssl_days}d resterend" if ssl_days is not None else "n.v.t."
 
+    # SocketMode heartbeat
+    sm_ok = h.get("socketmode_ok")
+    sm_age_h = h.get("socketmode_age_h")
+    if sm_age_h is None:
+        sm_age_txt = "geen heartbeat-data (nog niet opgestart)"
+    elif sm_age_h < 1:
+        sm_age_txt = f"{int(sm_age_h * 60)}m geleden"
+    else:
+        sm_age_txt = f"{sm_age_h:.1f}u geleden"
+
     rows = (
         row("Google Cloud VM", vm_online,
             "online" if vm_online else "n.v.t.",
@@ -912,6 +971,10 @@ def render_card_diensten(m):
               "geldig" if ssl_ok else ("verloopt binnenkort" if ssl_days is not None else "n.v.t."),
               ssl_age,
               "Het HTTPS-certificaat en domein. Verloopt dit, dan werkt de Jamie-koppeling niet meer.")
+        + row("SocketMode verbinding", sm_ok,
+              "actief" if sm_ok is True else ("stale" if sm_ok is False else "geen data"),
+              sm_age_txt,
+              "Heartbeat van de Slack SocketMode-verbinding. Wordt elke 30 min bijgewerkt. Stale = Ainstein reageert mogelijk niet op Slack-berichten.")
     )
 
     card_tip = "Of elke externe dienst geconfigureerd is en bereikbaar. Rood = actie vereist."

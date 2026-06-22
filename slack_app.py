@@ -1229,6 +1229,24 @@ if __name__ == "__main__":
     import signal
     from datetime import datetime
 
+    # Heartbeat: schrijft elke 30 min een timestamp als Slack API bereikbaar is.
+    # Herkent stille SocketMode-uitval die niet via systemctl zichtbaar is.
+    _hb_file = pathlib.Path(__file__).parent / "logs" / "socketmode_heartbeat.txt"
+
+    def _heartbeat_loop():
+        import time as _time
+        _time.sleep(60)  # wacht tot SocketMode opgestart is
+        while True:
+            try:
+                result = app.client.auth_test()
+                if result.get("ok"):
+                    _hb_file.write_text(datetime.now(timezone.utc).isoformat())
+            except Exception as _hb_err:
+                logger.warning("Slack heartbeat check mislukt: %s", _hb_err)
+            _time.sleep(1800)  # 30 minuten
+
+    threading.Thread(target=_heartbeat_loop, daemon=True, name="slack-heartbeat").start()
+
     handler = SocketModeHandler(app, app_token)
     start_time = datetime.now().strftime("%Y-%m-%d %H:%M")
     status_channel = os.environ.get("AINSTEIN_STATUS_CHANNEL", "").strip()

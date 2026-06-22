@@ -7,6 +7,8 @@ Only starts if JAMIE_WEBHOOK_SECRET is set in the environment.
 import json
 import logging
 import os
+import pathlib
+import time
 import threading
 
 from flask import Flask, Response, request
@@ -114,6 +116,42 @@ def create_webhook_app(slack_client, anthropic_client) -> Flask:
         )
         t.start()
         return Response("OK", status=200)
+
+    @app.route("/webhooks/ping", methods=["POST"])
+    def admin_ping() -> Response:
+        """Dashboard ping-knop — stuurt een melding naar #ainstein-status. Rate-limit: 1 per 5 min."""
+        _ping_file = pathlib.Path(__file__).parent / "logs" / "last_ping.txt"
+        try:
+            if _ping_file.exists():
+                last_ts = float(_ping_file.read_text().strip())
+                if time.time() - last_ts < 300:
+                    return Response(
+                        json.dumps({"ok": False, "error": "rate_limited", "retry_after": 300}),
+                        status=429,
+                        mimetype="application/json",
+                    )
+            _ping_file.write_text(str(time.time()))
+        except Exception as exc:
+            logger.warning("ping: kon rate-limit bestand niet lezen/schrijven: %s", exc)
+
+        payload = request.get_json(silent=True) or {}
+        issues = payload.get("issues", "onbekend — handmatige ping via dashboard")
+        status_channel = os.environ.get("AINSTEIN_TRANSCRIPT_CHANNEL", "C0B6B69Q812")
+        try:
+            slack_client.chat_postMessage(
+                channel=status_channel,
+                text=(
+                    f":warning: *Dashboard ping*\n"
+                    f"Gemeld via de dashboard ping-knop.\n"
+                    f"Issue: {issues}\n"
+                    f"Controleer of Ainstein correct functioneert."
+                ),
+                mrkdwn=True,
+            )
+            return Response(json.dumps({"ok": True}), status=200, mimetype="application/json")
+        except Exception as exc:
+            logger.error("ping: Slack post mislukt: %s", exc)
+            return Response(json.dumps({"ok": False, "error": str(exc)}), status=500, mimetype="application/json")
 
     @app.route("/health", methods=["GET"])
     def health() -> Response:

@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reden voor handmatige herstart'
+        required: false
+        default: 'Handmatige herstart via GitHub Actions'
 
 jobs:
   syntax-check:

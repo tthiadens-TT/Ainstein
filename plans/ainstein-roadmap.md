@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 — roadmap volledig gesynchroniseerd met carry-forwards uit reviews*
+*Bijgewerkt: 22 juni 2026 — management dashboard gebouwd*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -248,6 +248,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |
 | `send_slack_message` tool toegevoegd | `fdda619` | 22 juni 2026 |
 | DM-status verificatie in #ainstein-status thread | `e232ef9` | 22 juni 2026 |
+| Management dashboard (`dashboard/generate.py`) — 4 KPI-kaarten, Minkowski-stijl, nginx + cron via deploy.yml | deze sessie | 22 juni 2026 |
 | CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |
 | Kennis-laag map-reduce refactor | `c9bbf42` | 21 juni 2026 |
 | Kennis-laag tijd-dimensie (Trend, gedateerde facetten, Historie) | `1a3820a` | 21 juni 2026 |

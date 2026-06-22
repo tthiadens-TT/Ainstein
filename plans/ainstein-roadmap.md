@@ -137,13 +137,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 📋 Backlog — Beslissingen (Thomas/Jörgen)
 
-### Beslissing K1-pad: hoe injecteert Ainstein de kennis-laag?
-**Vraag:** `kennis_laag.md` is nu een dood document — Ainstein leest hem niet mee. Twee paden:
-- **Pad A:** `agent.py` injecteert `kennis_laag.md` automatisch bij elke aanroep (kleine aanpassing, directe waarde)
-- **Pad B:** Thomas promoveert kennisitems handmatig naar de vaste bronnenlaag (01–08) na beoordeling
-**Blokkade:** zolang dit open staat is de kennis-laag geen onderdeel van het gedrag.
-**Actie Thomas:** kies pad.
-
 ### Beslissing evidence-bar kennis-laag: wanneer automatiseren?
 **Wat:** de trigger voor automatisering (`run_kennisextractie.py` via GitHub Actions) is gekoppeld aan een evidence-bar. Die heeft nog geen concrete deadline.
 **Criteria uit roadmap:** ≥1 promotie van kennis naar bronnenlaag, óf een say-vs-sell-gat dat aantoonbaar tot een commerciële actie leidde.
@@ -241,6 +234,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
+| K1-pad: kennis_laag.md injectie via agent.py (Pad A) — `drive_read_kennis_laag()` + `load_kennis_context()` in tools.py, injectie in agent.py na gaps.md | `4af0453` | 22 juni 2026 |
 | `_slack_notify` certifi-fix — SSL-context met certifi-CA toegevoegd in `run_kennisextractie.py` | `b4118c9` | 21 juni 2026 |
 | DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |
 | `send_slack_message` tool toegevoegd | `fdda619` | 22 juni 2026 |

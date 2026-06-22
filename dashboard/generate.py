@@ -346,6 +346,16 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
     messages_7d = sum(1 for _, e in recent_7d if e.get("channel") or e.get("user_id"))
     meetings_7d = sum(1 for _, e in recent_7d if e.get("skill") == "meeting_reviewer")
 
+    prev_start = now - timedelta(days=14)
+    prev_7d = [(ts, e) for ts, e in parsed if prev_start <= ts < window_7d]
+    prev_messages = sum(1 for _, e in prev_7d if e.get("channel") or e.get("user_id"))
+    prev_meetings = sum(1 for _, e in prev_7d if e.get("skill") == "meeting_reviewer")
+
+    jamie_entries = [(ts, e) for ts, e in parsed if e.get("skill") == "meeting_reviewer"]
+    last_jamie_ts = jamie_entries[-1][0] if jamie_entries else None
+    last_jamie_title = jamie_entries[-1][1].get("meeting_title", "") if jamie_entries else None
+    meetings_month = sum(1 for ts, e in parsed if ts >= month_start and e.get("skill") == "meeting_reviewer")
+
     skill_counts = {}
     for _, e in recent_7d:
         s = e.get("skill") or "(geen skill)"
@@ -389,6 +399,11 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "last_age_hours": last_age_hours,
         "messages_7d": messages_7d,
         "meetings_7d": meetings_7d,
+        "prev_messages": prev_messages,
+        "prev_meetings": prev_meetings,
+        "last_jamie_ts": last_jamie_ts,
+        "last_jamie_title": last_jamie_title,
+        "meetings_month": meetings_month,
         "top_skills": top_skills,
         "cost_anthropic_eur": cost_usd * EUR_RATE,
         "cost_is_exact": cost_is_exact,
@@ -405,6 +420,97 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "errors": errors,
         "now": now,
     }
+
+
+# ── Alert en trend helpers ────────────────────────────────────────────────────
+
+def _trend_arrow(current, previous):
+    """Geeft (pijl, kleur, context-tekst) terug voor gebruik naast een KPI."""
+    if previous == 0 and current == 0:
+        return "", "#8492A6", ""
+    if previous == 0:
+        return "↑", "#2A7A5A", "was 0"
+    pct = (current - previous) / previous
+    if pct > 0.15:
+        return "↑", "#2A7A5A", f"was {previous}"
+    if pct < -0.15:
+        return "↓", "#C0392B", f"was {previous}"
+    return "=", "#8492A6", f"was {previous}"
+
+
+def build_alert_signals(m):
+    """Bepaal de ernst en geef een lijst van problemen terug."""
+    issues = []
+    severity = "ok"
+
+    vm = m["vm"]
+    h = m["svc_health"]
+
+    def _add(level, msg):
+        nonlocal severity
+        issues.append(msg)
+        if level == "critical" or (level == "warning" and severity == "ok"):
+            severity = level
+
+    svc_st = vm.get("service_status")
+    if svc_st and svc_st not in ("active",):
+        _add("critical", f"ainstein.service {svc_st}")
+
+    if h.get("flask") is False:
+        _add("critical", "Flask reageert niet (/health)")
+
+    ssl_days = vm.get("ssl_days")
+    if ssl_days is not None and ssl_days < 10:
+        _add("critical", f"SSL verloopt in {ssl_days} dagen")
+    elif ssl_days is not None and ssl_days < 30:
+        _add("warning", f"SSL verloopt in {ssl_days} dagen")
+
+    disk = vm.get("disk_pct")
+    if disk and disk > 85:
+        _add("critical", f"Schijf {disk}% vol")
+    elif disk and disk > 75:
+        _add("warning", f"Schijf {disk}% — bijna vol")
+
+    for svc_key, label in [("anthropic", "Anthropic"), ("slack", "Slack"),
+                             ("drive", "Google Drive"), ("jamie", "Jamie")]:
+        if h.get(svc_key) is False:
+            _add("warning", f"{label} niet geconfigureerd")
+
+    tavily_n = m["svc"].get("tavily_month", 0)
+    if tavily_n > 900:
+        _add("critical", f"Tavily {tavily_n}/1.000")
+    elif tavily_n > 750:
+        _add("warning", f"Tavily {tavily_n}/1.000")
+
+    age_h = m.get("last_age_hours")
+    if age_h and age_h > 72:
+        _add("warning", f"Geen activiteit in {int(age_h / 24)} dagen")
+
+    return severity, issues
+
+
+def render_alert_bar(m):
+    severity, issues = build_alert_signals(m)
+
+    if severity == "ok":
+        return (
+            '<div class="alert-bar alert-ok">'
+            '<span class="alert-icon">✓</span>'
+            'Alles OK — Ainstein actief, alle koppelingen werken'
+            '</div>'
+        )
+
+    bg = "#B91C1C" if severity == "critical" else "#B45309"
+    label = "Actie vereist" if severity == "critical" else "Let op"
+    icon = "✕" if severity == "critical" else "!"
+    items_html = " &nbsp;·&nbsp; ".join(f"<strong>{i}</strong>" for i in issues)
+
+    return (
+        f'<div class="alert-bar" style="background:{bg}">'
+        f'<span class="alert-icon">{icon}</span>'
+        f'{label}: {items_html}'
+        f'</div>'
+    )
 
 
 # ── HTML rendering ────────────────────────────────────────────────────────────
@@ -548,21 +654,48 @@ def render_card_gebruik(m):
     if not skills_html:
         skills_html = '<div class="skill-row muted">Geen activiteit</div>'
 
+    msg_arr, msg_col, msg_ctx = _trend_arrow(m["messages_7d"], m["prev_messages"])
+    meet_arr, meet_col, meet_ctx = _trend_arrow(m["meetings_7d"], m["prev_meetings"])
+
     msg_tip = "Het aantal keer dat iemand Ainstein via Slack een vraag of opdracht heeft gestuurd."
     meet_tip = "Het aantal Jamie-vergaderingen dat Ainstein heeft ontvangen en geanalyseerd."
+
+    # Jamie-blok
+    now = m["now"]
+    last_jts = m.get("last_jamie_ts")
+    last_jtitle = m.get("last_jamie_title") or "—"
+    if len(last_jtitle) > 44:
+        last_jtitle = last_jtitle[:42] + "…"
+    jamie_age = age_label(last_jts, now) if last_jts else "nooit"
+    meetings_month = m.get("meetings_month", 0)
+    jamie_tip = "De meest recente vergadering die Jamie naar Ainstein heeft doorgestuurd en die Ainstein heeft geanalyseerd."
 
     return f"""
   <div class="card" style="border-top-color:#98D2CF">
     <div class="card-label">{_tip('Gebruik — afgelopen 7 dagen', 'Hoeveel Ainstein is gebruikt: berichten via Slack en vergaderingen via Jamie.')}</div>
     <div class="kpi-row">
       <div>
-        <div class="kpi-num">{m['messages_7d']}</div>
+        <div class="kpi-num">
+          {m['messages_7d']}
+          {f'<span class="trend" style="color:{msg_col}">{msg_arr}</span>' if msg_arr else ''}
+        </div>
         <div class="kpi-label">{_tip('berichten', msg_tip)}</div>
+        {f'<div class="trend-ctx">{msg_ctx}</div>' if msg_ctx else ''}
       </div>
       <div>
-        <div class="kpi-num">{m['meetings_7d']}</div>
+        <div class="kpi-num">
+          {m['meetings_7d']}
+          {f'<span class="trend" style="color:{meet_col}">{meet_arr}</span>' if meet_arr else ''}
+        </div>
         <div class="kpi-label">{_tip('meetings', meet_tip)}</div>
+        {f'<div class="trend-ctx">{meet_ctx}</div>' if meet_ctx else ''}
       </div>
+    </div>
+    <div class="divider"></div>
+    <div class="jamie-block">
+      <div class="row-label" style="margin-bottom:6px">{_tip('Laatste Jamie-meeting', jamie_tip)}</div>
+      <div class="jamie-title">{last_jtitle}</div>
+      <div class="jamie-meta">{jamie_age} &nbsp;·&nbsp; {meetings_month} deze maand</div>
     </div>
     <div class="skills-list">{skills_html}
     </div>
@@ -1089,10 +1222,33 @@ footer a:hover {{ opacity: 1; }}
   transition: opacity 0.14s ease; z-index: 300;
 }}
 .tip:hover::after, .tip:hover::before {{ opacity: 1; }}
+/* Alert bar */
+.alert-bar {{
+  padding: 11px 40px; font-size: 13px; font-weight: 600;
+  text-align: center; color: #FFFFFF; line-height: 1.5;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  flex-wrap: wrap;
+}}
+.alert-bar.alert-ok {{ background: #1A6645; }}
+.alert-icon {{
+  font-size: 15px; font-weight: 900;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}}
+/* Trend */
+.trend {{ font-size: 18px; font-weight: 700; margin-left: 4px; vertical-align: middle; }}
+.trend-ctx {{ font-size: 11px; color: #9AA5BE; margin-top: 2px; }}
+/* Jamie */
+.jamie-block {{ margin-bottom: 6px; }}
+.jamie-title {{ font-size: 13px; font-weight: 600; color: #001C40; line-height: 1.4; }}
+.jamie-meta {{ font-size: 11px; color: #7A89A8; margin-top: 3px; }}
 """
 
 
 def render(m, logo_uri, font_face):
+    alert_bar = render_alert_bar(m)
     c1 = render_card_status(m)
     c2 = render_card_gebruik(m)
     c3 = render_card_kosten(m)
@@ -1130,6 +1286,7 @@ def render(m, logo_uri, font_face):
     <div class="generated">Gegenereerd op<br>{m['generated_at']}</div>
   </div>
 </header>
+{alert_bar}
 <main>
 {c1}
 {c2}

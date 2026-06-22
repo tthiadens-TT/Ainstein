@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 21 juni 2026*
+*Bijgewerkt: 22 juni 2026*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -81,10 +81,27 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Waarom:** als scraper-bestanden stelselmatig onleesbaar zijn, mist Ainstein bronmateriaal bij kennisextractie.
 **Actie:** bestand inspecteren op VM, scraper-output checken op encoding/formaat-fouten.
 
-### 9. Prompt Coaching format fixen
+### 9. `.env` opruimen — dubbele AINSTEIN_STATUS_CHANNEL regels
+**Wat:** De `.env` op VM bevat drie regels voor `AINSTEIN_STATUS_CHANNEL` (één oude D0B4L386484, twee keer nieuwe C0B6B69Q812). Werkt correct (laatste waarde wint), maar is rommelig.
+**Actie Thomas:** op VM: `sed -i '/^AINSTEIN_STATUS_CHANNEL=/d' /home/thomas/Ainstein/.env && echo "AINSTEIN_STATUS_CHANNEL=C0B6B69Q812" >> /home/thomas/Ainstein/.env`
+**Prioriteit:** laag.
+
+### 13. Prompt Coaching format fixen
 **Wat:** "max 4 regels" limiet in brain.md conflicteert met het vereiste formaat (divider + header + zin + blockquote = al 4 regels minimaal).
 **Prioriteit:** laag — werkt in de praktijk, is een detail.
 **Actie:** limiet versoepelen of coaching-blok compacter maken.
+
+### 11. Episodisch geheugen — Ainstein onthoudt wat werkte
+**Wat:** Na elke proposalsessie structureel gestructureerde "lessen" opslaan in een aparte laag (bijv. `08_Episodes` in Drive): klanttype, vraagstuk, format, budget, wat resoneerde, wat miste.
+**Waarom:** De bronnenlaag bevat de proposals zelf; niemand legt de patronen eruit vast. Over tijd kan Ainstein dan zeggen "bij financiële instellingen met dit vraagstuk werkte experiential format in 4 van de 6 cases." Nu gaat die kennis verloren.
+**Aanpak:** Template ontwerpen + trigger (handmatig via `/episode` of automatisch na `build_proposal`). Bot schrijft, Thomas keurt goed.
+**Prioriteit:** Medium — afhankelijk van volume. Pas nuttig als ≥10 sessies gedocumenteerd zijn.
+
+### 12. Semantische zoeklaag (RAG/Embeddings)
+**Wat:** Vervang keyword grep in `search_files()` door vector embeddings. Docs uit Drive worden geïndexeerd als vectoren; Ainstein zoekt op betekenis, niet op woorden.
+**Waarom:** Nu mist Ainstein een doc over "begeleiding" als je zoekt op "facilitatie". Met embeddings matcht de betekenis.
+**Tooling:** `text-embedding-3-small` (OpenAI) of `sentence-transformers` lokaal; vectorstore FAISS of Chroma op VM.
+**Prioriteit:** Laag nu — bronnenlaag heeft ~50 docs, keyword grep volstaat. Relevant zodra bronnenlaag groeit naar 100+ docs of retrieval-fouten aantoonbaar toenemen.
 
 ### 10. Say-vs-sell gaten adresseren
 **Wat:** de kennis-laag run van 21 juni 2026 identificeerde concrete communicatiegaten. Dit zijn beslissingen voor Thomas/Jörgen, geen technische items.

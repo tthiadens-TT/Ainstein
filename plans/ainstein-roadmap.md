@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 22 juni 2026 — skills-sessie afgerond + dev-branch cleanup gepland*
+*Bijgewerkt: 22 juni 2026 — roadmap volledig gesynchroniseerd met carry-forwards uit reviews*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -31,6 +31,11 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
+
+### 44 `claude/*` branches opruimen
+**Wat:** 44 lokale `claude/*` branches accumuleren door worktree-gebruik. Groeien elke sessie.
+**Actie:** `git branch --list 'claude/*' | xargs git branch -d` (verwijdert alleen volledig gemerged). Check eerst: `git branch --list 'claude/*' --no-merged main`.
+**Prioriteit:** laag — rommelt, blokkeert niets.
 
 ### dev-branch cleanup
 **Wat:** `dev` staat 10 commits voor op `main` met deels verouderd werk. De skills-verbeteringen en de meeste Drive-fixes zijn al apart op main gecommit. Dev bevat mogelijk unieke commits (save_note refactor, folder hint depth, deploy.yml health check).
@@ -63,6 +68,37 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Actie:** consistent maken met scrapers. Klein.
 **Prioriteit:** laag.
 
+### `audit_claude_md.py` toevoegen aan GitHub Actions CI
+**Wat:** `scripts/audit_claude_md.py` draait nu alleen handmatig. De deploy-workflow doet alleen een syntax-check. Als je een nieuwe skill of module toevoegt zonder CLAUDE.md bij te werken, pikt CI dit niet op.
+**Actie:** `python3 scripts/audit_claude_md.py` toevoegen als stap in `.github/workflows/deploy.yml` na de syntax-check.
+**Effort:** <30 min.
+**Prioriteit:** medium — voorkomt stille CLAUDE.md-drift.
+
+### Smart meeting routing verificeren in productie
+**Wat:** `transcript_processor.py` detecteert meeting types (discovery/check_in/follow_up/internal) en routeert naar de juiste skill. Code bestaat, maar is nog niet geverifieerd met een echte Jörgen-Jamie meeting waarbij het type-detectie expliciet getest is.
+**Actie:** na de eerste Jörgen-meeting via Jamie: check logs op `meeting_type` — klopt het gedetecteerde type?
+**Prioriteit:** laag — wachten op volgende echte meeting.
+
+### Bug: `feedback.py` auto-review trigger onbetrouwbaar
+**Wat:** `_open_count` is een in-memory teller die reset bij elke botherstart. De auto-review trigger (drempel 10) bereikt de drempelwaarde mogelijk nooit als de bot regelmatig herstart via GitHub Actions deployments.
+**Actie:** teller persistent maken (bijv. eenvoudig tekstbestand op VM) of drempel drastisch verlagen.
+**Prioriteit:** laag — feedback loop werkt, trigger is alleen onbetrouwbaar.
+
+### `pptx_builder.py` hardcoded relationship ID
+**Wat:** `rid = "rIdSenEB"` (regel 123) is hardcoded. Bij een tweede font collideren relationship-IDs in `presentation.xml.rels`.
+**Actie:** dynamisch genereren bij uitbreiding. Nu geen actie nodig.
+**Prioriteit:** laag — pas relevant als tweede font wordt toegevoegd.
+
+### `tools.py` Tavily `search_depth` hardcoded
+**Wat:** `search_depth="advanced"` hardcoded op regel 1650. Advanced kost meer API-credits dan `"basic"`. Op de gratis tier (1.000/maand) kan dit het quotum sneller uitputten.
+**Actie:** `TAVILY_SEARCH_DEPTH` env var toevoegen (default `"basic"`).
+**Prioriteit:** laag.
+
+### Legacy Google Doc Slack-bestanden verwijderen uit Drive
+**Wat:** Drie bestanden `slack_C09CEQ29AU8_2026-04/05/06` staan in Drive als `application/vnd.google-apps.document`. Vervangen door plain-text `.md`-bakjes na fix in commit `15bec6c`. Kunnen worden verwijderd.
+**Actie:** handmatig verwijderen in Drive via de Ainstein Shared Drive.
+**Prioriteit:** laag — rommelt, blokkeert niets.
+
 ### Kennis-laag automatiseren
 **Wat:** `run_kennisextractie.py` automatisch via GitHub Actions scheduling.
 **Trigger (nog niet bereikt):** ≥1 promotie van kennis naar bronnenlaag, óf een say-vs-sell-gat dat aantoonbaar tot een commerciële actie leidde.
@@ -70,8 +106,8 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ### Kennis terugkoppeling naar bronnenlaag
 **Wat:** mechanisme om geëxtraheerde kennis te bevorderen naar de vaste bronnenlaag (01–08) na handmatige bevestiging.
-**Aanpak nog open:** mens promoot handmatig, of Ainstein leest `kennis_laag.md` mee bij elke aanroep.
-**Prioriteit:** laag.
+**Aanpak:** afhangt van K1-pad beslissing (zie Beslissingen).
+**Prioriteit:** laag — geblokkeerd door beslissing.
 
 ### Webhook URL upgraden naar `webhook.minkowski.nl`
 **Wat:** DuckDNS-URL vervangen door professioneel Minkowski-domein.
@@ -106,6 +142,32 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 📋 Backlog — Beslissingen (Thomas/Jörgen)
 
+### Beslissing K1-pad: hoe injecteert Ainstein de kennis-laag?
+**Vraag:** `kennis_laag.md` is nu een dood document — Ainstein leest hem niet mee. Twee paden:
+- **Pad A:** `agent.py` injecteert `kennis_laag.md` automatisch bij elke aanroep (kleine aanpassing, directe waarde)
+- **Pad B:** Thomas promoveert kennisitems handmatig naar de vaste bronnenlaag (01–08) na beoordeling
+**Blokkade:** zolang dit open staat is de kennis-laag geen onderdeel van het gedrag.
+**Actie Thomas:** kies pad.
+
+### Beslissing evidence-bar kennis-laag: wanneer automatiseren?
+**Wat:** de trigger voor automatisering (`run_kennisextractie.py` via GitHub Actions) is gekoppeld aan een evidence-bar. Die heeft nog geen concrete deadline.
+**Criteria uit roadmap:** ≥1 promotie van kennis naar bronnenlaag, óf een say-vs-sell-gat dat aantoonbaar tot een commerciële actie leidde.
+**Actie Thomas/Jörgen:** geef de evidence-bar een concrete datum of concrete actie als trigger. Anders blijft dit eeuwig open.
+
+### Kwaliteitscheck eerste productie-output meeting_reviewer
+**Wat:** twee Drive-docs van 18 juni zijn nog niet handmatig beoordeeld: `260618_Gespreksnotitie _ Voorbereiding Hei-dag Waardestromen` en `260618_Debrief_SNI_NonLife_Leiderschapsprogramma`. Dit is de validatiestap vóór Ainstein breder ingezet wordt bij klantgesprekken.
+**Actie Thomas:** open beide docs in Drive en beoordeel of de analyse correct en commercieel bruikbaar is.
+
+### PPTX font-embedding visueel testen
+**Wat:** Sen ExtraBold is via OOXML ingebakken in PPTX-output (`pptx_builder.py:_embed_sen_extrabold`). Nog niet visueel geverifieerd op een machine zonder Sen-installatie.
+**Actie Thomas:** open een Ainstein-gegenereerd deck op Windows of Mac zonder Sen geïnstalleerd. Controleer of het font correct wordt weergegeven.
+**Prioriteit:** doen vóór eerstvolgende klantverstrekking.
+
+### TAVILY_API_KEY instellen op VM
+**Wat:** Tavily is geconfigureerd als primaire websearch, maar `TAVILY_API_KEY` staat niet in `.env` op de VM (staat als commentaar in `.env.example`). Bot valt terug op DDGS.
+**Actie Thomas:** sleutel aanmaken op tavily.com (gratis tier, geen CC nodig), instellen op VM: `echo "TAVILY_API_KEY=tvly-..." >> ~/Ainstein/.env` + bot herstarten via deploy.
+**Prioriteit:** medium — Tavily geeft betere zoekresultaten dan DDGS.
+
 ### Say-vs-sell gaten adresseren
 **Gevonden in kennis-laag run 21 juni 2026:**
 - NN Group als ankerklant — 300+ deelnemers, multi-year, nauwelijks zichtbaar
@@ -117,9 +179,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 ### Prompt Coaching praktijktest
 **Wat:** valideren of de Prompt Coaching sectie (brain.md) in de praktijk werkt.
 **Actie Thomas/Jörgen:** testen met vage vragen in Slack, beoordelen of de coaching scherp en nuttig is.
-
-### Kennis terugkoppeling — beslissing aanpak
-**Vraag:** wil je dat Ainstein `kennis_laag.md` meeleest bij elke aanroep (automatisch), of wil je kennisitems handmatig promoveren naar de vaste bronnenlaag?
 
 ### MCP-koppelingen — twee open beslissingen
 **Calendar MCP:** ✅ token vernieuwd (19 mei 2026), "minkowski"-account correct op `thomas@minkowski.org` gezet. Minkowski-agenda zelf nog leeg — vul zakelijke afspraken in als je agenda-context in briefings wilt.
@@ -186,6 +245,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
+| DM-status ruis bij interne meetings gefixed — `if not sent_dms and not failed_dms: return` check aanwezig in `transcript_processor.py:337` | in code | 22 juni 2026 |
 | `send_slack_message` tool toegevoegd | `fdda619` | 22 juni 2026 |
 | DM-status verificatie in #ainstein-status thread | `e232ef9` | 22 juni 2026 |
 | CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |

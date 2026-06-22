@@ -84,9 +84,9 @@ def load_asset_b64(path, mime):
 
 
 def _dot(color, size=9):
-    return (f'<span style="display:inline-block;width:{size}px;height:{size}px;'
-            f'border-radius:50%;background:{color};margin-right:6px;'
-            f'vertical-align:middle;position:relative;top:-1px"></span>')
+    return (f'<span style="display:block;width:{size}px;height:{size}px;'
+            f'border-radius:50%;background:{color};margin-right:7px;'
+            f'flex-shrink:0;margin-top:2px"></span>')
 
 
 def _tip(content, tooltip):
@@ -1335,7 +1335,7 @@ main {{
   padding: 6px 0; border-bottom: 1px solid #F5F3EE; font-size: 12px;
 }}
 .svc-row:last-child {{ border-bottom: none; }}
-.svc-name {{ font-weight: 500; color: #001C40; display: flex; align-items: center; }}
+.svc-name {{ font-weight: 500; color: #001C40; display: flex; align-items: flex-start; }}
 .svc-right {{ display: flex; align-items: center; gap: 8px; flex-shrink: 0; }}
 .svc-age {{ color: #9AA5BE; font-size: 11px; }}
 /* Badges */

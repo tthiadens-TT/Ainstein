@@ -6,7 +6,7 @@
 
 1. **Raadpleeg het geheugen** — lees dit CLAUDE.md volledig. Ken de ambitie, architectuur, en way of working.
 2. **Check de git log** — `git log --oneline -10` — weet wat er als laatste gebouwd is en in welke staat het systeem verkeert.
-3. **Lees de Backlog** — zie de Backlog-sectie onderaan dit CLAUDE.md. Dit is de enige bron van waarheid voor openstaande items. Niet `plans/`, niet losse documenten, niet memory.
+3. **Lees de backlog** — open `plans/ainstein-roadmap.md`. Dit is de enige bron van waarheid voor openstaande items, prioriteiten en volgende stappen. Niet CLAUDE.md, niet losse documenten.
 4. **Lees de Verified Configurations sectie** — weet wat al bevestigd en werkend is. Markeer dit NOOIT als risico of onbekend.
 5. **Check GitHub vóór je Thomas iets laat doen** — gebruik de GitHub MCP tools om te verifiëren of iets al gedaan is. Zeg nooit "merge de PR" of "herstart de VM" zonder eerst te checken of het al gebeurd is.
 6. **Verbind elk verzoek aan de Ainstein-ambitie** — stelt de gevraagde actie Ainstein in staat meer te doen, zelfstandiger te opereren, en minder afhankelijk te zijn van één persoon?
@@ -44,7 +44,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - Geen open PRs. Alles staat op main.
 
 ### Wat next is
-→ Zie de **Backlog**-sectie onderaan dit CLAUDE.md.
+→ Zie `plans/ainstein-roadmap.md` — dit is de enige plek waar openstaande items worden bijgehouden.
 
 ---
 
@@ -106,7 +106,7 @@ Slack (SocketMode)          Jamie (webhook)
 - Webhook URL (permanent): `https://ainstein.duckdns.org/webhooks/jamie`
 - Git flow: Claude Code pusht → GitHub `main` → **GitHub Actions deployt automatisch naar VM**
 
-**Roadmap:** zie Backlog-sectie onderaan dit CLAUDE.md.
+**Roadmap:** zie `plans/ainstein-roadmap.md`.
 
 ---
 
@@ -365,35 +365,3 @@ Zonder intentiezin stuurt Claude de sessie op basis van wat hij tegenkomt — da
 5. **`claude/*` branches periodiek opruimen** (accumuleren door worktrees): `git -C ~/Ainstein branch --list 'claude/*' | xargs git -C ~/Ainstein branch -d 2>/dev/null`
 
 **reviews/ zijn operationele logs, geen code.** Open items uit reviews extracten naar de Backlog. De bestanden zelf staan in `.gitignore`.
-
----
-
-## Backlog
-
-*Enige bron van waarheid voor openstaande items. Bijwerken bij elke sessiesluiting.*
-
-### Thomas-acties (geen code)
-- [ ] `TAVILY_API_KEY` op VM instellen — Tavily is geïnstalleerd, key ontbreekt nog (verify: mogelijk al gedaan na 2026-06-16)
-- [ ] PPTX visueel testen op Windows/Mac zonder Sen-font — vóór eerstvolgende klantverstrekking
-- [ ] Definieer één succes-metric voor Ainstein: wat vraag je Jörgen? Wat telt als "werkt"?
-- [ ] Upgrade webhook URL naar `webhook.minkowski.nl` zodra Thomas toegang heeft tot Minkowski-domein
-
-### Klein (< 1 uur)
-- [ ] `tools.py` `_web_search_tavily`: `search_depth="advanced"` hardcoded → env-var `TAVILY_SEARCH_DEPTH` (default `"basic"`) voor quotumbeheer
-- [ ] `pptx_builder.py`: hardcoded `rid = "rIdSenEB"` → lage prioriteit, alleen relevant bij tweede font
-
-### Functioneel (features)
-- [ ] **Website-analyse via Slack** (DVV+AUB+SEO) — Playwright op VM vereist — effort 4–6u
-- [ ] **Interactieve voorstel-refinement** — Doc-comments → herschrijven → PPTX export — effort ~7u
-- [ ] **Leerarchitectuur stap 1** — wekelijkse gaps-analyse → Slack-voorstel aan Thomas — effort 2–3u
-- [ ] **Leerarchitectuur stap 2** — episodisch geheugen in `08_Episodes` — effort 3–4u
-- [ ] **AUB-audit bronnenlaag** — maandelijks Slack-rapport "5 zwakste plekken" — effort 3–4u
-- [ ] **Pipeline tracker** — lopende acquisitie bijhouden (Google Sheet) — effort 2–3u
-- [ ] **Lead-radar** — wekelijkse cron, proactieve leads via web search — pas bouwen als GTM-laag bewezen — effort 3–4u
-- [ ] **Competitive intelligence skill** — gerichte zoekstrategie per prospect — effort 2–3u
-- [ ] **Ainstein voert acties uit** na Slack-bevestiging ("doe het maar") — architectuurkeuze vereist
-
-### Architectuur / technische schuld
-- [ ] **RAG / Vector database** — scan-laag bottleneck bij 200+ bestanden — effort 10–15u
-- [ ] **Cloud Logging** (GCP) — lokale VM-logs vervangen — effort 3–4u
-- [ ] **conversations.db versleuteling** — SQLCipher of encrypted disk — effort 4–6u

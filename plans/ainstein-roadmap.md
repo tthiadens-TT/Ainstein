@@ -114,6 +114,17 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 - Duurzaamheid/klimaat — aanwezig in publieke communicatie 2021–2023, niet meer zichtbaar in 2026
 **Actie Jörgen/Thomas:** beslissen welke gaten geadresseerd worden en in welk medium.
 
+### 14. Bug: `_slack_notify` in `run_kennisextractie.py` gebruikt geen certifi
+**Wat:** De Slack-notificatie na een kennis-laag run faalde lokaal met `[SSL: CERTIFICATE_VERIFY_FAILED]`. `_slack_notify()` doet `urllib.request.urlopen` zonder SSL-context, terwijl alle scrapers (scrape_slack/substack/medium/website) wél `ssl.create_default_context(cafile=certifi.where())` gebruiken.
+**Onzeker:** faalde alleen lokaal (macOS); op de VM (Linux, systeem-certs) werkt het mogelijk wel — verifiëren.
+**Actie:** `_slack_notify` consistent maken met de scrapers (certifi + fallback). Klein.
+**Prioriteit:** laag.
+
+### 15. Kennis-laag schaalplafond — hele laag wordt elke run herschreven
+**Wat:** REDUCE schrijft bij elke run de volledige `kennis_laag.md` opnieuw. Bij 37 entiteiten ~23k tokens output; richting ~70–100 entiteiten loopt ook `max_tokens=32000` vol.
+**Aanpak (later):** incrementeel mergen — REDUCE levert alleen gewijzigde/nieuwe blokken + patch-instructie, het script past ze toe.
+**Prioriteit:** laag — pas relevant bij ~70 entiteiten. Niet vroeg optimaliseren.
+
 ---
 
 ## ✅ Gedaan (archief)
@@ -138,4 +149,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 | Backlog centraliseren (dit bestand) | zie commit | 21 juni 2026 |
 | Kennis-laag contextprobleem opgelost — fix gevalideerd via volledige run | `1a3820a` | 21 juni 2026 |
 | Kennis-laag volledige run + beoordeling — alle 10 bronnen verwerkt, `kennis_laag.md` bijgewerkt | live op VM | 21 juni 2026 |
-| Kennis-laag map-reduce fix — niet nodig gebleken, huidige architectuur voldoet | — | 21 juni 2026 |
+| Kennis-laag map-reduce refactor — distilleer per bron (map) + kruis distillaties (reduce); ÍS de structurele fix voor het contextprobleem | `c9bbf42` | 21 juni 2026 |
+| Kennis-laag tijd-dimensie — Trend (opkomend/stabiel/vervagend), gedateerde facetten, Historie, `te herverifiëren` | `1a3820a` | 21 juni 2026 |
+| Website-scraper minkowski.org (64 art.) + futuresready.com (10) + team/experts (35) | `dcbd99b` | 21 juni 2026 |
+| LinkedIn/Medium/Substack scrapers + bronnen.json (10 bronnen, oorsprong-labels) | `b716a23` | 21 juni 2026 |

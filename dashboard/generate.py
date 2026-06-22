@@ -953,7 +953,7 @@ def render_card_diensten(m):
     sm_ok = h.get("socketmode_ok")
     sm_age_h = h.get("socketmode_age_h")
     if sm_age_h is None:
-        sm_age_txt = "geen heartbeat-data (nog niet opgestart)"
+        sm_age_txt = "nog geen data"
     elif sm_age_h < 1:
         sm_age_txt = f"{int(sm_age_h * 60)}m geleden"
     else:
@@ -1255,6 +1255,7 @@ body {{
   background: #F5F4F1;
   color: #001C40;
   min-height: 100vh;
+  overflow-x: hidden;
 }}
 {font_face}
 header {{
@@ -1331,13 +1332,13 @@ main {{
 /* Services */
 .svc-list {{ display: flex; flex-direction: column; }}
 .svc-row {{
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 0; border-bottom: 1px solid #F5F3EE; font-size: 12px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 7px 0; border-bottom: 1px solid #F5F3EE; font-size: 12px; gap: 8px;
 }}
 .svc-row:last-child {{ border-bottom: none; }}
-.svc-name {{ font-weight: 500; color: #001C40; display: flex; align-items: flex-start; }}
-.svc-right {{ display: flex; align-items: center; gap: 8px; flex-shrink: 0; }}
-.svc-age {{ color: #9AA5BE; font-size: 11px; }}
+.svc-name {{ font-weight: 500; color: #001C40; display: flex; align-items: flex-start; flex: 0 0 auto; max-width: 48%; }}
+.svc-right {{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }}
+.svc-age {{ color: #9AA5BE; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }}
 /* Badges */
 .badge {{
   font-size: 10px; font-weight: 700; letter-spacing: 0.04em;

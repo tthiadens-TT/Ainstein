@@ -13,7 +13,6 @@ AINSTEIN_LOG = BASE / "logs" / "ainstein.log"
 DRIVE_SNAPSHOT = BASE / "logs" / "drive_snapshot_latest.json"
 OUTPUT = pathlib.Path(__file__).parent / "index.html"
 
-SSL_CERT = pathlib.Path("/etc/letsencrypt/live/ainstein.duckdns.org/cert.pem")
 
 COST_PER_M_INPUT = 3.0
 COST_PER_M_OUTPUT = 15.0
@@ -132,24 +131,26 @@ def check_vm_health():
     else:
         result["disk_pct"] = None
 
-    # SSL cert expiry
-    if SSL_CERT.exists():
-        cert_out = run_cmd(["openssl", "x509", "-enddate", "-noout", "-in", str(SSL_CERT)])
-        if cert_out:
-            # "notAfter=Sep 15 12:00:00 2026 GMT"
-            m = re.search(r'notAfter=(.+)', cert_out)
-            if m:
-                try:
-                    exp = datetime.strptime(m.group(1).strip(), "%b %d %H:%M:%S %Y %Z")
-                    exp = exp.replace(tzinfo=timezone.utc)
-                    result["ssl_expires"] = exp
-                    result["ssl_days"] = (exp - datetime.now(timezone.utc)).days
-                except ValueError:
-                    result["ssl_expires"] = None
-                    result["ssl_days"] = None
-    else:
-        result["ssl_expires"] = None
-        result["ssl_days"] = None
+    # SSL cert expiry — live check via openssl s_client (geen bestandstoegang nodig)
+    result["ssl_expires"] = None
+    result["ssl_days"] = None
+    cert_out = run_cmd(
+        ["bash", "-c",
+         "echo Q | openssl s_client -connect ainstein.duckdns.org:443"
+         " -servername ainstein.duckdns.org 2>/dev/null"
+         " | openssl x509 -enddate -noout 2>/dev/null"],
+        timeout=10
+    )
+    if cert_out:
+        m = re.search(r'notAfter=(.+)', cert_out)
+        if m:
+            try:
+                exp = datetime.strptime(m.group(1).strip(), "%b %d %H:%M:%S %Y %Z")
+                exp = exp.replace(tzinfo=timezone.utc)
+                result["ssl_expires"] = exp
+                result["ssl_days"] = (exp - datetime.now(timezone.utc)).days
+            except ValueError:
+                pass
 
     # Last git pull (proxy for last deploy)
     git_ts = run_cmd(["git", "-C", str(BASE), "log", "-1", "--format=%ai"])

@@ -53,7 +53,6 @@ jobs:
             python3 /home/thomas/Ainstein/dashboard/generate.py
             (crontab -l 2>/dev/null | grep -q 'dashboard/generate.py') || \
               (crontab -l 2>/dev/null; echo "0 */6 * * * cd /home/thomas/Ainstein && python3 dashboard/generate.py >> logs/dashboard.log 2>&1") | crontab -
-            # Slack-scraper: werkdagen 01:00, scrape laatste 2 dagen
-            (crontab -l 2>/dev/null | grep -q 'scrape_slack.py') || \
-              (crontab -l 2>/dev/null; echo "0 1 * * 1-5 cd /home/thomas/Ainstein && python3 scripts/scrape_slack.py --since \$(date -d '2 days ago' +\%Y-\%m-\%d) >> logs/scrape_slack.log 2>&1") | crontab -
+            # Slack-scraper: werkdagen 01:00, scrape laatste 2 dagen (vervang altijd — idempotent update)
+            (crontab -l 2>/dev/null | grep -v 'scrape_slack.py'; echo "0 1 * * 1-5 cd /home/thomas/Ainstein && python3 scripts/scrape_slack.py --since \$(date -d '2 days ago' +\%Y-\%m-\%d) >> logs/scrape_slack.log 2>&1") | crontab -
             echo "Deploy done — $(date)"

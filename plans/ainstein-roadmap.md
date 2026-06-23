@@ -94,6 +94,14 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Actie:** handmatig verwijderen in Drive via de Ainstein Shared Drive.
 **Prioriteit:** laag — rommelt, blokkeert niets.
 
+### Klantbronnen als kennisbron — websites, jaarverslagen, nieuws
+**Wat:** publiek beschikbare informatie over (potentiële) klanten toevoegen als bron aan de kennis-laag. Per klant: website, jaarverslag, persberichten, LinkedIn. Geeft Ainstein context over de wereld van de klant — vóórdat een voorstel of meeting begint.
+**Eerste kandidaat:** NN Group (ankerklant, 300+ deelnemers, multi-year). Thomas denkt dat er al een sessie/item over bestaat — nog te traceren.
+**Aanpak:** `scrape_client.py` per klant, output naar `06_Marketing/_bronmateriaal/klanten/<klantnaam>/`. Zelfde plain-text .md bakje als andere bronnen. Origine: `klant-extern`.
+**Waarde:** Ainstein kan in proposals en meetings zeggen "jullie jaarverslag noemt X — dat raakt precies aan Y." Echte onafhankelijke stem, niet alleen Minkowski-perspectief.
+**Status:** in de maak — nog geen code.
+**Prioriteit:** medium.
+
 ### Kennis-laag automatiseren
 **Wat:** `run_kennisextractie.py` automatisch via GitHub Actions scheduling.
 **Trigger (nog niet bereikt):** ≥1 promotie van kennis naar bronnenlaag, óf een say-vs-sell-gat dat aantoonbaar tot een commerciële actie leidde.

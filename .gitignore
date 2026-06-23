@@ -40,6 +40,7 @@ logs/
 
 # Claude Code plugin artefacten — lokaal, niet voor repo
 TASKS.md
+minkowski-website.png
 dashboard.html
 dashboard/index.html
 .playwright-mcp/

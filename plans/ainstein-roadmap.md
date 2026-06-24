@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 24 juni 2026 — Charlotte bevestigt 7 kennisitems (100%); 7 gecureerde docs aangemaakt in Drive (02_Tools / 06_Marketing)*
+*Bijgewerkt: 24 juni 2026 — sessie-optimalisatie: model-selector gepersonaliseerd, 2 nieuwe skills, memory geconsolideerd*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.

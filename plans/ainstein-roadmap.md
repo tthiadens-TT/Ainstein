@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 24 juni 2026 — sessie-optimalisatie: model-selector gepersonaliseerd, 2 nieuwe skills, memory geconsolideerd*
+*Bijgewerkt: 25 juni 2026 — twee architectuuropties toegevoegd: Optie 2 (Claude Projects tutorial, NU starten) en Optie 3 (MCP Server expose, later)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -181,6 +181,93 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Calendar MCP:** ✅ token vernieuwd (19 mei 2026), "minkowski"-account correct op `thomas@minkowski.org` gezet. Minkowski-agenda zelf nog leeg — vul zakelijke afspraken in als je agenda-context in briefings wilt.
 **Gmail MCP:** werkt, maar leest `tthiadens@gmail.com`. Beslissing: moet Ainstein de Minkowski-inbox (`thomas@minkowski.org`) kunnen lezen, en voor welk gebruik?
 **Notion MCP:** verbonden, maar 0 pagina's gedeeld. Eenmalige handeling in Notion UI (Settings → Connections). Beslissing: welke pagina's wil je beschikbaar maken?
+
+---
+
+## 📋 Backlog — Architectuuropties (Major Decisions)
+
+### OPTIE 2: Claude Projects Goed Inrichten — Tutorial & Checklist
+**Status:** Ready to launch  
+**Priority:** HOOG  
+**Horizon:** NU (deze week starten)  
+**Owner:** Thomas + Jörgen (samen valideren)  
+**Relates to:** Track 2 (AI Toolbox), samen-werken in projecten  
+
+**Context:** Claude Projects als alternatief voor Slack Bot workflow. Jij + Jörgen in dezelfde plek aan voorstel werken, Claude geeft feedback. Niet Ainstein-bot, maar Claude met goede instructies + Project Memory + Drive-access.
+
+**Wat:**
+8-stap tutorial:
+1. Project aanmaken (`[JJMMDD] [Klant] — [Soort werk]`)
+2. Google Drive connector instellen
+3. Project Memory vullen (klant + Minkowski context)
+4. Custom Instructions (jouw feedback-rol)
+5. Start werk (voorstel concept + feedback-loop)
+6. File-linking (@positioning.md, etc)
+7. Terugkoppeling naar Root 2 (01_Proposals, 07_Feedback, 08_Outcomes)
+8. Herhalen voor volgende voorstel (duplicate project)
+
+**Waarom NU:**
+- 80% van Optie 3 (MCP) met 20% van de work
+- Geen extra infrastructuur nodig
+- Validatie dat Jörgen + TT samen kunnen werken
+- Template voor elke toekomstige voorstel
+
+**Deliverables:**
+- Tutorial document (7 stappen + troubleshooting)
+- Checklist (ben je klaar?)
+- Custom Instructions template (kopieer-plakken)
+- Project Memory template (klant + Minkowski context)
+
+**Success metrics:**
+- Jörgen + TT kunnen zonder context-switching samen itereren
+- Voorstel-kwaliteit verbetert (sneller feedback)
+- Geen copypaste-werk meer (Drive-connected)
+- Team adopteert dit als standaard voor voorstel-schrijven
+
+**First test:** Volgende Nike/[klant]-voorstel
+
+---
+
+### OPTIE 3: Ainstein als MCP Server — Root 2 Knowledge Expose
+**Status:** Planning  
+**Priority:** MID  
+**Horizon:** Later (na Optie 2 validation)  
+**Owner:** Thomas (co-design met Claude Code)  
+**Relates to:** Track 2 (AI Toolbox), Claude Projects integration  
+
+**Context:** Root 2 (01–08 folders) exposeren als MCP Server zodat Claude Projects Ainstein-kennis direct kunnen benutten — eleganter dan huidiga Drive-API aanroepen.
+
+**Wat:** 
+- Python/Node MCP server met tools: `read_file`, `search_files`, `list_folder`, `search_content`, `get_file_metadata`
+- Service account + Drive API authentication
+- Caching + reliability (moet altijd werken)
+- Claude Project connecteert erop → voelt aan als "Ainstein in project"
+
+**Waarom later:**
+- Optie 2 (Claude Project goed inrichten) is 80% impact met 20% work
+- Optie 3 is eleganter maar niet critical de komende 2 maanden
+- Eerst valideren dat Optie 2 werkt (Jörgen + TT samen in Projects)
+
+**Decision gate:** End Juli 2026 (na zomer + Optie 2 validation)
+
+**Voorbereiding:**
+- [ ] Optie 2 gelanceerd + gevalideerd
+- [ ] Root 2 structuur stabiel (governance af)
+- [ ] Service account + Drive API live (al in Slack Bot)
+
+**Deliverables (als we het build):**
+- MCP server code (Python or Node)
+- Auth setup (service account, token refresh)
+- Testing + reliability
+- Deployment config
+- Documentation
+- Monitoring
+
+**Success metrics:**
+- <500ms response time read_file
+- <1s for search_content
+- Zero unhandled exceptions production
+- Team adopts as standard way to access Root 2 from Projects
 
 ---
 

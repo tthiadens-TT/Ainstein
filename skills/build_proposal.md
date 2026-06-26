@@ -11,6 +11,39 @@ The goal is to build a proposal that is recognizably Minkowski:
 - clear in value
 - commercially usable
 
+## Minkowski Voice — schrijf altijd zo
+
+**Taal:** Voorstellen altijd in het **Engels**, tenzij de klant expliciet om Nederlands vraagt of de volledige context (brief, mails, eerder contact) Nederlands is. Bij twijfel: Engels.
+
+**Vier schrijfpatronen:**
+
+1. **Observatie → Vraag → Herkadert** — open met een concrete observatie, stel die open, sluit met een perspectief-verschuiving. Nooit abstract vóór concreet.
+   > *"Although we can't predict the future, we can influence it."*
+
+2. **Persoonlijk → Universeel** — begin bij een mens of moment, verbreedt dan. Generalisaties komen altijd ná een concreet geval.
+   > *"A plan is just a starting point. The real difference is made by the people who bring it to life."*
+
+3. **Korte bewering. Dan nuance.** — de stelling staat in de eerste zin. Geen inleidingen.
+   > *"From possibility to capability."*
+   > *"Our programs turn plans into action."*
+
+4. **Programma-verhaal: what happened, what shifted** — beschrijf wat er in de zaal gebeurt, niet wat de agenda is. Uitkomsten zijn gedragsveranderingen, geen activiteiten.
+   > *"We design learning experiences not as linear programs, but as environments where people can step into possibility."*
+
+**Gebruik deze woorden:**
+futures-ready · decision · signal · scenario · learning experience · programme · faculty · room · ritual · reframe · cone of possibilities · sense-making · act without certainty · backwards planning · prototyping futures
+
+**Vermijd deze woorden:**
+future-proof · thought leadership · disruptive · journey · synergy · unlock · empower · best-in-class · training · workshop · cursus · roadmap · actieplan · adaptief · toekomstbestendig
+
+**Schrijfregels:**
+- Begin met de klantuitdaging, niet met wie Minkowski is.
+- Bullets zijn uitkomsten (welk gedrag na afloop), geen activiteiten.
+- Meer "jij/jullie" dan "wij/ons".
+- Als een tekst geen risico op tegenspraak oplevert, is hij te veilig.
+
+---
+
 ## When to Use
 Use this skill when the request includes questions like:
 - Can you draft a proposal?

@@ -166,6 +166,71 @@ def _get_or_create_werkdocumenten_folder() -> str:
     return _WERKDOCUMENTEN_FOLDER_ID
 
 
+def _find_folder_by_name(drive_service, parent_id: str, name: str, max_depth: int = 3) -> str | None:
+    """BFS: return folder ID of first folder whose name contains `name` (case-insensitive)."""
+    name_lower = name.lower().strip()
+    queue = [(parent_id, 0)]
+    while queue:
+        current_id, depth = queue.pop(0)
+        if depth >= max_depth:
+            continue
+        try:
+            res = drive_service.files().list(
+                q=f"'{current_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                fields="files(id,name)",
+                supportsAllDrives=True, includeItemsFromAllDrives=True,
+                pageSize=100,
+            ).execute()
+        except Exception as e:
+            logger.warning("_find_folder_by_name: list failed at depth %d: %s", depth, e)
+            continue
+        for f in res.get("files", []):
+            if name_lower in f["name"].lower():
+                return f["id"]
+            queue.append((f["id"], depth + 1))
+    return None
+
+
+def _get_or_create_subfolder(drive_service, parent_id: str, name: str) -> str:
+    """Find or create a named subfolder inside parent_id. Returns folder ID."""
+    safe_name = name.replace("'", "\\'")
+    res = drive_service.files().list(
+        q=f"name='{safe_name}' and '{parent_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields="files(id)",
+        supportsAllDrives=True, includeItemsFromAllDrives=True,
+    ).execute()
+    files = res.get("files", [])
+    if files:
+        return files[0]["id"]
+    meta = {"name": name, "mimeType": "application/vnd.google-apps.folder", "parents": [parent_id]}
+    folder = drive_service.files().create(body=meta, fields="id", supportsAllDrives=True).execute()
+    logger.info("_get_or_create_subfolder: created '%s' under %s", name, parent_id)
+    return folder["id"]
+
+
+def find_or_create_meetingnotes_folder(client_name: str) -> str:
+    """Return folder ID for {client}/Meetingnotes/, creating it if needed.
+
+    Search: find client folder anywhere under Drive root (max 3 levels deep),
+    then find/create Meetingnotes/ inside it.
+    Fallback: 00_Werkdocumenten/Meetingnotes/.
+    """
+    drive = _get_drive_write_service()
+
+    if client_name and client_name.lower() not in ("onbekend", "unknown", ""):
+        client_folder_id = _find_folder_by_name(drive, _AINSTEIN_DRIVE_ROOT_ID, client_name, max_depth=3)
+        if client_folder_id:
+            folder_id = _get_or_create_subfolder(drive, client_folder_id, "Meetingnotes")
+            logger.info("find_or_create_meetingnotes_folder: %s/Meetingnotes → %s", client_name, folder_id)
+            return folder_id
+        logger.info("find_or_create_meetingnotes_folder: client '%s' niet gevonden — fallback naar Werkdocumenten", client_name)
+
+    werkdoc = _get_or_create_werkdocumenten_folder()
+    folder_id = _get_or_create_subfolder(drive, werkdoc, "Meetingnotes")
+    logger.info("find_or_create_meetingnotes_folder: fallback → 00_Werkdocumenten/Meetingnotes → %s", folder_id)
+    return folder_id
+
+
 def _is_table_separator(line: str) -> bool:
     """Return True for Markdown table separator rows like |---|---| or |:---:|."""
     stripped = line.strip()

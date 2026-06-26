@@ -44,6 +44,7 @@ SKILL_LABELS = {
     "review_feedback": "REVIEW_FEEDBACK",
     "dvv_check": "DVV_CHECK",
     "meeting_reviewer": "MEETING_REVIEWER",
+    "briefing_writer": "BRIEFING_WRITER",
     "extract_knowledge": "EXTRACT_KNOWLEDGE",
     "extract_knowledge_distilleer": "EXTRACT_KNOWLEDGE_DISTILLEER",
     "extract_knowledge_merge": "EXTRACT_KNOWLEDGE_MERGE",

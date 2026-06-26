@@ -25,6 +25,17 @@ _TRANSCRIPT_CHANNEL = ""
 # Max characters of transcript to send to the agent (cost + token safety)
 _MAX_TRANSCRIPT_CHARS = 24_000  # ~6k tokens; head + tail strategy above this
 
+# DM channel → doc_id mapping for pending Insights additions
+_pending_insights: dict[str, str] = {}
+
+
+def register_insights_pending(channel_id: str, doc_id: str) -> None:
+    _pending_insights[channel_id] = doc_id
+
+
+def pop_insights_pending(channel_id: str) -> str | None:
+    return _pending_insights.pop(channel_id, None)
+
 
 def process_transcript(
     event: TranscriptEvent,
@@ -56,13 +67,17 @@ def process_transcript(
             "Agent done for meeting_id=%s — output %d chars",
             event.meeting_id, len(debrief_text),
         )
+
+        meetingnote_result = _create_meetingnote(event, anthropic_client)
+
         participant_slack_ids = lookup_participant_slack_ids(event.participants, slack_client)
         logger.info(
             "Minkowski deelnemers gevonden: %s",
             list(participant_slack_ids.keys()) or "geen",
         )
         _post_slack_notification(
-            event, debrief_text, participant_slack_ids, meeting_type, slack_client, transcript_channel
+            event, debrief_text, participant_slack_ids, meeting_type, slack_client,
+            transcript_channel, meetingnote_result,
         )
 
     except Exception:
@@ -108,6 +123,75 @@ def _save_transcript_bakje(event: TranscriptEvent) -> None:
             logger.info("Transcript-bakje opgeslagen: %s (meeting_id=%s)", result.get("name"), event.meeting_id)
     except Exception:
         logger.exception("Transcript-bakje opslaan mislukt (meeting_id=%s)", event.meeting_id)
+
+
+# ---------------------------------------------------------------------------
+# Meetingnote generation
+# ---------------------------------------------------------------------------
+
+def _create_meetingnote(event: TranscriptEvent, anthropic_client) -> dict | None:
+    """Generate a Meetingnote Google Doc for this meeting.
+
+    Makes a direct, cheap API call (Haiku) — no tool loop needed.
+    Returns {"url": str, "doc_id": str} or None on failure.
+    """
+    try:
+        content = _generate_meetingnote_content(event, anthropic_client)
+        if not content:
+            return None
+        from gdoc_tools import create_gdoc
+        date_str = (event.started_at or "")[:10] or "onbekend"
+        safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", event.title or "meeting").strip()[:60]
+        doc_title = f"Meetingnote {date_str} — {safe_title}"
+        result = create_gdoc(doc_title, content, parent_folder_id="werkdocumenten")
+        logger.info("Meetingnote aangemaakt: %s (meeting_id=%s)", result.get("url"), event.meeting_id)
+        return result
+    except Exception:
+        logger.exception("Meetingnote aanmaken mislukt (meeting_id=%s)", event.meeting_id)
+        return None
+
+
+def _generate_meetingnote_content(event: TranscriptEvent, anthropic_client) -> str:
+    """Single Haiku API call to fill in the Meetingnote template."""
+    from prompts import SKILL_PROMPTS
+    skill_prompt = SKILL_PROMPTS.get("briefing_writer", "")
+
+    lang = event.language or "nl"
+    lang_instruction = (
+        "Schrijf de Meetingnote volledig in het Nederlands."
+        if lang == "nl"
+        else "Write the Meetingnote entirely in English."
+    )
+
+    participants_str = ", ".join(p.get("name", p.get("email", "?")) for p in event.participants)
+    client_name = infer_client_name(event)
+    tasks_text = _format_tasks(event)
+    summary_text = event.summary or "Geen samenvatting beschikbaar."
+    transcript_text = _truncate_transcript(event.transcript or "")
+
+    user_prompt = (
+        f"{lang_instruction}\n\n"
+        f"Meeting: {event.title}\n"
+        f"Datum: {event.started_at}\n"
+        f"Deelnemers: {participants_str}\n"
+        f"Klant/organisatie: {client_name}\n\n"
+        f"--- Jamie's samenvatting ---\n{summary_text}\n\n"
+        f"--- Jamie's taken ---\n{tasks_text or 'Geen taken gelogd.'}\n\n"
+        f"--- Transcript ---\n{transcript_text}\n\n"
+        f"Vul de Meetingnote-template in op basis van bovenstaande informatie."
+    )
+
+    try:
+        response = anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            system=skill_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        return response.content[0].text.strip()
+    except Exception:
+        logger.exception("_generate_meetingnote_content: API call mislukt")
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -255,9 +339,12 @@ def _post_slack_notification(
     meeting_type: str,
     slack_client,
     transcript_channel: str,
+    meetingnote_result: dict | None = None,
 ) -> None:
     actions = _extract_next_step(debrief_text)
     has_actions = bool(actions)
+    doc_url = meetingnote_result.get("url") if meetingnote_result else None
+    doc_link_line = f"\n:page_facing_up: <{doc_url}|Meetingnote openen>" if doc_url else ""
 
     thread_ts = None
 
@@ -267,11 +354,11 @@ def _post_slack_notification(
     else:
         meeting_label = f"*{event.title}*" if event.title else "gesprek"
         if has_actions:
-            channel_intro = f":microphone: Ainstein heeft {meeting_label} verwerkt.\n\n{actions}"
+            channel_intro = f":microphone: Ainstein heeft {meeting_label} verwerkt.\n\n{actions}{doc_link_line}"
         else:
             channel_intro = (
                 f":microphone: Ainstein heeft {meeting_label} verwerkt. "
-                f"Geen vervolgacties gevonden — klopt dit?"
+                f"Geen vervolgacties gevonden — klopt dit?{doc_link_line}"
             )
         try:
             resp = slack_client.chat_postMessage(
@@ -297,29 +384,43 @@ def _post_slack_notification(
     for name, slack_id in participant_slack_ids.items():
         try:
             first_name = name.split()[0] if name else "daar"
+            insights_instruction = (
+                f"\n\n:pencil2: Voeg je Insights toe: reply met `Insights: [jouw tekst]`"
+                if doc_url else ""
+            )
             if proposals:
                 dm_text = (
                     f":wave: Hoi {first_name}, ik heb *{event.title}* verwerkt.\n\n"
                     + (f"Aanbevolen volgende stap:\n{actions}\n\n" if has_actions else "")
-                    + f"{proposals}\n\nWat wil je dat ik oppak?"
+                    + f"{proposals}"
+                    + (f"\n\n{doc_link_line}" if doc_url else "")
+                    + insights_instruction
+                    + "\n\nWat wil je dat ik oppak?"
                 )
             elif has_actions:
                 dm_text = (
                     f":wave: Hoi {first_name}, ik heb *{event.title}* verwerkt.\n\n"
                     f"Aanbevolen volgende stap:\n{actions}"
+                    + (f"\n\n{doc_link_line}" if doc_url else "")
+                    + insights_instruction
                 )
             else:
                 dm_text = (
                     f":wave: Hoi {first_name}, ik heb *{event.title}* verwerkt. "
                     f"Ik vond geen concrete vervolgacties — klopt dat?"
+                    + (f"\n\n{doc_link_line}" if doc_url else "")
+                    + insights_instruction
                 )
-            slack_client.chat_postMessage(
+            resp_dm = slack_client.chat_postMessage(
                 channel=slack_id,
                 text=dm_text,
                 mrkdwn=True,
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
             sent_dms.append((name, slack_id))
+            # Register this DM channel so an "Insights:" reply can update the doc
+            if doc_url and meetingnote_result and meetingnote_result.get("doc_id"):
+                register_insights_pending(resp_dm["channel"], meetingnote_result["doc_id"])
         except Exception as exc:
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
             failed_dms.append(name)

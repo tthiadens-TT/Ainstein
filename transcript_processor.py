@@ -135,8 +135,10 @@ def _create_meetingnote(event: TranscriptEvent, anthropic_client) -> dict | None
     Makes a direct, cheap API call (Haiku) — no tool loop needed.
     Returns {"url": str, "doc_id": str} or None on failure.
     """
+    logger.info("_create_meetingnote: gestart voor meeting_id=%s", event.meeting_id)
     try:
         content = _generate_meetingnote_content(event, anthropic_client)
+        logger.info("_create_meetingnote: content gegenereerd (%d chars)", len(content) if content else 0)
         if not content:
             return None
         from gdoc_tools import create_gdoc, find_or_create_meetingnotes_folder
@@ -183,6 +185,7 @@ def _generate_meetingnote_content(event: TranscriptEvent, anthropic_client) -> s
         f"Vul de Meetingnote-template in op basis van bovenstaande informatie."
     )
 
+    logger.info("_generate_meetingnote_content: API aanroep starten")
     try:
         response = anthropic_client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -379,7 +382,7 @@ def _post_slack_notification(
             resp_dm = slack_client.chat_postMessage(
                 channel=slack_id,
                 text=f"Ik heb {event.title} verwerkt.",  # fallback for notifications
-                blocks=_build_dm_blocks(event, first_name, actions, has_actions, proposals, doc_url),
+                blocks=_build_dm_blocks(event, first_name, actions, has_actions, proposals, doc_url, debrief_text),
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
             sent_dms.append((name, slack_id))
@@ -395,7 +398,7 @@ def _post_slack_notification(
 
 
 def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: bool, doc_url: str | None) -> list:
-    """Block Kit layout for the #ainstein-status channel post."""
+    """Block Kit layout for the #ainstein-status channel post — minimal notification."""
     client_name = infer_client_name(event)
     date_str = (event.started_at or "")[:10]
     header_text = f":microphone: *{event.title}*"
@@ -406,21 +409,7 @@ def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: boo
 
     blocks: list = [
         {"type": "section", "text": {"type": "mrkdwn", "text": header_text}},
-        {"type": "divider"},
     ]
-
-    if has_actions:
-        # Strip leading **bold** header from the extracted section if present
-        clean_actions = re.sub(r"^\*{1,2}[^*]+\*{1,2}\s*", "", actions, flags=re.MULTILINE).strip()
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Volgende stap:*\n{clean_actions}"},
-        })
-    else:
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "_Geen vervolgacties gevonden — klopt dit?_"},
-        })
 
     if doc_url:
         blocks.append({
@@ -436,6 +425,62 @@ def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: boo
     return blocks
 
 
+def _build_combined_tasks(event: TranscriptEvent, debrief_text: str) -> str:
+    """Merge Jamie tasks with Ainstein's task list from debrief_text into one mrkdwn list."""
+    jamie_tasks = (event.raw_payload or {}).get("data", {}).get("tasks") or []
+
+    # Extract Ainstein's task section from debrief_text (looks for "Actielijst" or numbered tasks)
+    ainstein_tasks_raw = ""
+    task_pattern = re.compile(
+        r"(?:\*{1,2}Actielijst.*?\*{0,2}|#{1,3}\s*Actielijst|#{1,3}\s*Taken|#{1,3}\s*Actie)"
+        r".*?(?=(?:#{1,3}\s*[A-Z]|\*{1,2}[A-Z]|\Z))",
+        re.IGNORECASE | re.DOTALL,
+    )
+    match = task_pattern.search(debrief_text)
+    if match:
+        ainstein_tasks_raw = match.group(0).strip()
+
+    lines = ["*Taken:*"]
+
+    seen = set()
+
+    if jamie_tasks:
+        for t in jamie_tasks:
+            if isinstance(t, dict):
+                content = (t.get("content") or t.get("text") or "").strip()
+                assignee = t.get("assignee") or ""
+                if not content:
+                    continue
+                key = content.lower()[:40]
+                if key in seen:
+                    continue
+                seen.add(key)
+                line = f"• {content}"
+                if assignee:
+                    line += f" _({assignee})_"
+                lines.append(line)
+
+    # Add Ainstein lines from debrief that aren't already covered by Jamie
+    if ainstein_tasks_raw:
+        for raw_line in ainstein_tasks_raw.splitlines():
+            clean = re.sub(r"^[\s\-\*•\d\.]+", "", raw_line).strip()
+            clean = re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", clean)
+            if not clean or len(clean) < 10:
+                continue
+            key = clean.lower()[:40]
+            if key in seen:
+                continue
+            # Check partial overlap with Jamie tasks
+            if any(key[:20] in s for s in seen):
+                continue
+            seen.add(key)
+            lines.append(f"• {clean} _[Ainstein]_")
+
+    if len(lines) == 1:
+        return ""
+    return "\n".join(lines)
+
+
 def _build_dm_blocks(
     event: TranscriptEvent,
     first_name: str,
@@ -443,6 +488,7 @@ def _build_dm_blocks(
     has_actions: bool,
     proposals: str,
     doc_url: str | None,
+    debrief_text: str = "",
 ) -> list:
     """Block Kit layout for the DM to the Minkowski lead."""
     blocks: list = [
@@ -453,21 +499,24 @@ def _build_dm_blocks(
         {"type": "divider"},
     ]
 
+    # Combined task list (Jamie + Ainstein)
+    combined_tasks = _build_combined_tasks(event, debrief_text)
+    if combined_tasks:
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": combined_tasks},
+        })
+
+    # Ainstein's proactive offers (separate from tasks)
     if has_actions:
-        clean_actions = re.sub(r"^\*{1,2}[^*]+\*{1,2}\s*", "", actions, flags=re.MULTILINE).strip()
+        clean_actions = re.sub(r"^\*{1,2}[^*]+\*{1,2}\s*\n?", "", actions, flags=re.MULTILINE).strip()
+        blocks.append({"type": "divider"})
         blocks.append({
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Volgende stap:*\n{clean_actions}"},
+            "text": {"type": "mrkdwn", "text": f"*Wat ik nu kan doen:*\n{clean_actions}"},
         })
 
-    if proposals:
-        clean_proposals = re.sub(r"^\*{1,2}[^*]+\*{1,2}\s*", "", proposals, flags=re.MULTILINE).strip()
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Uit de bronnenlaag:*\n{clean_proposals}"},
-        })
-
-    if not has_actions and not proposals:
+    if not combined_tasks and not has_actions:
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn", "text": "_Geen concrete vervolgacties gevonden — klopt dat?_"},

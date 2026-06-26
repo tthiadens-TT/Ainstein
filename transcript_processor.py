@@ -359,7 +359,6 @@ def _post_slack_notification(
     has_actions = bool(actions)
     doc_url = meetingnote_result.get("url") if meetingnote_result else None
     proposals = _extract_proactive_proposals(debrief_text)
-    fallback_channel = os.environ.get("AINSTEIN_FALLBACK_CHANNEL", "").strip()
 
     sent_dms: list[tuple[str, str]] = []
     failed_dms: list[str] = []
@@ -381,19 +380,21 @@ def _post_slack_notification(
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
             failed_dms.append(name)
 
-    # 2. Fallback: geen Minkowski-deelnemers → gezamenlijk kanaal
-    if not participant_slack_ids and fallback_channel:
-        try:
-            slack_client.chat_postMessage(
-                channel=fallback_channel,
-                text=f"Meetingnote: {event.title}",
-                blocks=_build_dm_blocks(event, "team", actions, has_actions, proposals, doc_url, debrief_text),
-            )
-            logger.info("Fallback bericht verstuurd naar %s voor '%s'", fallback_channel, event.title)
-        except Exception as exc:
-            logger.error("Failed to post to fallback channel %s: %s", fallback_channel, exc)
-    elif not participant_slack_ids:
-        logger.warning("Geen deelnemers én geen AINSTEIN_FALLBACK_CHANNEL — geen primair bericht voor '%s'", event.title)
+    # 2. Fallback: geen Minkowski-deelnemers → klant-specifiek kanaal op naam
+    if not participant_slack_ids:
+        client_channel = _find_client_channel(event, slack_client)
+        if client_channel:
+            try:
+                slack_client.chat_postMessage(
+                    channel=client_channel,
+                    text=f"Meetingnote: {event.title}",
+                    blocks=_build_dm_blocks(event, "team", actions, has_actions, proposals, doc_url, debrief_text),
+                )
+                logger.info("Fallback: bericht verstuurd naar klantkanaal %s voor '%s'", client_channel, event.title)
+            except Exception as exc:
+                logger.error("Failed to post to client channel %s: %s", client_channel, exc)
+        else:
+            logger.warning("Geen Minkowski-deelnemers en geen klantkanaal gevonden voor '%s'", event.title)
 
     # 3. CC: altijd naar ainstein-status
     thread_ts = None
@@ -415,6 +416,42 @@ def _post_slack_notification(
     # 4. DM-status in thread op ainstein-status
     if transcript_channel and thread_ts:
         _post_dm_status(slack_client, transcript_channel, thread_ts, sent_dms, failed_dms)
+
+
+def _find_client_channel(event: TranscriptEvent, slack_client) -> str | None:
+    """Find a Slack channel whose name matches the client name (e.g. #jetske-ultee).
+
+    Slugifies the client name (lowercase, spaces → hyphens) and checks if any
+    channel name contains it. Returns the channel ID or None.
+    """
+    client_name = infer_client_name(event)
+    if not client_name or client_name.lower() in ("onbekend", "unknown"):
+        return None
+
+    slug = re.sub(r"[^a-z0-9]+", "-", client_name.lower()).strip("-")
+    if len(slug) < 3:
+        return None
+
+    try:
+        cursor = None
+        while True:
+            kwargs = {"limit": 200, "exclude_archived": True}
+            if cursor:
+                kwargs["cursor"] = cursor
+            resp = slack_client.conversations_list(**kwargs)
+            for ch in resp.get("channels", []):
+                ch_name = ch.get("name", "").lower()
+                if slug in ch_name or ch_name in slug:
+                    logger.info("_find_client_channel: '%s' → #%s (%s)", client_name, ch["name"], ch["id"])
+                    return ch["id"]
+            cursor = resp.get("response_metadata", {}).get("next_cursor")
+            if not cursor:
+                break
+    except Exception as exc:
+        logger.warning("_find_client_channel: channel lookup mislukt: %s", exc)
+
+    logger.info("_find_client_channel: geen kanaal gevonden voor '%s' (slug: %s)", client_name, slug)
+    return None
 
 
 def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: bool, doc_url: str | None) -> list:

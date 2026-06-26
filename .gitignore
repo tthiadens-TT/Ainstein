@@ -4,12 +4,12 @@ conversations.db
 *.db
 client_secret*.json
 
-# Office documents — belong in Drive, not in the code repo
+# Office documents ??? belong in Drive, not in the code repo
 *.pptx
 *.docx
 *.xlsx
 
-# Source layer lives in Google Drive (see tools.SOURCE_ROOT) — never in repo
+# Source layer lives in Google Drive (see tools.SOURCE_ROOT) ??? never in repo
 01_Proposals/
 02_Tools/
 03_Pricing/
@@ -28,22 +28,23 @@ venv/
 # macOS
 .DS_Store
 
-# Editor — track project settings, ignore local overrides and worktrees
+# Editor ??? track project settings, ignore local overrides and worktrees
 .claude/*
 !.claude/settings.json
+!.claude/projects.json
 .vscode/
 .idea/
 
-# Logs — ephemeral, machine-local, never committed
+# Logs ??? ephemeral, machine-local, never committed
 logs/
 *.log
 
-# Claude Code plugin artefacten — lokaal, niet voor repo
+# Claude Code plugin artefacten ??? lokaal, niet voor repo
 TASKS.md
 minkowski-website.png
 dashboard.html
 dashboard/index.html
 .playwright-mcp/
 
-# Review output — operationele logs, geen code; open items extracten naar CLAUDE.md Backlog
+# Review output ??? operationele logs, geen code; open items extracten naar CLAUDE.md Backlog
 reviews/

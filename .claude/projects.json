@@ -1,0 +1,116 @@
+{
+  "projects": [
+    {
+      "id": "ainstein",
+      "name": "Ainstein",
+      "description": "Minkowski's AI-powered colleague. Transforms Minkowski's knowledge (proposals, experts, pricing, positioning) into a usable commercial intelligence layer.",
+      "type": "slack-bot",
+      "status": "production",
+      "mission": "Capture and scale Minkowski's methodology so Ainstein can function independently. Enable one million Einsteins to make history.",
+      "keyFiles": {
+        "productVision": "CLAUDE.md",
+        "operationalGuide": "HANDOFF.md",
+        "deployment": "DEPLOYMENT.md",
+        "technicalReadme": "README.md",
+        "roadmap": "plans/ainstein-roadmap.md",
+        "onboarding": "ONBOARDING.md"
+      },
+      "architecture": {
+        "type": "single-agent-on-vm",
+        "runtime": "Python 3.10 + Anthropic SDK",
+        "infrastructure": {
+          "vm": "ainstein-vm (GCP project: minkowski-ainstein)",
+          "ip": "35.253.206.86 (static)",
+          "domain": "ainstein.duckdns.org",
+          "ssl": "Let's Encrypt (auto-renew)"
+        },
+        "integrations": {
+          "slack": "SocketMode, Minkowski workspace",
+          "googleDrive": "Service account (shared Drive 0AFvBEDYKrnHbUk9PVA)",
+          "jamie": "Webhook POST https://ainstein.duckdns.org/webhooks/jamie",
+          "github": "Auto-deploy on main merge"
+        }
+      },
+      "primarySkills": [
+        "analyse_opportunity — lead analysis, commercial intelligence",
+        "build_proposal — proposal support, expert matching, module logic",
+        "match_experts — expert selection and comparison",
+        "meeting_reviewer — Jamie transcript analysis, proactive suggestions"
+      ],
+      "sourceLayer": {
+        "location": "Google Workspace Shared Drive 'Minkowski AInstein'",
+        "folders": {
+          "01_Proposals": "Past proposals, wording, module combos",
+          "02_Tools": "Frameworks, methodologies, workshop formats",
+          "03_Pricing": "Fee structures, day rates, modular pricing",
+          "04_Experts": "Expert profiles, team capacity, decision matrix",
+          "05_Venues": "Venue recommendations, experience design",
+          "06_Marketing": "Positioning, message pillars, brand voice",
+          "07_Feedback": "User critiques, gaps.md (auto-appended)"
+        }
+      },
+      "wayOfWorking": {
+        "coreRules": [
+          "Verify before reporting — check git log, read files, consult memory first",
+          "Never invent source material — all facts from Drive or codebase",
+          "Reuse before creating — adapt proven material",
+          "Challenge assumptions — always ask 'why' and 'what if'",
+          "One recommendation per decision — not a menu of options",
+          "Distinguish findings from hypotheses — be explicit",
+          "Language: Dutch for Minkowski stakeholders, English for external"
+        ],
+        "sessionRituals": {
+          "opening": "State one intention sentence before starting",
+          "closing": "Update roadmap, commit changes, push to main"
+        }
+      },
+      "currentState": {
+        "lastUpdated": "2026-06-26",
+        "liveComponents": [
+          "Slack bot (SocketMode) — fully operational",
+          "Jamie webhook pipeline — transcripts → analysis → #ainstein-status",
+          "HTTPS (Let's Encrypt) — auto-renew active",
+          "Static IP 35.253.206.86 — reserved in GCP",
+          "Knowledge layer (proof-phase) — 10 sources, map-reduce pipeline",
+          "Meeting reviewer skill — independent analysis + proactive suggestions"
+        ],
+        "openItems": "See plans/ainstein-roadmap.md — single source of truth"
+      },
+      "verifiedConfigurations": {
+        "slackOAuthScopes": "chat:write, reactions:read, users:read, users:read.email, app_mentions:mark, files:write, SocketMode",
+        "webhookSignature": "HMAC-SHA256 (Jamie format: t=timestamp,v0=hex)",
+        "githubAutoDeploy": "Enabled — every main merge triggers 'Deploy to Ainstein VM'",
+        "driveAIRestriction": "Blocked via Google Workspace policy (needs unblocking for MCP access)",
+        "worktreeIsolation": "Agents run in isolated git worktrees for parallel mutation safety",
+        "transcriptTruncation": "24k chars (first 12k + last 12k) to prevent token overflow"
+      },
+      "teamRoles": {
+        "thomas": {
+          "name": "Thomas Thiadens",
+          "role": "PO/PM, business model builder",
+          "email": "thomas@minkowski.org",
+          "responsibility": "Product vision, strategy, source layer curation, Slack workspace setup"
+        },
+        "claude": {
+          "name": "Claude Code (AI pair programmer)",
+          "role": "Development, architecture, knowledge synthesis",
+          "responsibility": "Build features, maintain codebase, research, session closures"
+        }
+      },
+      "nextSteps": [
+        "Unblock Google Drive AI-policy restriction (for MCP access)",
+        "Expand proposal logic (module combos, client segmentation)",
+        "Deepen expert matching (skill-to-need scoring)",
+        "Ainstein autonomous action (after Slack approval)",
+        "Scale: Ainstein sources client briefs, proposes opportunities"
+      ],
+      "links": {
+        "codebase": "https://github.com/anthropics/Ainstein",
+        "vm": "ssh thomas@35.253.206.86",
+        "slack": "@Ainstein in Minkowski workspace",
+        "drive": "Minkowski Shared Drive 'Minkowski AInstein'",
+        "roadmap": "plans/ainstein-roadmap.md"
+      }
+    }
+  ]
+}

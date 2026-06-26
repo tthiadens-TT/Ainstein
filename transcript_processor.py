@@ -141,13 +141,13 @@ def _create_meetingnote(event: TranscriptEvent, anthropic_client) -> dict | None
         logger.info("_create_meetingnote: content gegenereerd (%d chars)", len(content) if content else 0)
         if not content:
             return None
-        from gdoc_tools import create_gdoc, find_or_create_meetingnotes_folder
+        from gdoc_tools import create_doc_via_drive, find_or_create_meetingnotes_folder
         client_name = infer_client_name(event)
         folder_id = find_or_create_meetingnotes_folder(client_name)
         date_str = (event.started_at or "")[:10] or "onbekend"
         safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", event.title or "meeting").strip()[:60]
         doc_title = f"Meetingnote {date_str} — {safe_title}"
-        result = create_gdoc(doc_title, content, parent_folder_id=folder_id)
+        result = create_doc_via_drive(doc_title, content, folder_id)
         logger.info("Meetingnote aangemaakt: %s (meeting_id=%s)", result.get("url"), event.meeting_id)
         return result
     except Exception:

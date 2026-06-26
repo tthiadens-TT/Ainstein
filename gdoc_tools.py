@@ -231,6 +231,35 @@ def find_or_create_meetingnotes_folder(client_name: str) -> str:
     return folder_id
 
 
+def create_doc_via_drive(title: str, content: str, folder_id: str) -> dict:
+    """Create a Google Doc using Drive API only (no Docs API required).
+
+    The service account has Drive API access but not Docs API access.
+    Content is uploaded as text/plain and Drive converts it to a Google Doc.
+    Returns {"doc_id": str, "url": str, "title": str}.
+    """
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
+
+    drive_service = _get_drive_write_service()
+    file_meta = {
+        "name": title,
+        "mimeType": "application/vnd.google-apps.document",
+        "parents": [folder_id],
+    }
+    media = MediaIoBaseUpload(io.BytesIO(content.encode("utf-8")), mimetype="text/plain", resumable=False)
+    doc = drive_service.files().create(
+        body=file_meta,
+        media_body=media,
+        fields="id,webViewLink,name",
+        supportsAllDrives=True,
+    ).execute()
+    url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")
+    doc_id = doc["id"]
+    logger.info("create_doc_via_drive: created '%s' in folder %s → %s", title, folder_id, doc_id)
+    return {"doc_id": doc_id, "url": url, "title": doc["name"]}
+
+
 def _is_table_separator(line: str) -> bool:
     """Return True for Markdown table separator rows like |---|---| or |:---:|."""
     stripped = line.strip()

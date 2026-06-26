@@ -396,26 +396,38 @@ def _post_slack_notification(
         else:
             logger.warning("Geen Minkowski-deelnemers en geen klantkanaal gevonden voor '%s'", event.title)
 
-    # 3. CC: altijd naar ainstein-status
-    thread_ts = None
+    # 3. CC: één regel naar ainstein-status — geen analyse, geen thread
     if not transcript_channel:
         logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — CC overgeslagen")
     else:
         try:
-            resp = slack_client.chat_postMessage(
+            client_name = infer_client_name(event)
+            date_str = (event.started_at or "")[:10]
+            cc_text = f":white_check_mark: *{event.title}*"
+            if client_name and client_name != event.title:
+                cc_text += f"  ·  {client_name}"
+            if date_str:
+                cc_text += f"  ·  {date_str}"
+            blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": cc_text}}]
+            if doc_url:
+                blocks.append({"type": "actions", "elements": [{
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Meetingnote", "emoji": True},
+                    "url": doc_url,
+                }]})
+            if sent_dms:
+                names = ", ".join(f"<@{sid}>" for _, sid in sent_dms)
+                blocks.append({"type": "context", "elements": [
+                    {"type": "mrkdwn", "text": f"DM verstuurd aan {names}"}
+                ]})
+            slack_client.chat_postMessage(
                 channel=transcript_channel,
-                text=f"Meetingnote: {event.title}",
-                blocks=_build_channel_blocks(event, actions, has_actions, doc_url),
+                text=f"Verwerkt: {event.title}",
+                blocks=blocks,
             )
-            thread_ts = resp["ts"]
-            logger.info("CC naar ainstein-status geslaagd: ts=%s", thread_ts)
-            _post_chunked(slack_client, transcript_channel, thread_ts, debrief_text)
+            logger.info("CC naar ainstein-status geslaagd voor '%s'", event.title)
         except Exception as exc:
             logger.error("Failed to post CC to %s: %s", transcript_channel, exc)
-
-    # 4. DM-status in thread op ainstein-status
-    if transcript_channel and thread_ts:
-        _post_dm_status(slack_client, transcript_channel, thread_ts, sent_dms, failed_dms)
 
 
 def _find_client_channel(event: TranscriptEvent, slack_client) -> str | None:

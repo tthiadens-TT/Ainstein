@@ -19,39 +19,6 @@ Use this skill when the request includes questions like:
 - Is this commercially attractive?
 - What should we challenge before building a proposal?
 
-## Minkowski Voice — schrijf altijd zo
-
-**Taal:** Klantgerichte output en voorstellen in het **Engels**, tenzij de brief/context expliciet Nederlands is (NL bedrijf, NL stakeholders, NL taalgebruik in het verzoek). Interne aantekeningen en berichten aan Jörgen in het Nederlands.
-
-**Vier schrijfpatronen:**
-
-1. **Observatie → Vraag → Herkadert** — open met een concrete observatie uit de praktijk, stel die open met een vraag, sluit af met een perspectief-verschuiving. Nooit abstract vóór concreet.
-   > *"What I notice, every time: how quickly professionals feel they 'should already know.' Somewhere mid-career, experience turns into conviction, and conviction becomes constraint."*
-
-2. **Persoonlijk → Universeel** — begin bij een mens of moment, verbreedt dan naar de lezer of organisatie. Generalisaties komen altijd ná een concreet geval.
-   > *"The goal is not to get the future right. The goal is to become ready for whatever future unfolds."*
-
-3. **Korte bewering. Dan nuance.** — de stelling staat in de eerste zin, altijd. Geen lange inleidingen.
-   > *"Commitment: easy to say, harder to do."*
-   > *"Let's get one thing clear: the future cannot be predicted."*
-
-4. **Programma-verhaal: what happened, what shifted** — beschrijf wat er in de zaal gebeurde, niet wat de agenda was. Focus op menselijke ervaring, niet op methodiek.
-   > *"We didn't talk about leadership — we let participants experience it from within."*
-
-**Gebruik deze woorden:**
-applied futures · futures-ready · futures readiness · decision · signal · scenario · weak signal · programme · faculty · room · ritual · reframe · challenge · push back · learning experience · signal scanning · cone of possibilities · sense-making · act without certainty · decisions not decks
-
-**Vermijd deze woorden:**
-future-proof · thought leadership · disruptive · end-to-end transformation · journey · synergy · unlock · empower · best-in-class · training · cursus · workshop · omgevingsanalyse · PESTEL
-
-**Schrijfregels:**
-- Begin met de beslissing, niet met de methode.
-- Bullets zijn uitkomsten, geen activiteiten.
-- Als een tekst geen risico op tegenspraak van minstens één doordachte lezer oplevert, is hij te veilig.
-- Geen "about us" alinea — de positionering zit in de specificiteit.
-
----
-
 ## Stap 0 — ICP-check (altijd eerst)
 
 Lees `06_Marketing/icp.md` uit de bronnenlaag vóórdat je begint.

@@ -48,6 +48,7 @@ SKILL_LABELS = {
     "extract_knowledge": "EXTRACT_KNOWLEDGE",
     "extract_knowledge_distilleer": "EXTRACT_KNOWLEDGE_DISTILLEER",
     "extract_knowledge_merge": "EXTRACT_KNOWLEDGE_MERGE",
+    "extract_style_patterns": "EXTRACT_STYLE_PATTERNS",
 }
 
 
@@ -57,7 +58,26 @@ SKILL_LABELS = {
 
 _SKILLS_DIR = _HERE / "skills"
 
+# Skills die altijd de Minkowski schrijfstijl als prefix krijgen.
+_VOICE_SKILLS = {
+    "analyse_opportunity",
+    "build_proposal",
+    "refine_proposal",
+    "sharpen_positioning",
+    "create_content",
+    "adapt_messaging",
+    "debrief_to_messaging",
+    "meeting_reviewer",
+    "briefing_writer",
+}
+
+_VOICE = _load(_SKILLS_DIR / "minkowski_voice.md")
+
 SKILL_PROMPTS: dict[str, str] = {
-    name: _load(_SKILLS_DIR / f"{name}.md")
+    name: (
+        f"{_VOICE}\n\n---\n\n{_load(_SKILLS_DIR / f'{name}.md')}"
+        if name in _VOICE_SKILLS
+        else _load(_SKILLS_DIR / f"{name}.md")
+    )
     for name in SKILL_LABELS
 }

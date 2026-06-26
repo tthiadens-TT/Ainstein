@@ -228,7 +228,39 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## Tutorial: Claude Projects Goed Inrichten
 
+*Doel: Elk project werkt met dezelfde bronnenlaag als Ainstein, zodat project-output direct Ainstein verrijkt. Synergie in plaats van isolatie.*
+
 *Gebasseerd op learnings uit sessie "Collaborative interface for program design" (22 juni 2026) en live proof-of-concept in Jörgens project "Minkowski& AInstein".*
+
+---
+
+## De Synergie-Cirkel (waarom dit anders is dan een gewoon project)
+
+```
+Project Start
+    ↓
+[Files: haalt kennis UIT Ainstein's bronnenlaag]
+    ↓
+Je werkt (voorstel / programma-ontwerp / analyse)
+    ↓
+Je ontdekt iets NEU, iets wat MIST, iets wat WERKT
+    ↓
+[Terugkoppeling: voegt toe AAN Ainstein's bronnenlaag]
+    ↓
+Ainstein via Slack is nu SCHERPER (volgende keer)
+    ↓
+Volgende project haalt al die NIEUWE kennis eruit
+    ↓
+→ Cirkel versterkt zich
+```
+
+**Het verschil:** 
+- **Normaal Claude Project:** Je gebruikt Claude, Claude geeft antwoorden, klaar.
+- **Dit:** Je en Claude werken allebei met dezelfde kennisbasis. Het project is geen geïsoleerde taak, het is een **feedback-loop met Ainstein.**
+
+Dit is hoe je schaal bouwt zonder afhankelijk te zijn van één persoon. Elk team-lid die een project opstart, verrijkt Ainstein.
+
+---
 
 ### Kernbevindingen (waarom dit werkt)
 
@@ -237,7 +269,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 3. **Files-sectie is kritiek** — leeg = geen kennis. De kennisbank (4 bestanden) bepaalt de kwaliteit van het advies
 4. **Context blijft in Projects** — Slack trunceert lange teksten en programmaoutlines; Projects houdt alles bij
 
-### 8 Stappen: Project Inrichten
+### 8 Stappen: Project Inrichten voor Synergie
 
 #### Stap 1: Project aanmaken
 ```
@@ -245,29 +277,100 @@ Naam: [JJMMDD] [Klant] — [Soort werk]
   Voorbeeld: 260625 NN Group — LEAD 3 Program Design
   
 Zichtbaarheid: Shared (minimum: jij + voornaamste sparringpartner)
-Connectors: Google Drive (verplicht), Slack (optioneel), Web search (handig)
+Connectors: Google Drive (VERPLICHT — je link naar Ainstein's bronnenlaag)
 ```
 
 **Waarom deze naam?** Datum bovenaan = makkelijk sorteren. Klant + werk = context onmiddellijk duidelijk.
 
+**Synergie-check:** Drive connector moet werken. Dit is je link naar dezelfde Files waar Ainstein uit leest.
+
 ---
 
-#### Stap 2: Google Drive connector instellen
+#### Stap 2: Instructions instellen (wie ben je in dit project)
+
+Plak dit als **Project Instructions**. Dit bepaalt je rol in het project:
+
+```
+You are Ainstein — Minkowski's commercial intelligence and thinking partner.
+
+Not a generic AI assistant. A challenger, strategist, and colleague.
+
+**Your role in this project**
+- Challenge assumptions — including ones no one asked you to challenge
+- Add what wasn't thought of but should have been
+- Propose directions not yet considered
+- Reuse Minkowski's existing knowledge from the Files before generating from scratch
+- Be commercially sharp, not academically interesting
+
+**When working on this project**
+- Commercial opportunity → analyse: fit, gaps, risks, next steps
+- Proposal to build → retrieve past work from Files, apply DVV-check
+- Expert selection → match to real need, not familiar names (use 04_Experts data)
+- Program design → ground in Minkowski methodology, challenge the logic
+- Text or positioning → check against verbal_identity.md in Files
+
+**Operating rules**
+1. Never invent numbers. If pricing/budgets not in Files, say so explicitly.
+2. Distinguish what is found from inferred. Label assumptions.
+3. Challenge vague asks. Don't reward fuzzy framing.
+4. Protect quality over speed. If source is thin, ask.
+5. Reuse before creating. Adapt proven material from Files.
+6. Label ownership: [Client], [Minkowski], or [To Be Determined] — never assume.
+7. Proactive: end every answer with a concrete next step.
+
+**The DVV-check** (apply before proposals)
+- **D — Duidelijk:** Understandable outside Minkowski?
+- **V — Volledig:** What, who, how long, cost, delivers what?
+- **V — Verleidelijk:** Outcomes, not abstract promises?
+
+**Tone**
+Sharp. Grounded. Commercially aware. Direct but not cold.
+```
+
+**Synergie-check:** Dit zijn dezelfde Instructions die Ainstein in Slack gebruikt. Je werkt met dezelfde mindset.
+
+---
+
+#### Stap 3: Files vullen (je bronnenlaag-toegang)
+
+Dit zijn de bestanden die je uit Drive pullt. Dit is hoe je dezelfde kennis gebruikt als Ainstein:
+
+| Bestand | Waar in Drive | Wat het bevat |
+|---|---|---|
+| `kennis_laag.md` | `06_Marketing/_kennis/` | Getrianguleerde Minkowski-kennis (verkondigd + verkoopbaar) |
+| `verbal_identity.md` | `06_Marketing/` | Toon, verboden woorden, vocabulary pairs |
+| `02_Tools_Agent_README.md` | `02_Tools/` | SCOPE, Futures Cone, 7 Practices, methodologie |
+| `gaps.md` | `07_Feedback/` | Bekende gaten in Ainstein's kennis — je leert wat nog ontbreekt |
+
+**Optioneel maar waardevol:**
+- 2-3 gewonnen voorstellen (uit `01_Proposals/`) als referentie
+- `minkowski_decision_layer.json` (expert-index, uit `04_Experts/`)
+
+**Upload als `.txt` of `.md`** — Projects handelt formatting soms raar.
+
+**Synergie-check:** Dit zijn dezelfde Files die Ainstein gebruikt. Je en Claude hebben dezelfde bron. Alles wat je ontdekt dat hier MIST → voeg je later terug toe.
+
+---
+
+#### Stap 4: Google Drive connector testen
 
 1. Klik **"Add connector"** → **Google Drive**
 2. Selecteer je **Minkowski Shared Drive** (`0AFvBEDYKrnHbUk9PVA`)
 3. Test: vraag Claude "list the folders in the root"
 4. Verifieer dat hij `01_Proposals`, `02_Tools`, etc. ziet
+5. Test: plak een Drive-link naar een document → Claude leest het live
 
 **Troubleshooting:** 
 - Fout "ineligible to be used in generative AI"? → Dit is de **persoonlijke Drive-connector**, niet de Shared Drive. Verwijder en zet juiste Drive erin.
 - Connector niet verschijnen? → Refresh de pagina.
 
+**Synergie-check:** Drive connector = je live-link naar bronnenlaag. Dit is hoe je in het project dezelfde bestanden raadpleegt als Ainstein in Slack.
+
 ---
 
-#### Stap 3: Project Memory vullen (klant + Minkowski context)
+#### Stap 5: Project Memory vullen (klant + purpose)
 
-Dit is waar je één keer context inzet zodat elke vraag daarna contextueel is.
+Dit is context die je EENMAAL zet zodat elke vraag contextueel is.
 
 **Plak dit als starting point, pas aan per klant:**
 
@@ -278,6 +381,7 @@ Dit is waar je één keer context inzet zodat elke vraag daarna contextueel is.
 - **Vorige Minkowski-werk:** [wat hebben we eerder gedaan]
 - **Stakeholders:** [wie participeren, wie beslist]
 - **Budget/timing:** [wanneer, welke schaal]
+- **Wat mist in kennisbank:** [industry-specifieke kennis, expert-banden, eerdere werk — dit zul je later toevoegen]
 
 ## Minkowski Context
 Minkowski is een agency for applied futures. We helpen organisaties future-ready worden via:
@@ -287,165 +391,150 @@ Minkowski is een agency for applied futures. We helpen organisaties future-ready
 
 Our value = strong thinking + well-designed programs + credible experts + sharp proposals + commercial translation.
 
-## Deze sessie
-Doel: [voorstel bouwen / program ontwerpen / opportunity analyseren]
-Outputformat: [beknopt voorstel / gedetailleerde outline / 3 opties met trade-offs]
-Volgende stap: [review + feedback / presentatie aan klant / expert matching]
+## Dit project
+- **Doel:** [voorstel bouwen / program ontwerpen / opportunity analyseren]
+- **Output:** [beknopt voorstel / gedetailleerde outline / 3 opties]
+- **Volgende stap:** [review + feedback / klantpresentatie / expert matching]
+- **Feedback-plan:** [wie geeft feedback, wanneer]
 ```
 
-**Waarom dit werkt:** Claude begrijpt direct wat de klant nodig heeft en hoe Minkowski waarde levert.
+**Synergie-check:** Wat mist? Noteer dit — dat voeg je AAN Ainstein toe als het project klaar is.
 
 ---
 
-#### Stap 4: Custom Instructions (de sparring partner)
+#### Stap 6: Work in progress (het voorstel/ontwerp/analyse)
 
-Plak dit als **Project Instructions**. Dit is het hart — dit bepaalt of Claude challenger is of yes-man:
+Je werkt nu in het project. Claude is jouw sparring partner. Twee regels:
 
-```
-You are Ainstein — Minkowski's commercial intelligence and thinking partner.
+1. **Alles wat je doet, staat in het project** — niet in Slack, niet in je notitie-app. Alles hier, zodat het traceerbaar is voor terugkoppeling.
+2. **Als je iets mist in de Files**, noteer het direct in Project Memory onder "Nieuw ontdekt / nog toe te voegen" — je voegt het straks toe.
 
-Not a generic AI assistant. A challenger, strategist, and colleague embedded in Minkowski's work.
-
-**What Minkowski does**
-Minkowski is an agency for applied futures. It helps organisations become future-ready through futures thinking, leadership development, and experiential learning. Minkowski's value sits in the combination: strong thinking + well-designed programs + credible experts + sharp proposals + commercial translation.
-
-**Your role**
-- Challenge assumptions — including ones no one asked you to challenge
-- Add what wasn't thought of but should have been
-- Propose directions the team hasn't considered
-- Reuse Minkowski's existing knowledge before generating from scratch
-- Be commercially sharp, not academically interesting
-
-You are the best thinking colleague — not the one who takes notes, but the one who asks "what if we did this differently?" and means it.
-
-**When someone brings you a task**
-- Commercial opportunity or lead → analyse: fit, gaps, risks, next steps
-- Proposal to build or improve → retrieve past work, apply DVV-check
-- Expert selection → match to real need, not familiar names
-- Program design → ground in Minkowski methodology, challenge the logic
-- Text or positioning → check against Minkowski language, not generic agency language
-
-**Operating rules**
-1. Never invent numbers. Prices, day rates, budgets — if not in the source material, say so explicitly.
-2. Distinguish what is found from what is inferred. Label assumptions as assumptions.
-3. Challenge vague asks. Don't reward fuzzy framing with polished-sounding output.
-4. Protect quality over speed. If the source is thin or silent, say so and ask.
-5. Reuse before creating. Adapt proven material where possible.
-6. Label ownership. Never imply [Client] or [Minkowski] owns a program element without a source.
-7. Proactive, not reactive. End every substantive answer with a concrete proposed next step.
-
-**The DVV-check** (apply before any proposal or client-facing text)
-- **D — Duidelijk (Clear):** Short sentences, no jargon, understandable outside Minkowski?
-- **V — Volledig (Complete):** Does it answer what, who, how long, what it costs, what it delivers?
-- **V — Verleidelijk (Compelling):** More "you" than "we"? Concrete outcomes, not abstract promises?
-
-**Tone**
-Sharp. Grounded. Commercially aware. Direct but not cold. Never generic, never inflated.
-Write like someone who understands both how to win work and how to protect the Minkowski offer.
-
-**What good looks like**
-Uses Minkowski source material. Challenges what wasn't questioned. Adds what wasn't thought of. Makes the next step clearer. Sounds recognisably Minkowski.
-
-**What bad looks like**
-Sounds generic. Ignores sources. Invents certainty. Repeats clichés. Just confirms what was already said.
-```
+**Synergie-moment:** Terwijl jij werkt, verrijkt jij impliciet al Ainstein — door aan te geven wat mist.
 
 ---
 
-#### Stap 5: Files uploaden (kennisbank vullen)
-
-Dit zijn de vier bestanden die het meest waarde toevoegen. Export ze uit de Shared Drive en upload als `.txt` of `.md` in de Files-sectie:
-
-| Bestand | Locatie in Drive | Wat het bevat |
-|---|---|---|
-| `kennis_laag.md` | `06_Marketing/_kennis/` | Getrianguleerde Minkowski-kennis (verkondigd + verkoopbaar) |
-| `verbal_identity.md` | `06_Marketing/` | Verboden woorden, vocabulary pairs, Minkowski voice-and-tone |
-| `02_Tools_Agent_README.md` | `02_Tools/` | SCOPE, Futures Cone, 7 Practices, Jörgens eigen uitleg van methodologie |
-| `gaps.md` | `07_Feedback/` | Bekende gaten in Ainsteins kennis — feedback loop |
-
-**Optioneel maar waardevol:**
-- 2-3 gewonnen voorstellen als referentie (uit `01_Proposals/`)
-- `minkowski_decision_layer.json` (expert-index, uit `04_Experts/`)
-
-**Upload als `.txt`** — Projects handelt markdown soms raar. Plain text is betrouwbaarder.
-
----
-
-#### Stap 6: File-linking in gesprekken
+#### Stap 7: Live file-linking
 
 Met Drive connector actief kan je in een vraag rechtstreeks linken:
 
 ```
-Kijk naar deze voorstel: [Drive link naar document]
-Hoe zouden we dit voor klant X kunnen aanpassen?
+Kijk naar deze voorstel: [Drive link]
+Hoe passen we dit aan voor klant X?
 
-Of: pas deze positioning aan op basis van verbal_identity.md
+Of: controleer dit concept tegen verbal_identity.md
 ```
 
-Claude leest het document live. Dit werkt als directe bronverwijzing.
+Claude leest het live. Dit is directe synchronisatie met Ainstein's bronnen.
+
+**Synergie-check:** Je en Claude hebben dezelfde bron. Geen "jij zegt X, ik zeg Y" — jullie spreken dezelfde taal.
 
 ---
 
-#### Stap 7: Terugkoppeling naar Root 2
+#### Stap 8: Terugkoppeling naar Ainstein (dit is de cirkel)
 
-Na elk substantieel piece of work:
-- **Voorstel klaar?** → Upload naar `01_Proposals/[klant]/` in Drive
-- **Feedback van klant?** → Log in `07_Feedback/gaps.md` (wat miste Ainstein / wat zei Claude wat niet werkte)
-- **Gewonnen/verloren?** → Noteer in `08_Outcomes/` (leerbare patronen voor toekomst)
+**Dit is NIET optioneel.** Dit is hoe Ainstein groeit. Na elk project:
 
-Dit voedt de kennislaag — elke project maakt Ainstein scherper.
+**A) Voorstel/output klaar?**
+→ Upload naar `01_Proposals/[klant]/` in Drive
+- Dit is de "success case" — laat Ainstein zien wat werkt
+
+**B) Wat miste je in de Files?**
+→ Log ALLES in `07_Feedback/gaps.md`
+- Formulering: "In project [X] zocht ik naar [Y], was niet in kennislaag"
+- Dit soort gaten helpen Ainstein groeien
+
+**C) Feedback van klant?**
+→ Log in `07_Feedback/gaps.md` 
+- Wat zei de klant dat Claude niet voorzag?
+- Wat vroeg de klant om dat Ainstein niet voorstelde?
+
+**D) Gewonnen of verloren?**
+→ Noteer in `08_Outcomes/`
+- Wat werkte? Wat niet? Waarom?
+- Leerbare patronen voor volgende project
+
+**E) Nieuwe kennis ontdekt?**
+→ Als je iets belangrijks over de klant/industrie/approach ontdekt, noteer het
+- Later wordt dit promoveerd naar kennislaag
+
+**Synergie-check:** Elke project voert terug. Ainstein en volgende project wordt scherper.
 
 ---
 
-#### Stap 8: Volgende voorstel = duplicate project
+#### Stap 9: Volgende project = duplicate + update
 
-Klaar met deze klant of move naar volgende fase? Duplicate het project:
-- Rechts-klik project → **Duplicate**
-- Update Project Memory (nieuwe klant of fase)
-- Keep instructions (deze blij hetzelfde)
-- Keep Files (kennisbank is stable)
-- Update Custom Instructions als nodig (bijvoorbeeld: nu program design in plaats van proposal)
+Klaar? Duplicate het project:
+- Rechts-klik → **Duplicate**
+- Update Project Memory (nieuwe klant/fase)
+- Keep Instructions (dezelfde mindset)
+- Keep Files (kennisbank, nu verrijkt via vorige project)
+- Add: feedback-loop van vorige project als context
+
+Dus: volgende project haalt al NIEUWE kennis eruit die vorige project toevoegde. **De cirkel.**
 
 ---
 
-### Verificatie-Checklist
+### Verificatie: Werkt de Synergie?
 
-Voor je zegt "klaar", test dit:
+Voor je zegt "project klaar", test dit:
 
-- [ ] **Vage vraag:** Stel Ainstein "Wat zouden we kunnen doen voor een retailer?" → moet terugvragen of context eisen, niet direct antwoord geven
-- [ ] **Getal buiten bronnen:** Vraag naar day rate voor een expert die niet in 04_Experts staat → moet expliciet zeggen "niet in de kennisbank"
-- [ ] **Zwak concept:** Geef een vaag voorstel → moet DVV-check toepassen, zwaktes benoemen
-- [ ] **Drive link:** Plak een Drive-link met een document → Claude leest het correct
-- [ ] **Ownership labeling:** Vraag wie eigenaar is van een program-onderdeel → labelt `[Klant]`, `[Minkowski]`, of `[Nog bepalen]`
+- [ ] **Drive connector:** Plak een Drive-link in het project → Claude leest het live ✓
+- [ ] **Files actueel:** Zijn de 4 bestanden in Files geupload en leesbaar? ✓
+- [ ] **Instructions working:** Stel een vage vraag ("Wat zouden we voor deze klant kunnen doen?") → moet terugvragen, uitdagen, niet direct antwoord geven ✓
+- [ ] **Ownership labeling:** Vraag wie eigenaar is van een program-onderdeel → labelt `[Klant]`, `[Minkowski]`, of `[Nog bepalen]` ✓
+- [ ] **Numbers:** Vraag naar iets dat NIET in Files staat (bijv. day rate van expert die niet in 04_Experts) → zegt expliciet "niet in bronnen" ✓
+- [ ] **Terugkoppeling voorbereid:** Heb je alles genoteerd in Project Memory wat je AAN Ainstein wilt toevoegen? ✓
+
+---
+
+### Terugkoppeling in Praktijk
+
+**Checklist voor na het project:**
+
+- [ ] **Output klaar** → Upload naar `01_Proposals/[klant]/`
+- [ ] **Gaten gelogd** → `07_Feedback/gaps.md`: "In project [klant] zocht ik naar X, niet in kennisbank"
+- [ ] **Klantfeedback gelogd** → `07_Feedback/gaps.md`: "Klant vroeg om Y, Claude stelde het niet voor"
+- [ ] **Win/loss gelogd** → `08_Outcomes/`: Wat werkten, wat niet, waarom
+- [ ] **Nieuwe kennis** → Notaties voor toekomstige promotie naar kennislaag
 
 ---
 
 ### Troubleshooting
 
-**Drive connector ziet files niet**
-→ Refresh pagina. Check dat je Shared Drive geselecteerd hebt (niet persoonlijke Drive).
+**Drive connector ziet Files niet**
+→ Refresh pagina. Controleer: Shared Drive (niet persoonlijke Drive) geselecteerd.
 
-**Claude geeft getallen die niet in bronnen staan**
-→ Instructions niet goed ingesteld. Controleer dat "Never invent numbers" er in staat.
+**Claude geeft getallen/prijzen die niet in Files staan**
+→ Instructions niet correct ingesteld. Check dat "Never invent numbers" erin staat.
 
-**File-linking werkt niet**
-→ Zorg dat je Drive connector nog steeds actief is. Soms werkt het beter met folder-links dan bestand-links.
+**File-linking werkt niet (Claude kan link niet lezen)**
+→ Zorg dat Drive connector actief is. Test met folder-link in plaats van bestand-link.
 
-**Instructions voelen niet als "Ainstein"**
-→ Pas aan: vul Custom Instructions volledig in. Generiek template werkt niet — je moet je eigen tone/rol definiëren.
+**Instructions voelen niet als Ainstein (generiek antwoord in plaats van challenger)**
+→ Pas Instructions aan. Generiek template werkt niet — je moet het contextualiseren naar jouw project.
 
-**Project Memory is te lang**
-→ Oké — Claude handelt langere memory goed. Maar zorg dat het gestructureerd is (kopjes, bullets, duidelijke scheidingen).
+**Project Memory is chaotisch / te lang**
+→ Oké om lang te zijn. Zorg voor structuur: kopjes, bullets, duidelijke scheidingen. Claude handelt dit goed.
+
+**Terugkoppeling voelt als "extra werk"**
+→ Dit is niet extra. Dit IS het project — zonder terugkoppeling is er geen synergie, dus geen schaal. Noteer gaten terwijl je werkt, niet achteraf.
 
 ---
 
-### Referentie: Waar vind je de bestanden?
+### Referentie: Bestanden & Locaties
 
-Alle bestanden staan in je Shared Drive `Minkowski AInstein`:
-- Drive ID: `0AFvBEDYKrnHbUk9PVA`
-- Standaard pad in Drive connector: deze wordt automatisch herkend
+Alle bestanden in Shared Drive `Minkowski AInstein`:
+- **Drive ID:** `0AFvBEDYKrnHbUk9PVA`
+- **Bronnenlaag folders:**
+  - `01_Proposals/` — gewonnen voorstellen (referentie)
+  - `02_Tools/` — methodologie docs
+  - `04_Experts/` — expert-index
+  - `06_Marketing/_kennis/` — kennis_laag.md
+  - `06_Marketing/` — verbal_identity.md
+  - `07_Feedback/` — gaps.md (gaten-log)
+  - `08_Outcomes/` — win/loss records
 
-Eerste keer? Gooi ze in je Google Drive (persoonlijk) als backup, maar werk altijd via de Shared Drive connector (teamwork!).
+Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altijd via Shared Drive connector** (teamwork!).
 
 **First test:** Volgende Nike/[klant]-voorstel
 

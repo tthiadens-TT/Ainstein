@@ -39,10 +39,11 @@ jobs:
           username: thomas
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            set -e
             cd /home/thomas/Ainstein
             git fetch origin main
             git checkout main
-            git pull origin main
+            git reset --hard origin/main
             sudo systemctl restart ainstein
             sleep 3
             sudo systemctl is-active --quiet ainstein || { sudo systemctl status ainstein --no-pager; exit 1; }

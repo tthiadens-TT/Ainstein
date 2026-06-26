@@ -208,22 +208,28 @@ def _get_or_create_subfolder(drive_service, parent_id: str, name: str) -> str:
     return folder["id"]
 
 
-def find_or_create_meetingnotes_folder(client_name: str) -> str:
+def find_or_create_meetingnotes_folder(search_terms) -> str:
     """Return folder ID for {client}/Meetingnotes/, creating it if needed.
 
-    Search: find client folder anywhere under Drive root (max 3 levels deep),
-    then find/create Meetingnotes/ inside it.
+    search_terms: str or list[str] — tried in order until a client folder is found.
+    Search: BFS under Drive root (max 3 levels deep), then find/create Meetingnotes/ inside.
     Fallback: 00_Werkdocumenten/Meetingnotes/.
     """
     drive = _get_drive_write_service()
 
-    if client_name and client_name.lower() not in ("onbekend", "unknown", ""):
-        client_folder_id = _find_folder_by_name(drive, _AINSTEIN_DRIVE_ROOT_ID, client_name, max_depth=3)
+    if isinstance(search_terms, str):
+        search_terms = [search_terms]
+
+    skip = {"onbekend", "unknown", ""}
+    for term in search_terms:
+        if not term or term.lower() in skip:
+            continue
+        client_folder_id = _find_folder_by_name(drive, _AINSTEIN_DRIVE_ROOT_ID, term, max_depth=3)
         if client_folder_id:
             folder_id = _get_or_create_subfolder(drive, client_folder_id, "Meetingnotes")
-            logger.info("find_or_create_meetingnotes_folder: %s/Meetingnotes → %s", client_name, folder_id)
+            logger.info("find_or_create_meetingnotes_folder: '%s'/Meetingnotes → %s", term, folder_id)
             return folder_id
-        logger.info("find_or_create_meetingnotes_folder: client '%s' niet gevonden — fallback naar Werkdocumenten", client_name)
+        logger.info("find_or_create_meetingnotes_folder: '%s' niet gevonden", term)
 
     werkdoc = _get_or_create_werkdocumenten_folder()
     folder_id = _get_or_create_subfolder(drive, werkdoc, "Meetingnotes")

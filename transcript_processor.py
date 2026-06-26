@@ -143,7 +143,16 @@ def _create_meetingnote(event: TranscriptEvent, anthropic_client) -> dict | None
             return None
         from gdoc_tools import create_doc_via_drive, find_or_create_meetingnotes_folder
         client_name = infer_client_name(event)
-        folder_id = find_or_create_meetingnotes_folder(client_name)
+        # Build list of search terms: client name first, then email domain keywords as fallback
+        # infer_client_name can return a person name — domain gives a better company signal
+        domain_keywords = [
+            p["email"].split("@")[-1].split(".")[0].split("-")[0]
+            for p in event.participants
+            if "@" in p.get("email", "")
+            and not any(d in p["email"] for d in ("minkowski.org", "minkowski.nl"))
+        ]
+        search_terms = [t for t in [client_name] + domain_keywords if t and len(t) >= 3]
+        folder_id = find_or_create_meetingnotes_folder(search_terms)
         date_str = (event.started_at or "")[:10] or "onbekend"
         safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", event.title or "meeting").strip()[:60]
         doc_title = f"Meetingnote {date_str} — {safe_title}"
@@ -349,39 +358,19 @@ def _post_slack_notification(
     actions = _extract_next_step(debrief_text)
     has_actions = bool(actions)
     doc_url = meetingnote_result.get("url") if meetingnote_result else None
-
-    thread_ts = None
-
-    # 1. Channel post — always
-    if not transcript_channel:
-        logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — kanaalpost overgeslagen")
-    else:
-        try:
-            resp = slack_client.chat_postMessage(
-                channel=transcript_channel,
-                text=f"Meetingnote: {event.title}",  # fallback for notifications
-                blocks=_build_channel_blocks(event, actions, has_actions, doc_url),
-            )
-            thread_ts = resp["ts"]
-            logger.info("Kanaalpost geslaagd: channel=%s ts=%s", transcript_channel, thread_ts)
-            _post_chunked(slack_client, transcript_channel, thread_ts, debrief_text)
-        except Exception as exc:
-            logger.error("Failed to post to transcript channel: %s", exc)
-
     proposals = _extract_proactive_proposals(debrief_text)
+    fallback_channel = os.environ.get("AINSTEIN_FALLBACK_CHANNEL", "").strip()
 
-    # 2. DM per Minkowski-deelnemer in this meeting
     sent_dms: list[tuple[str, str]] = []
     failed_dms: list[str] = []
 
-    if not participant_slack_ids:
-        logger.warning("Geen Minkowski-deelnemers gevonden — geen DM verstuurd voor '%s'", event.title)
+    # 1. Primair: DM naar Minkowski-deelnemers
     for name, slack_id in participant_slack_ids.items():
         try:
             first_name = name.split()[0] if name else "daar"
             resp_dm = slack_client.chat_postMessage(
                 channel=slack_id,
-                text=f"Ik heb {event.title} verwerkt.",  # fallback for notifications
+                text=f"Ik heb {event.title} verwerkt.",
                 blocks=_build_dm_blocks(event, first_name, actions, has_actions, proposals, doc_url, debrief_text),
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
@@ -392,7 +381,38 @@ def _post_slack_notification(
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
             failed_dms.append(name)
 
-    # 3. Thread reply with verified DM status
+    # 2. Fallback: geen Minkowski-deelnemers → gezamenlijk kanaal
+    if not participant_slack_ids and fallback_channel:
+        try:
+            slack_client.chat_postMessage(
+                channel=fallback_channel,
+                text=f"Meetingnote: {event.title}",
+                blocks=_build_dm_blocks(event, "team", actions, has_actions, proposals, doc_url, debrief_text),
+            )
+            logger.info("Fallback bericht verstuurd naar %s voor '%s'", fallback_channel, event.title)
+        except Exception as exc:
+            logger.error("Failed to post to fallback channel %s: %s", fallback_channel, exc)
+    elif not participant_slack_ids:
+        logger.warning("Geen deelnemers én geen AINSTEIN_FALLBACK_CHANNEL — geen primair bericht voor '%s'", event.title)
+
+    # 3. CC: altijd naar ainstein-status
+    thread_ts = None
+    if not transcript_channel:
+        logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — CC overgeslagen")
+    else:
+        try:
+            resp = slack_client.chat_postMessage(
+                channel=transcript_channel,
+                text=f"Meetingnote: {event.title}",
+                blocks=_build_channel_blocks(event, actions, has_actions, doc_url),
+            )
+            thread_ts = resp["ts"]
+            logger.info("CC naar ainstein-status geslaagd: ts=%s", thread_ts)
+            _post_chunked(slack_client, transcript_channel, thread_ts, debrief_text)
+        except Exception as exc:
+            logger.error("Failed to post CC to %s: %s", transcript_channel, exc)
+
+    # 4. DM-status in thread op ainstein-status
     if transcript_channel and thread_ts:
         _post_dm_status(slack_client, transcript_channel, thread_ts, sent_dms, failed_dms)
 

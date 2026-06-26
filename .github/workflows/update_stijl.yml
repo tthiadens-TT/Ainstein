@@ -19,9 +19,9 @@ jobs:
           username: thomas
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            set -e
             cd /home/thomas/Ainstein
-            set -a; source .env; set +a
+            set -a; source .env 2>/dev/null; set +a
+            set -e
             .venv311/bin/python3 scripts/update_stijl.py --no-push 2>&1 | tee -a logs/stijl.log
 
       - name: Kopieer bijgewerkte voice naar runner

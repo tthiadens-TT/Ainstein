@@ -59,10 +59,13 @@ Beschrijf wat er in de zaal gebeurde, niet wat de agenda was. Focus op menselijk
 
 **Verboden:** future-proof · thought leadership · disruptive · end-to-end transformation · journey · synergy · unlock · empower · best-in-class
 
+**Verboden leestekens:** de em dash (—). Niet gebruiken als scheidingsteken, niet als inleidend teken, nergens. Gebruik in plaats daarvan een punt, komma, dubbele punt, of herformuleer de zin.
+
 ---
 
 ## Schrijfregels
 
+- Gebruik geen em dash (—). Nooit. Het klinkt formeel en machinaal. Gebruik een punt, komma, dubbele punt of herformuleer.
 - Begin met de beslissing of klantuitdaging, niet met wie Minkowski is.
 - Bullets zijn uitkomsten (welk gedrag of welke situatie na afloop), geen activiteiten.
 - Meer "you/your" dan "we/our" in klantgerichte tekst.

@@ -1,0 +1,22 @@
+name: Weekly Stijl-update
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"  # elke maandag 04:00 UTC
+  workflow_dispatch:      # handmatig starten via GitHub UI
+
+jobs:
+  stijl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run stijl-update op VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: thomas
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /home/thomas/Ainstein
+            set -a; source .env; set +a
+            .venv311/bin/python3 scripts/update_stijl.py 2>&1 | tee -a logs/stijl.log
+            echo "Stijl-update exit code: ${PIPESTATUS[0]}"

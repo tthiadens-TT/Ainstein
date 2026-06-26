@@ -355,27 +355,28 @@ def _post_slack_notification(
     transcript_channel: str,
     meetingnote_result: dict | None = None,
 ) -> None:
-    actions = _extract_next_step(debrief_text)
-    has_actions = bool(actions)
     doc_url = meetingnote_result.get("url") if meetingnote_result else None
-    proposals = _extract_proactive_proposals(debrief_text)
+    doc_id = meetingnote_result.get("doc_id") if meetingnote_result else None
+
+    doc_link_line = f"\n\n:page_facing_up: <{doc_url}|Meetingnote openen>" if doc_url else ""
+    insights_line = "\n_Voeg je Insights toe: reply met_ `Insights: [jouw tekst]`" if doc_url else ""
+    full_message = debrief_text + doc_link_line + insights_line
 
     sent_dms: list[tuple[str, str]] = []
     failed_dms: list[str] = []
 
-    # 1. Primair: DM naar Minkowski-deelnemers — met taken en aanbod
+    # 1. Primair: DM naar Minkowski-deelnemers — volledige debrief + Meetingnote-link
     for name, slack_id in participant_slack_ids.items():
         try:
-            first_name = name.split()[0] if name else "daar"
             resp_dm = slack_client.chat_postMessage(
                 channel=slack_id,
-                text=f"Meetingnote: {event.title}",
-                blocks=_build_dm_blocks(event, first_name, actions, has_actions, proposals, doc_url, debrief_text),
+                text=full_message,
+                mrkdwn=True,
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
             sent_dms.append((name, slack_id))
-            if doc_url and meetingnote_result and meetingnote_result.get("doc_id"):
-                register_insights_pending(resp_dm["channel"], meetingnote_result["doc_id"])
+            if doc_url and doc_id:
+                register_insights_pending(resp_dm["channel"], doc_id)
         except Exception as exc:
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
             failed_dms.append(name)
@@ -387,8 +388,8 @@ def _post_slack_notification(
             try:
                 slack_client.chat_postMessage(
                     channel=client_channel,
-                    text=f"Meetingnote: {event.title}",
-                    blocks=_build_dm_blocks(event, "team", actions, has_actions, proposals, doc_url, debrief_text),
+                    text=full_message,
+                    mrkdwn=True,
                 )
                 logger.info("Fallback: bericht verstuurd naar klantkanaal %s voor '%s'", client_channel, event.title)
             except Exception as exc:
@@ -494,121 +495,6 @@ def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: boo
     return blocks
 
 
-def _build_combined_tasks(event: TranscriptEvent, debrief_text: str) -> str:
-    """Merge Jamie tasks with Ainstein's task list from debrief_text into one mrkdwn list."""
-    jamie_tasks = (event.raw_payload or {}).get("data", {}).get("tasks") or []
-
-    # Extract Ainstein's task section from debrief_text (looks for "Actielijst" or numbered tasks)
-    ainstein_tasks_raw = ""
-    task_pattern = re.compile(
-        r"(?:\*{1,2}Actielijst.*?\*{0,2}|#{1,3}\s*Actielijst|#{1,3}\s*Taken|#{1,3}\s*Actie)"
-        r".*?(?=(?:#{1,3}\s*[A-Z]|\*{1,2}[A-Z]|\Z))",
-        re.IGNORECASE | re.DOTALL,
-    )
-    match = task_pattern.search(debrief_text)
-    if match:
-        ainstein_tasks_raw = match.group(0).strip()
-
-    lines = ["*Taken:*"]
-
-    seen = set()
-
-    if jamie_tasks:
-        for t in jamie_tasks:
-            if isinstance(t, dict):
-                content = (t.get("content") or t.get("text") or "").strip()
-                assignee = t.get("assignee") or ""
-                if not content:
-                    continue
-                key = content.lower()[:40]
-                if key in seen:
-                    continue
-                seen.add(key)
-                line = f"• {content}"
-                if assignee:
-                    line += f" _({assignee})_"
-                lines.append(line)
-
-    # Add Ainstein lines from debrief that aren't already covered by Jamie
-    if ainstein_tasks_raw:
-        for raw_line in ainstein_tasks_raw.splitlines():
-            clean = re.sub(r"^[\s\-\*•\d\.]+", "", raw_line).strip()
-            clean = re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", clean)
-            if not clean or len(clean) < 10:
-                continue
-            key = clean.lower()[:40]
-            if key in seen:
-                continue
-            # Check partial overlap with Jamie tasks
-            if any(key[:20] in s for s in seen):
-                continue
-            seen.add(key)
-            lines.append(f"• {clean} _[Ainstein]_")
-
-    if len(lines) == 1:
-        return ""
-    return "\n".join(lines)
-
-
-def _build_dm_blocks(
-    event: TranscriptEvent,
-    first_name: str,
-    actions: str,
-    has_actions: bool,
-    proposals: str,
-    doc_url: str | None,
-    debrief_text: str = "",
-) -> list:
-    """Block Kit layout for the DM to the Minkowski lead."""
-    blocks: list = [
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f":wave: Hoi {first_name} — *{event.title}* is verwerkt."},
-        },
-        {"type": "divider"},
-    ]
-
-    # Combined task list (Jamie + Ainstein)
-    combined_tasks = _build_combined_tasks(event, debrief_text)
-    if combined_tasks:
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": combined_tasks},
-        })
-
-    # Ainstein's proactive offers (separate from tasks)
-    if has_actions:
-        clean_actions = re.sub(r"^\*{1,2}[^*]+\*{1,2}\s*\n?", "", actions, flags=re.MULTILINE).strip()
-        blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Wat ik nu kan doen:*\n{clean_actions}"},
-        })
-
-    if not combined_tasks and not has_actions:
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "_Geen concrete vervolgacties gevonden — klopt dat?_"},
-        })
-
-    if doc_url:
-        blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "actions",
-            "elements": [{
-                "type": "button",
-                "text": {"type": "plain_text", "text": "Meetingnote openen", "emoji": True},
-                "url": doc_url,
-                "style": "primary",
-            }],
-        })
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "_Voeg je Insights toe: reply met_ `Insights: [jouw tekst]`"},
-        })
-
-    return blocks
-
 
 def _post_dm_status(
     slack_client,
@@ -652,31 +538,6 @@ def _post_chunked(slack_client, channel: str, thread_ts: str, text: str, chunk_s
             logger.error("Failed to post chunk %d to thread: %s", i // chunk_size, exc)
             break
 
-
-def _extract_next_step(debrief_text: str) -> str:
-    """Extract the 'Ik kan direct oppakken' section from a meeting_reviewer output."""
-    pattern = re.compile(
-        r"(?:\*{1,2}Ik kan direct oppakken.*?\*{0,2}|I can immediately|"
-        r"#{1,3}\s*Ik kan direct|#{1,3}\s*11[.\s]).*?(?=(?:#{1,3}\s*[A-Z]|\Z))",
-        re.IGNORECASE | re.DOTALL,
-    )
-    match = pattern.search(debrief_text)
-    if match:
-        return match.group(0).strip()[:1000]
-    return ""
-
-
-def _extract_proactive_proposals(debrief_text: str) -> str:
-    """Extract the 'Uit de bronnenlaag' section from a meeting_reviewer output."""
-    pattern = re.compile(
-        r"(?:\*{1,2}Uit de bronnenlaag.*?\*{0,2}|From the source layer|"
-        r"#{1,3}\s*Uit de bronnenlaag|Proactieve Voorstellen\b).*?(?=(?:#{1,3}\s*[A-Z]|\*{1,2}Ik kan|\Z))",
-        re.IGNORECASE | re.DOTALL,
-    )
-    match = pattern.search(debrief_text)
-    if match:
-        return match.group(0).strip()[:800]
-    return ""
 
 
 def _post_failure_to_slack(

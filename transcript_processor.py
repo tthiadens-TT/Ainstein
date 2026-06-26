@@ -363,14 +363,14 @@ def _post_slack_notification(
     sent_dms: list[tuple[str, str]] = []
     failed_dms: list[str] = []
 
-    # 1. Primair: DM naar Minkowski-deelnemers
+    # 1. Primair: DM naar Minkowski-deelnemers — zelfde minimale format als CC
     for name, slack_id in participant_slack_ids.items():
         try:
             first_name = name.split()[0] if name else "daar"
             resp_dm = slack_client.chat_postMessage(
                 channel=slack_id,
-                text=f"Ik heb {event.title} verwerkt.",
-                blocks=_build_dm_blocks(event, first_name, actions, has_actions, proposals, doc_url, debrief_text),
+                text=f"Meetingnote: {event.title}",
+                blocks=_build_channel_blocks(event, actions, has_actions, doc_url),
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
             sent_dms.append((name, slack_id))
@@ -388,7 +388,7 @@ def _post_slack_notification(
                 slack_client.chat_postMessage(
                     channel=client_channel,
                     text=f"Meetingnote: {event.title}",
-                    blocks=_build_dm_blocks(event, "team", actions, has_actions, proposals, doc_url, debrief_text),
+                    blocks=_build_channel_blocks(event, actions, has_actions, doc_url),
                 )
                 logger.info("Fallback: bericht verstuurd naar klantkanaal %s voor '%s'", client_channel, event.title)
             except Exception as exc:

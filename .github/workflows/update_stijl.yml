@@ -1,18 +1,23 @@
-name: Weekly Stijl-update
+name: Stijl-update handmatig starten
+
+# Handmatige trigger voor noodgeval of test.
+# Normaal draait update_stijl.py als VM-cron (elke maandag 04:00).
+# De cron wordt ingesteld via deploy.yml.
 
 on:
-  schedule:
-    - cron: "0 4 * * 1"  # elke maandag 04:00 UTC
-  workflow_dispatch:      # handmatig starten via GitHub UI
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (print output, niets schrijven)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   stijl:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Run stijl-update op VM (berekening + Drive-update)
+      - name: Run stijl-update op VM
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -22,26 +27,9 @@ jobs:
             cd /home/thomas/Ainstein
             set -a; source .env 2>/dev/null; set +a
             set -e
-            .venv311/bin/python3 scripts/update_stijl.py --no-push 2>&1 | tee -a logs/stijl.log
-
-      - name: Kopieer bijgewerkte voice naar runner
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: thomas
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "/home/thomas/Ainstein/skills/minkowski_voice.md"
-          target: "skills/"
-          strip_components: 5
-
-      - name: Commit en push als er wijzigingen zijn
-        run: |
-          git config user.email "ainstein@minkowski.org"
-          git config user.name "Ainstein Bot"
-          git add skills/minkowski_voice.md
-          if git diff --cached --quiet; then
-            echo "Geen wijzigingen — niets te committen."
-          else
-            git commit -m "chore(stijl): minkowski_voice.md automatisch verrijkt ($(date +%Y-%m-%d))"
-            git push
-          fi
+            DRY=${{ inputs.dry_run }}
+            if [ "$DRY" = "true" ]; then
+              .venv311/bin/python3 scripts/update_stijl.py --dry-run 2>&1 | tee -a logs/stijl.log
+            else
+              .venv311/bin/python3 scripts/update_stijl.py 2>&1 | tee -a logs/stijl.log
+            fi

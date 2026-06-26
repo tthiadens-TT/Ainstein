@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
 update_stijl.py — Schrijfstijl levend houden: haal nieuwe patronen op uit bronmateriaal,
-verrijk skills/minkowski_voice.md, commit en push.
+verrijk skills/minkowski_voice.md, sla op in Drive, herstart service.
 
 Architectuur:
 - Leest bronmateriaal (LinkedIn, Substack, website) uit Drive via service account
 - Laat een agent nieuwe stijlpatronen extraheren (skill=extract_style_patterns)
-- Schrijft de bijgewerkte minkowski_voice.md terug naar Drive (verbal_identity.md sectie 4+5)
-- Overschrijft de lokale skills/minkowski_voice.md
-- Git commit + push → GitHub Actions deployt → Ainstein draait met vernieuwde stem
+- Schrijft de bijgewerkte minkowski_voice.md lokaal weg
+- Slaat de verrijkte voice op als 06_Marketing/_kennis/minkowski_voice.md in Drive
+  (zodat restore_voice.py de verrijking kan herstellen na een git reset --hard)
+- Schrijft de bijgewerkte verbal_identity.md terug naar Drive (sectie 4+5)
+- Herstart ainstein.service zodat de nieuwe stem direct actief is
+- Geen git-operaties — deploy.yml regelt git, cron regelt de verrijking
 
-Gebruik (op de VM):
-    python3 scripts/update_stijl.py [--dry-run]
+Gebruik (op de VM, wekelijks via cron):
+    python3 scripts/update_stijl.py [--dry-run] [--no-push]
 
 Vereiste env vars (via .env):
     ANTHROPIC_API_KEY
@@ -63,6 +66,8 @@ STIJL_BRONNEN = {"linkedin-jorgen", "linkedin-minkowski", "substack", "website-m
 VOICE_FILE = _REPO_ROOT / "skills" / "minkowski_voice.md"
 VERBAL_IDENTITY_PAD = ("06_Marketing",)
 VERBAL_IDENTITY_NAAM = "verbal_identity"
+VOICE_KENNIS_PAD = ("06_Marketing", "_kennis")
+VOICE_KENNIS_NAAM = "minkowski_voice"
 
 # Max tekens bronmateriaal per bron — stijl heeft geen volledigheid nodig, wel variatie
 MAX_CHARS_PER_BRON = 30_000
@@ -158,6 +163,21 @@ def _download_verbal_identity(service) -> tuple[str, str | None]:
 
 
 # ---------------------------------------------------------------------------
+# Drive: voice opslaan als dedicated bestand in _kennis/
+# ---------------------------------------------------------------------------
+
+def _save_voice_to_drive_kennis(service, inhoud: str) -> None:
+    """Sla minkowski_voice.md op als dedicated bestand in 06_Marketing/_kennis/
+    zodat restore_voice.py de verrijking kan herstellen na een git reset --hard."""
+    try:
+        folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *VOICE_KENNIS_PAD)
+        _upload_markdown(service, VOICE_KENNIS_NAAM, inhoud, folder_id)
+        log.info("minkowski_voice.md opgeslagen in Drive (_kennis/).")
+    except Exception as e:
+        log.warning("Kon minkowski_voice.md niet opslaan in Drive: %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Slack
 # ---------------------------------------------------------------------------
 
@@ -184,54 +204,19 @@ def _slack_notify(message: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Git
+# Service restart
 # ---------------------------------------------------------------------------
 
-def _git_commit_push(today: str) -> bool:
-    github_token = os.environ.get("GITHUB_TOKEN", "")
+def _restart_ainstein() -> None:
+    """Herstart ainstein.service zodat de nieuwe voice direct actief is."""
     try:
-        # Zorg voor git-identiteit (vereist op VM waar geen global config is)
         subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "config", "user.email", "ainstein@minkowski.org"],
+            ["sudo", "systemctl", "restart", "ainstein"],
             check=True, capture_output=True,
         )
-        subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "config", "user.name", "Ainstein Bot"],
-            check=True, capture_output=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "add", "skills/minkowski_voice.md"],
-            check=True, capture_output=True,
-        )
-        result = subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "diff", "--cached", "--stat"],
-            capture_output=True, text=True,
-        )
-        if not result.stdout.strip():
-            log.info("Geen wijzigingen in minkowski_voice.md — geen commit nodig.")
-            return False
-        subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "commit", "-m",
-             f"chore(stijl): minkowski_voice.md automatisch verrijkt ({today})"],
-            check=True, capture_output=True,
-        )
-        # Gebruik GITHUB_TOKEN voor HTTPS-push als die beschikbaar is
-        if github_token:
-            push_url = f"https://x-access-token:{github_token}@github.com/tthiadens-TT/Ainstein.git"
-            subprocess.run(
-                ["git", "-C", str(_REPO_ROOT), "push", push_url, "main"],
-                check=True, capture_output=True,
-            )
-        else:
-            subprocess.run(
-                ["git", "-C", str(_REPO_ROOT), "push"],
-                check=True, capture_output=True,
-            )
-        log.info("Git commit + push geslaagd — GitHub Actions deployt.")
-        return True
+        log.info("ainstein.service herstart — nieuwe voice actief.")
     except subprocess.CalledProcessError as e:
-        log.error("Git fout: %s", e.stderr.decode() if e.stderr else e)
-        return False
+        log.warning("Service restart mislukt (niet op VM?): %s", e.stderr.decode() if e.stderr else e)
 
 
 # ---------------------------------------------------------------------------
@@ -256,8 +241,8 @@ def _build_prompt(bronnen_tekst: str, huidige_stem: str, today: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Schrijfstijl levend houden via bronmateriaal-extractie")
-    parser.add_argument("--dry-run", action="store_true", help="Niet schrijven, niet committen — print output")
-    parser.add_argument("--no-push", action="store_true", help="Schrijf lokaal + Drive maar sla git commit/push over (GitHub Actions regelt dat)")
+    parser.add_argument("--dry-run", action="store_true", help="Niet schrijven, niet opslaan — print output")
+    parser.add_argument("--no-push", action="store_true", help="Verouderd — behouden voor backwards-compatibiliteit, heeft geen effect meer")
     args = parser.parse_args()
 
     log.info("=== Stijl-update gestart ===")
@@ -347,16 +332,19 @@ def main() -> int:
     VOICE_FILE.write_text(nieuwe_stem, encoding="utf-8")
     log.info("skills/minkowski_voice.md bijgewerkt (%d → %d tekens)", len(huidige_stem), len(nieuwe_stem))
 
-    # Update ook verbal_identity.md in Drive (secties 4+5 worden vervangen)
+    # Sla op in Drive als persistent backup (zodat restore_voice.py na deploy kan herstellen)
+    _save_voice_to_drive_kennis(service, nieuwe_stem)
+
+    # Update verbal_identity.md in Drive (secties 4+5 worden vervangen)
     _update_verbal_identity_in_drive(service, nieuwe_stem, today)
 
-    # Commit + push (overgeslagen als --no-push, dan regelt GitHub Actions dit)
-    pushed = False if args.no_push else _git_commit_push(today)
+    # Herstart service zodat nieuwe voice direct actief is
+    _restart_ainstein()
 
     _slack_notify(
         f":paintbrush: *Schrijfstijl bijgewerkt* ({today})\n"
         f"Minkowski Voice verrijkt op basis van {len(stijl_bronnen)} bronnen. "
-        + (":rocket: Gedeployd via GitHub Actions." if pushed else "Geen wijzigingen t.o.v. vorige versie.")
+        f"Ainstein draait met vernieuwde stem."
     )
 
     log.info("=== Stijl-update afgerond ===")

@@ -188,7 +188,17 @@ def _slack_notify(message: str) -> None:
 # ---------------------------------------------------------------------------
 
 def _git_commit_push(today: str) -> bool:
+    github_token = os.environ.get("GITHUB_TOKEN", "")
     try:
+        # Zorg voor git-identiteit (vereist op VM waar geen global config is)
+        subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "config", "user.email", "ainstein@minkowski.org"],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "config", "user.name", "Ainstein Bot"],
+            check=True, capture_output=True,
+        )
         subprocess.run(
             ["git", "-C", str(_REPO_ROOT), "add", "skills/minkowski_voice.md"],
             check=True, capture_output=True,
@@ -205,10 +215,18 @@ def _git_commit_push(today: str) -> bool:
              f"chore(stijl): minkowski_voice.md automatisch verrijkt ({today})"],
             check=True, capture_output=True,
         )
-        subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "push"],
-            check=True, capture_output=True,
-        )
+        # Gebruik GITHUB_TOKEN voor HTTPS-push als die beschikbaar is
+        if github_token:
+            push_url = f"https://x-access-token:{github_token}@github.com/tthiadens-TT/Ainstein.git"
+            subprocess.run(
+                ["git", "-C", str(_REPO_ROOT), "push", push_url, "main"],
+                check=True, capture_output=True,
+            )
+        else:
+            subprocess.run(
+                ["git", "-C", str(_REPO_ROOT), "push"],
+                check=True, capture_output=True,
+            )
         log.info("Git commit + push geslaagd — GitHub Actions deployt.")
         return True
     except subprocess.CalledProcessError as e:

@@ -257,6 +257,7 @@ def _build_prompt(bronnen_tekst: str, huidige_stem: str, today: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Schrijfstijl levend houden via bronmateriaal-extractie")
     parser.add_argument("--dry-run", action="store_true", help="Niet schrijven, niet committen — print output")
+    parser.add_argument("--no-push", action="store_true", help="Schrijf lokaal + Drive maar sla git commit/push over (GitHub Actions regelt dat)")
     args = parser.parse_args()
 
     log.info("=== Stijl-update gestart ===")
@@ -349,8 +350,8 @@ def main() -> int:
     # Update ook verbal_identity.md in Drive (secties 4+5 worden vervangen)
     _update_verbal_identity_in_drive(service, nieuwe_stem, today)
 
-    # Commit + push
-    pushed = _git_commit_push(today)
+    # Commit + push (overgeslagen als --no-push, dan regelt GitHub Actions dit)
+    pushed = False if args.no_push else _git_commit_push(today)
 
     _slack_notify(
         f":paintbrush: *Schrijfstijl bijgewerkt* ({today})\n"

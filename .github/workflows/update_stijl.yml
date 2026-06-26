@@ -9,14 +9,39 @@ jobs:
   stijl:
     runs-on: ubuntu-latest
     steps:
-      - name: Run stijl-update op VM
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run stijl-update op VM (berekening + Drive-update)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: thomas
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            set -e
             cd /home/thomas/Ainstein
             set -a; source .env; set +a
-            .venv311/bin/python3 scripts/update_stijl.py 2>&1 | tee -a logs/stijl.log
-            echo "Stijl-update exit code: ${PIPESTATUS[0]}"
+            .venv311/bin/python3 scripts/update_stijl.py --no-push 2>&1 | tee -a logs/stijl.log
+
+      - name: Kopieer bijgewerkte voice naar runner
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: thomas
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "/home/thomas/Ainstein/skills/minkowski_voice.md"
+          target: "skills/"
+          strip_components: 5
+
+      - name: Commit en push als er wijzigingen zijn
+        run: |
+          git config user.email "ainstein@minkowski.org"
+          git config user.name "Ainstein Bot"
+          git add skills/minkowski_voice.md
+          if git diff --cached --quiet; then
+            echo "Geen wijzigingen — niets te committen."
+          else
+            git commit -m "chore(stijl): minkowski_voice.md automatisch verrijkt ($(date +%Y-%m-%d))"
+            git push
+          fi

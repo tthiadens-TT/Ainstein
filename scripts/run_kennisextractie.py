@@ -276,7 +276,7 @@ def main() -> int:
         system=merge_skill_text,
         messages=[
             {"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)},
-            {"role": "assistant", "content": LAAG_START + "\n"},
+            {"role": "assistant", "content": LAAG_START},
         ],
         timeout=900.0,
     )

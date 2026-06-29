@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 29 juni 2026 (sessie: Double Helix live, entiteiten-register, update_drive_file.py)*
+*Bijgewerkt: 29 juni 2026 (sessie: Double Helix live, entiteiten-register, update_drive_file.py, Drive-blokkade root cause vastgesteld)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -14,7 +14,20 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 🔴 Actief probleem
 
-**Geen actief blokkerend probleem op dit moment.**
+### Drive-connector blokkade: MCP connector kan Shared Drive niet lezen
+**Symptoom:** `mcp__4e943b1e` connector retourneert nul bestanden bij parentId-query op Shared Drive, zelfs met geldige bestanden erin. `04_Experts` map is NIET leeg.
+**Root cause:** Google Workspace AI-beleid markeert de Shared Drive "Minkowski AInstein" als "ineligible for generative AI contexts." Actief seit 21 mei 2026 (migratie van persoonlijke Drive naar Shared Drive).
+**Impact voor Claude Code sessies:** Ainstein kan in sessies de bronnenlaag niet direct lezen via de MCP connector. Productie-bot op VM werkt wel (service account).
+
+**Fix — actie Thomas (Workspace-admin, ~10 min):**
+1. Ga naar `admin.google.com` (thomas@minkowski.org of Jörgen als admin)
+2. Apps > Google Workspace > Drive & Docs
+3. Zoek naar AI/Gemini-beleidsinstelling die Shared Drive-inhoud als "niet-bruikbaar voor AI" markeert
+4. Schakel restrictie uit voor "Minkowski AInstein" Shared Drive, of voor de hele org
+5. Test daarna: open Claude Code, vraag `parentId = '1ml1O6XS766fbS3bfejqlh14qNvyI-nbB'` via MCP connector — moeten nu bestanden terugkomen
+
+**Workaround tot fix:** SSH naar VM + service account voor Shared Drive-toegang.
+**Verwachte moeite:** 10 min voor Thomas. 0 code nodig.
 
 ---
 

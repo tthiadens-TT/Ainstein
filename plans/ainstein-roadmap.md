@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 29 juni 2026*
+*Bijgewerkt: 29 juni 2026 (sessie: Aslander LLS + kennislaag architectuur)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -20,18 +20,50 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 🟡 Volgende stap (prioriteit 1)
 
+### Drive-structuur migratie: type-gebaseerd naar entiteit-gebaseerd
+**Wat:** Mappenstructuur omzetten van documenttype-gebaseerd (`01_Proposals`, `08_Outcomes`) naar klantentiteit-gebaseerd (`Clients/<naam>/Proposals/`, `Clients/<naam>/Outcomes/`).
+**Waarom:** Alles wat met een klant te maken heeft hoort bij de klant. Nu verspreid over meerdere mappen. Sluit aan op Aslander's unified identity principe.
+**Mappen die meeverhuizen naar `Clients/`:** 01_Proposals (klantspecifieke subfolders), 08_Outcomes (per klant)
+**Mappen die NIET meeverhuizen:** 02_Tools, 03_Pricing, 04_Experts, 06_Marketing (cross-client)
+**Code-impact:** tools.py folder-referenties, bronnen.json paden, gdoc_tools.py — aparte sessie
+**Geblokkeerd door:** niets. Blokkeert zelf: 08_Outcomes vullen (doe dat NA de migratie)
+**Effort:** 3-4 uur (Drive + code + testen)
 
-### 08_Outcomes vullen — actie Thomas/Jörgen
-**Wat:** Concrete win/loss-records toevoegen aan `08_Outcomes` in Drive.
-**Waarom:** Ainstein heeft instructie om `08_Outcomes` te raadplegen bij elk voorstel, maar de map is leeg. Commerciële lessen gaan verloren.
-**Concrete cases die nu ontbreken:**
+### 08_Outcomes vullen — actie Thomas/Jörgen (WACHT op folder-migratie)
+**Wat:** Concrete win/loss-records toevoegen — maar in de nieuwe `Clients/<naam>/Outcomes/` structuur na de migratie.
+**Waarom:** Deterministisch ophalen uit bewezen cases is de basis voor retrieval-first proposals (Aslander: 98% data, 2% AI).
+**Concrete cases:**
 - NN IC — gewonnen (mei 2026): wat werkte, welke argumentatie, welk tarief
 - Cathalijne — verloren op tarief bij Pierre: wat was het gat, wat had anders gekund
-**Actie Thomas/Jörgen:** template invullen. Vijf minuten werk, directe waarde voor elk volgend voorstel.
+**Minimaal format per case:**
+```
+Klant: [naam] | Status: WON/LOST | Periode: [jaar] | Programmatype: [type]
+Wat werkte: [3 bullets] | Propositie-kern: [1 zin]
+```
 
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
+
+### Entiteiten-register completeren — actie Thomas
+**Wat:** `06_Marketing/_kennis/entiteiten.md` is aangemaakt als seed-bestand (lokaal, nog niet in Drive). Thomas vult de tabel aan met experts (uit 04_Experts, ~20 namen) en methodes (uit 02_Tools).
+**Daarna:** bestand uploaden naar Drive op pad `06_Marketing/_kennis/entiteiten.md`.
+**Effort:** 20-30 min. Eenmalig, daarna alleen kleine toevoegingen.
+**Waarom:** merge-skill kan nu [NIET_GEVERIFIEERD] taggen zodra het register in Drive staat.
+
+### Double Helix — eerste herrun na skill-update
+**Wat:** `run_kennisextractie.py` draaien op de VM na de skill-updates van deze sessie. Dit voegt `Type:` labels toe aan alle entiteiten in kennis_laag.md.
+**Voorwaarde:** entiteiten-register hoeft er nog niet te zijn — dat is optioneel in de merge-skill.
+**Actie:** `python3 scripts/run_kennisextractie.py` op de VM.
+**Effort:** 10-15 min (pipeline draait automatisch).
+
+### Retrieval-first in build_proposal (na folder-migratie + Outcomes gevuld)
+**Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt deterministisch ophalen uit `Clients/<naam>/Outcomes/` voor vergelijkbare cases. Genereer alleen wat niet op te halen is.
+**Geblokkeerd door:** folder-migratie + Outcomes vullen.
+
+### Origin-gewicht in merge-skill (synaptic stratification licht)
+**Wat:** zekerheid niet meer als `count(distinct origins)` maar als `sum(weights)`. Klant-stem weegt zwaarder dan intern-Slack.
+**Wanneer:** na Double Helix stabiel in productie.
 
 ### 44 `claude/*` branches opruimen
 **Wat:** 44 lokale `claude/*` branches accumuleren door worktree-gebruik. Groeien elke sessie.

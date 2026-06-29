@@ -276,8 +276,14 @@ def run_agent(
                 "text": (
                     "## Kennis-laag (06_Marketing/_kennis/kennis_laag.md)\n\n"
                     "Getrianguleerde Minkowski-kennis — bevestigd over meerdere onafhankelijke bronnen. "
-                    "Gebruik als feitelijke achtergrond bij voorstellen, expert-matching en positioneringsvragen. "
-                    "Zekerder naarmate meer onafhankelijke oorsprongen overeenstemmen.\n\n"
+                    "Gebruik als achtergrond bij voorstellen, expert-matching en positioneringsvragen.\n\n"
+                    "Elke entiteit heeft twee onafhankelijke kwaliteitslabels (Double Helix):\n"
+                    "- **Zekerheid** (ONBEVESTIGD/INFORMATIE/KENNIS): hoeveel onafhankelijke oorsprongen bevestigen het.\n"
+                    "- **Type** (feit/overtuiging/afleiding): wat voor soort claim het is.\n"
+                    "  - `feit` — specifiek, verifieerbaar; mag als feit geciteerd worden.\n"
+                    "  - `overtuiging` — consistent Minkowski-standpunt; presenteer als 'Minkowski gelooft/stelt dat'.\n"
+                    "  - `afleiding` — geïnfereerd patroon; presenteer als interpretatie, niet als uitgesproken positie.\n"
+                    "Drie bronnen die dezelfde overtuiging bevestigen = KENNIS, maar nog steeds overtuiging — geen feit.\n\n"
                     + kennis_ctx
                 ),
             })

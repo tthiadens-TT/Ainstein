@@ -30,6 +30,17 @@ Match op **genormaliseerde naam** (lowercase, leestekens weg, enkelvoud). Verzam
 
 Méér distillaties binnen één oorsprong verhoogt de zekerheid **niet** — voegt wél facetten toe.
 
+**Stap 3b — Double Helix: epistemologisch type consolideren.**
+Elke distillatie geeft per entiteit een `epistemologisch:` label mee (`feit`, `overtuiging`, of `afleiding`). Consolideer dit over alle distillaties voor deze entiteit:
+- Alle distillaties eens over het type → gebruik dat type.
+- Meerdere types → gebruik het zwakste (volgorde van sterk naar zwak: `feit` > `overtuiging` > `afleiding`). Eén bron die iets alleen als afleiding ziet, is voldoende om de entiteit niet als feit te labelen.
+- Geen label in distillaties (oude runs) → laat het `Type`-veld weg; voeg het toe bij de volgende run.
+
+Dit onderscheidt bewijssterkte (hoeveel onafhankelijke bronnen) van epistemologisch type (wat voor soort claim is het). Drie bronnen kunnen allemaal dezelfde overtuiging bevestigen — dat maakt het KENNIS, maar niet een feit.
+
+**Stap 3c — Entiteiten-register (optioneel).**
+Als de prompt een `<<<ENTITEITEN_REGISTER>>>` blok bevat: check elke **nieuw** geïntroduceerde entiteitsnaam (klant, expert, methode) daartegen. Staat de naam niet in het register: voeg `[NIET_GEVERIFIEERD]` toe aan de status. Thomas promoot handmatig naar het register. Wijzig of verwijder nooit bestaande entiteiten op basis van dit register — alleen de status-tag toevoegen.
+
 **Stap 4 — Tijd: trend, verandering, verval.**
 Kennis is niet statisch — ze ontwikkelt, verrijkt of veroudert. Gebruik de datums uit de distillaties (`periode` per bron, `(jaar)` per facet).
 - **Dateer facetten.** Neem het `(jaar)` mee in het facet als de bron het gaf.
@@ -58,6 +69,7 @@ _Laatste run: {datum} | verrijken + bevestigen (onafhankelijke oorsprongen) | NI
 
 ### {naam} — {type}
 - Zekerheid: {ONBEVESTIGD|INFORMATIE|KENNIS} ({n} oorsprongen: {lijst})
+- Type: {feit | overtuiging | afleiding}
 - Trend: {opkomend | stabiel | vervagend}
 - Facetten:
   - {facet} ({jaar indien bekend}) — {oorsprong}

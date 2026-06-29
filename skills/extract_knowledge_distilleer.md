@@ -22,15 +22,20 @@ Welke concrete dingen zegt deze bron over dit onderwerp? Houd het compact: korte
 **Onderwerptypes:** `thema | positionering | methode | taalpatroon | klant-/sectorpatroon | bewijspunt`.
 **Geen feiten** — prijzen, dagtarieven, expertnamen, aantallen horen hier niet (die worden actueel gehouden, niet getrianguleerd).
 
+**Epistemologisch type per entiteit** — label elke entiteit met één van:
+- `feit` — specifiek en verifieerbaar: methodenaam, klantvermelding, dateerbare uitspraak, concreet resultaat
+- `overtuiging` — consistent verkondigd standpunt dat niet extern toetsbaar is: positioneringsclaim, filosofische stelling, mening
+- `afleiding` — patroon zichtbaar in taal of gedrag, maar nooit zo expliciet benoemd door de bron
+
 ## Outputformaat — exact één fenced blok, niets eromheen
 
 ```
 <<<DISTILLATIE_START>>>
 bron: {bron} | oorsprong: {oorsprong} | gelezen: {n} bestand(en) | periode: {oudste}–{nieuwste of "onbekend"}
-- {entiteit} — {type}
+- {entiteit} — {type} | epistemologisch: {feit | overtuiging | afleiding}
   - {concreet facet} ({jaar indien bekend})
   - {concreet facet}
-- {entiteit} — {type}
+- {entiteit} — {type} | epistemologisch: {feit | overtuiging | afleiding}
   - {concreet facet} ({jaar-jaar})
 <<<DISTILLATIE_END>>>
 ```

@@ -870,7 +870,7 @@ def render_card_kennislaag(m):
 
     out_col = "#2A7A5A" if m["outcomes_filled"] else "#C0392B"
     out_label = "Gevuld" if m["outcomes_filled"] else "Leeg — actie vereist"
-    out_note = "win/loss records beschikbaar" if m["outcomes_filled"] else "NN IC + Cathalijne invullen (5 min)"
+    out_note = "win/loss records beschikbaar" if m["outcomes_filled"] else "NN IC invullen (5 min)"
     out_tip = (
         "Win/loss-records beschikbaar. Ainstein kan hierop leunen bij het bouwen van voorstellen."
         if m["outcomes_filled"] else

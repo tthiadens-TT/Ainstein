@@ -47,7 +47,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Waarom:** Deterministisch ophalen uit bewezen cases is de basis voor retrieval-first proposals (Aslander: 98% data, 2% AI).
 **Concrete cases:**
 - NN IC — gewonnen (mei 2026): wat werkte, welke argumentatie, welk tarief
-- Cathalijne — verloren op tarief bij Pierre: wat was het gat, wat had anders gekund
 **Minimaal format per case:**
 ```
 Klant: [naam] | Status: WON/LOST | Periode: [jaar] | Programmatype: [type]

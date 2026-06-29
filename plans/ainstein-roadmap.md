@@ -236,6 +236,16 @@ Wat werkte: [3 bullets] | Propositie-kern: [1 zin]
 **Wat:** valideren of de Prompt Coaching sectie (brain.md) in de praktijk werkt.
 **Actie Thomas/Jörgen:** testen met vage vragen in Slack, beoordelen of de coaching scherp en nuttig is.
 
+### GitHub MCP authenticatie — credentials verlopen
+**Symptoom:** elke dagelijkse review meldt `Authentication Failed: Bad credentials` bij `mcp__github__list_pull_requests` en `mcp__github__list_issues`. Geldt al weken (eerst gevlagd: 2026-06-15).
+**Impact:** dagelijkse reviews kunnen GitHub-status (open PRs, issues) niet verifiëren. Geen productie-impact — code deployt gewoon via GitHub Actions.
+**Actie Thomas:** GitHub MCP-connector opnieuw authenticeren in Claude Code:
+1. Open Claude Code desktop app
+2. Ga naar MCP-instellingen (Settings > Connectors of vergelijkbaar)
+3. Verwijder de GitHub-connector en voeg hem opnieuw toe met een geldig GitHub-token
+4. Of: genereer een nieuw Personal Access Token op github.com (repo + read:org scopes) en update de connector-configuratie
+**Prioriteit:** medium — geen productie-impact, maar verblindend voor dagelijkse code-reviews.
+
 ### MCP-koppelingen — twee open beslissingen
 **Calendar MCP:** ✅ token vernieuwd (19 mei 2026), "minkowski"-account correct op `thomas@minkowski.org` gezet. Minkowski-agenda zelf nog leeg — vul zakelijke afspraken in als je agenda-context in briefings wilt.
 **Gmail MCP:** werkt, maar leest `tthiadens@gmail.com`. Beslissing: moet Ainstein de Minkowski-inbox (`thomas@minkowski.org`) kunnen lezen, en voor welk gebruik?

@@ -247,8 +247,9 @@ def main() -> int:
             log.error("Geen enkele distillatie geslaagd — afgebroken.")
             return 1
         # Bewaar distillaties zodat REDUCE goedkoop te herhalen is (zonder MAP).
-        import tempfile
-        dist_path = os.path.join(tempfile.gettempdir(), f"kennis_distillaties_{today}.json")
+        # Gebruik data/ in de repo (niet /tmp — verdwijnt bij reboot).
+        dist_path = str(_REPO_ROOT / "data" / f"kennis_distillaties_{today}.json")
+        (_REPO_ROOT / "data").mkdir(exist_ok=True)
         try:
             Path(dist_path).write_text(json.dumps(distillaties, ensure_ascii=False), encoding="utf-8")
             log.info("Distillaties bewaard: %s (gebruik --reduce-from om REDUCE te herhalen)", dist_path)
@@ -262,16 +263,20 @@ def main() -> int:
         print("\n\n".join(distillaties))
         return 0
 
-    # --- REDUCE: kruis distillaties + merge in de laag (kleine input, voltooit altijd) ---
-    log.info("REDUCE: kruisen + mergen (skill=extract_knowledge_merge)...")
-    response, _trace = run_agent(
-        [{"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)}],
-        client,
-        skill="extract_knowledge_merge",
-        max_iterations=8,
-        max_tokens=32000,       # laag + samenvatting in één generatie; voorkomt afgekapte samenvatting
-        request_timeout=900.0,  # merge schrijft de hele laag opnieuw → trage generatie
+    # --- REDUCE: kruis distillaties + merge in de laag ---
+    # Directe API-call (geen run_agent): voorkomt tool-aanroepen die de gestructureerde
+    # output fragmenteren, en voorkomt dubbele kennis_laag-injectie (staat al in user msg).
+    log.info("REDUCE: kruisen + mergen (directe API-call, geen tools)...")
+    merge_skill_path = _REPO_ROOT / "skills" / "extract_knowledge_merge.md"
+    merge_skill_text = merge_skill_path.read_text(encoding="utf-8")
+    _reduce_resp = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=32000,
+        system=merge_skill_text,
+        messages=[{"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)}],
+        timeout=900.0,
     )
+    response = "\n".join(b.text for b in _reduce_resp.content if b.type == "text").strip()
 
     nieuwe_laag = _extract_block(response, LAAG_START, LAAG_END)
     samenvatting = _extract_block(response, SAM_START, SAM_END) or "(geen samenvatting in output)"

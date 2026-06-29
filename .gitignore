@@ -37,6 +37,9 @@ venv/
 .vscode/
 .idea/
 
+# Distillaties — tijdelijk, VM-lokaal, groot
+data/
+
 # Logs ??? ephemeral, machine-local, never committed
 logs/
 *.log

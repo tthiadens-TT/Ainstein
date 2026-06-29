@@ -20,6 +20,21 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 🟡 Volgende stap (prioriteit 1)
 
+### Python 3.10 → 3.11 upgrade op VM — actie Thomas
+**Wat:** De VM draait Python 3.10. Google-api-core stopt support voor 3.10 per oktober 2026. Nieuwe releases daarna installeren niet meer correct.
+**Deadline:** vóór oktober 2026.
+**Actie Thomas (op VM via SSH):**
+```bash
+sudo apt-get update && sudo apt-get install -y python3.11 python3.11-venv
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2
+sudo update-alternatives --set python3 /usr/bin/python3.11
+python3 --version  # moet 3.11.x tonen
+cd ~/Ainstein && pip3 install -r requirements.txt
+sudo systemctl restart ainstein
+```
+**Daarna:** check `#ainstein-status` of de bot normaal opstart.
+
 ### 08_Outcomes vullen — actie Thomas/Jörgen
 **Wat:** Concrete win/loss-records toevoegen aan `08_Outcomes` in Drive.
 **Waarom:** Ainstein heeft instructie om `08_Outcomes` te raadplegen bij elk voorstel, maar de map is leeg. Commerciële lessen gaan verloren.
@@ -126,6 +141,26 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Wat:** REDUCE herschrijft bij elke run de volledige `kennis_laag.md`. Schaalt niet voorbij ~70 entiteiten.
 **Aanpak (later):** incrementeel mergen.
 **Prioriteit:** laag — pas relevant bij ~70 entiteiten.
+
+### [idee] Markdown cache: naam-collision voorkomen
+**Wat:** Twee bestanden in verschillende submappen met dezelfde naam overschrijven elkaars `.md` in de root van de source-folder. Nu geen probleem — `01_Proposals` heeft unieke namen — maar groeit met de tijd.
+**Aanpak:** relatief pad meenemen in de cache-bestandsnaam: `NN_Group__Proposal.md` in plaats van `Proposal.md`. Vereist dat `_drive_list_files_in_folder` het parent-pad retourneert, of een aparte BFS die het pad bijhoudt.
+**Trigger:** zodra er voor het eerst een naamconflict optreedt (script logt dan een overschrijving).
+
+### [idee] AI-samenvatting in Markdown cache-header
+**Wat:** De cache-header bevat nu alleen de sectielijst uit `##` headers. Een beknopte AI-samenvatting per document (3–5 zinnen, commercieel relevant) maakt de cache veel meer bruikbaar voor Ainstein: minder tokens nodig om te begrijpen wat er in staat.
+**Aanpak:** optionele stap in `convert_folder` — na conversie één extra API-call voor samenvatting, opgeslagen in de header. Opt-in via `--summarize` vlag.
+**Gegated op:** bewijs dat de cache daadwerkelijk raadpleegbaar is en dat de header gelezen wordt.
+
+### [idee] MCP converters vs. eigen pipeline combineren
+**Wat:** Thomas vroeg of de eigen Markdown-conversie beter is dan MCP-converters, en of ze te combineren zijn.
+**Antwoord:** eigen pipeline is beter voor batch-caching (offline, token-efficiënt, geen per-call overhead). MCP handig voor ad-hoc conversie van losse bestanden. Combinatie: MCP als fallback voor bestandstypen die de eigen pipeline niet ondersteunt (bijv. exotische formats).
+**Nu niet nodig:** eigen pipeline dekt alle relevante types (.docx, .pdf, .pptx, .gdoc, .eml).
+
+### [idee] VM tier upgraden voor grotere PPTX-bestanden
+**Wat:** e2-micro (1GB RAM) dwingt een 20MB PPTX-limiet. Bestanden zoals `Activate-NNLEAD4_vJ.pptx` (184MB) worden overgeslagen.
+**Aanpak:** upgrade naar e2-small (2GB) of e2-medium (4GB) in GCP. Kost ~$10–20/maand extra.
+**Trigger:** zodra er meerdere grote PPTX-bestanden zijn die commercieel relevant zijn en nu worden overgeslagen.
 
 ### Semantische zoeklaag (RAG/Embeddings)
 **Wat:** Vervang keyword grep in `search_files()` door vector embeddings.

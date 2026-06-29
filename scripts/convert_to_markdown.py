@@ -110,12 +110,17 @@ def _find_source_folder_id(service, folder_name: str) -> str | None:
         return None
 
 
+def _escape_drive_query(value: str) -> str:
+    """Escape enkelvoudige aanhalingstekens in Drive API query-strings."""
+    return value.replace("'", "\\'")
+
+
 def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> str | None:
     """Geef modifiedTime van gecachet bestand, of None als het niet bestaat."""
     md_name = f"{stem}.md"
     try:
         res = service.files().list(
-            q=f"'{cache_folder_id}' in parents and name='{md_name}' and trashed=false",
+            q=f"'{cache_folder_id}' in parents and name='{_escape_drive_query(md_name)}' and trashed=false",
             fields="files(modifiedTime)",
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
@@ -176,6 +181,13 @@ def convert_folder(
 
         # Skip verborgen bestanden (.DS_Store, .gitkeep, etc.)
         if name.startswith("."):
+            skipped += 1
+            continue
+
+        # Skip grote PPTX-bestanden (>20 MB) — voorkomt OOM op e2-micro
+        file_size = int(f.get("size", 0))
+        if suffix == ".pptx" and file_size > 20 * 1024 * 1024:
+            log.warning("  Skip (te groot voor VM: %dMB): %s", file_size // (1024*1024), name)
             skipped += 1
             continue
 

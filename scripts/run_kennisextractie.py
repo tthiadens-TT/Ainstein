@@ -271,21 +271,13 @@ def main() -> int:
     merge_skill_text = merge_skill_path.read_text(encoding="utf-8")
     _reduce_resp = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=32000,
+        max_tokens=64000,       # 32k was te krap: laag groeit en Promotiebesluiten viel weg
         system=merge_skill_text,
         messages=[{"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)}],
         timeout=900.0,
     )
     response = "\n".join(b.text for b in _reduce_resp.content if b.type == "text").strip()
     log.info("REDUCE output: stop_reason=%s, %d chars", _reduce_resp.stop_reason, len(response))
-
-    # Sla ruwe output op voor inspectie (onafhankelijk van markers).
-    raw_path = _REPO_ROOT / "data" / f"reduce_raw_{today}.txt"
-    try:
-        raw_path.write_text(response, encoding="utf-8")
-        log.info("Ruwe output bewaard: %s", raw_path)
-    except Exception as e:
-        log.warning("Kon ruwe output niet bewaren: %s", e)
 
     nieuwe_laag = _extract_block(response, LAAG_START, LAAG_END)
     # Graceful truncation: als END-marker ontbreekt (max_tokens), gebruik wat we hebben.
@@ -294,12 +286,19 @@ def main() -> int:
         nieuwe_laag = response[response.index(LAAG_START) + len(LAAG_START):].strip()
     samenvatting = _extract_block(response, SAM_START, SAM_END) or "(geen samenvatting in output)"
 
-    # Sanity-check (bewijs-fase: mens kijkt mee, dus één check i.p.v. de volledige firewall)
+    # Promotiebesluiten-fallback: als ze ontbreken door truncatie, neem ze uit de bestaande laag.
+    if nieuwe_laag and had_promotiebesluiten and "## Promotiebesluiten" not in nieuwe_laag:
+        pb_start = current_laag.find("## Promotiebesluiten")
+        if pb_start != -1:
+            log.warning("Promotiebesluiten ontbreken in output — bewaard uit bestaande laag")
+            nieuwe_laag = nieuwe_laag.rstrip() + "\n\n" + current_laag[pb_start:]
+
+    # Sanity-check
     fout = None
     if not nieuwe_laag:
         fout = "geen/lege LAAG-blok in de output"
     elif had_promotiebesluiten and "## Promotiebesluiten" not in nieuwe_laag:
-        fout = "Promotiebesluiten-sectie verdween uit de nieuwe laag"
+        fout = "Promotiebesluiten-sectie verdween en kon niet worden hersteld"
 
     if args.dry_run:
         print("\n===== SAMENVATTING =====\n" + samenvatting)

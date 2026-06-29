@@ -277,6 +277,8 @@ def main() -> int:
         timeout=900.0,
     )
     response = "\n".join(b.text for b in _reduce_resp.content if b.type == "text").strip()
+    log.info("REDUCE output: stop_reason=%s, %d chars, preview: %s",
+             _reduce_resp.stop_reason, len(response), repr(response[:200]))
 
     nieuwe_laag = _extract_block(response, LAAG_START, LAAG_END)
     samenvatting = _extract_block(response, SAM_START, SAM_END) or "(geen samenvatting in output)"

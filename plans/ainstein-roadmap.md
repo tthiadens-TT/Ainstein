@@ -20,20 +20,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-### Python 3.10 → 3.11 upgrade op VM — actie Thomas
-**Wat:** De VM draait Python 3.10. Google-api-core stopt support voor 3.10 per oktober 2026. Nieuwe releases daarna installeren niet meer correct.
-**Deadline:** vóór oktober 2026.
-**Actie Thomas (op VM via SSH):**
-```bash
-sudo apt-get update && sudo apt-get install -y python3.11 python3.11-venv
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2
-sudo update-alternatives --set python3 /usr/bin/python3.11
-python3 --version  # moet 3.11.x tonen
-cd ~/Ainstein && pip3 install -r requirements.txt
-sudo systemctl restart ainstein
-```
-**Daarna:** check `#ainstein-status` of de bot normaal opstart.
 
 ### 08_Outcomes vullen — actie Thomas/Jörgen
 **Wat:** Concrete win/loss-records toevoegen aan `08_Outcomes` in Drive.

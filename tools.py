@@ -239,6 +239,13 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
     """Download and parse a file from Drive. Returns plain text."""
     from googleapiclient.http import MediaIoBaseDownload
 
+    # Mappen kunnen niet worden gedownload — geef een bruikbare hint terug
+    if mime_type == "application/vnd.google-apps.folder":
+        return (
+            f"['{filename}' is een map, geen bestand. "
+            f"Gebruik search_files om bestanden in deze map te zoeken.]"
+        )
+
     # Google-native formats → export as plain text
     if mime_type in _GOOGLE_NATIVE_MIMES:
         export_mime = _GOOGLE_NATIVE_MIMES[mime_type]
@@ -264,6 +271,10 @@ def _read_drive_file_content(service, file_id: str, filename: str, mime_type: st
         buf.seek(0)
         raw = buf.read()
     except Exception as e:
+        err_str = str(e).lower()
+        if "404" in err_str or "not found" in err_str or "entity" in err_str:
+            logger.warning("Drive bestand niet gevonden: %s (id=%s)", filename, file_id)
+            return f"[Bestand niet gevonden in Drive: '{filename}' (id={file_id})]"
         logger.error("Drive download failed for %s (id=%s): %s", filename, file_id, e)
         return f"[Drive download failed for {filename}: {e}]"
 

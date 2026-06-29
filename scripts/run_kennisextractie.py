@@ -266,29 +266,31 @@ def main() -> int:
     # --- REDUCE: kruis distillaties + merge in de laag ---
     # Directe API-call (geen run_agent): voorkomt tool-aanroepen die de gestructureerde
     # output fragmenteren, en voorkomt dubbele kennis_laag-injectie (staat al in user msg).
-    log.info("REDUCE: kruisen + mergen (directe API-call, prefill, geen tools)...")
+    log.info("REDUCE: kruisen + mergen (directe API-call, geen tools)...")
     merge_skill_path = _REPO_ROOT / "skills" / "extract_knowledge_merge.md"
     merge_skill_text = merge_skill_path.read_text(encoding="utf-8")
-    # Prefill: model MOET beginnen met de START-marker — kan niet worden overgeslagen.
     _reduce_resp = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=32000,
         system=merge_skill_text,
-        messages=[
-            {"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)},
-            {"role": "assistant", "content": LAAG_START},
-        ],
+        messages=[{"role": "user", "content": _build_merge_prompt(distillaties, current_laag, today)}],
         timeout=900.0,
     )
-    raw = "\n".join(b.text for b in _reduce_resp.content if b.type == "text").strip()
-    log.info("REDUCE output: stop_reason=%s, %d chars", _reduce_resp.stop_reason, len(raw))
-    # De prefill staat niet in de response — voeg hem terug toe zodat _extract_block werkt.
-    response = LAAG_START + "\n" + raw
+    response = "\n".join(b.text for b in _reduce_resp.content if b.type == "text").strip()
+    log.info("REDUCE output: stop_reason=%s, %d chars", _reduce_resp.stop_reason, len(response))
+
+    # Sla ruwe output op voor inspectie (onafhankelijk van markers).
+    raw_path = _REPO_ROOT / "data" / f"reduce_raw_{today}.txt"
+    try:
+        raw_path.write_text(response, encoding="utf-8")
+        log.info("Ruwe output bewaard: %s", raw_path)
+    except Exception as e:
+        log.warning("Kon ruwe output niet bewaren: %s", e)
 
     nieuwe_laag = _extract_block(response, LAAG_START, LAAG_END)
-    # Graceful truncation: als END-marker ontbreekt door max_tokens, gebruik wat we hebben.
+    # Graceful truncation: als END-marker ontbreekt (max_tokens), gebruik wat we hebben.
     if not nieuwe_laag and LAAG_START in response:
-        log.warning("LAAG_END ontbreekt (max_tokens truncatie?) — gebruik gedeeltelijke output")
+        log.warning("LAAG_END ontbreekt (truncatie?) — gebruik output na START-marker")
         nieuwe_laag = response[response.index(LAAG_START) + len(LAAG_START):].strip()
     samenvatting = _extract_block(response, SAM_START, SAM_END) or "(geen samenvatting in output)"
 

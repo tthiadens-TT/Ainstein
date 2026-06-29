@@ -3,9 +3,9 @@
 convert_to_markdown.py — Converteer bronbestanden naar plain-text Markdown cache.
 
 Aslander IA-principe: plain text is de universele taal. Grote bronbestanden
-(.docx, .pdf, .pptx, etc.) worden eenmalig geconverteerd naar geïndexeerde
-.md-bestanden in _cached/ op Drive. Ainstein leest de cache — niet het
-propriëtaire origineel. Schatting: 60-80% minder tokens per raadpleging.
+(.docx, .pdf, .pptx, etc.) worden eenmalig geconverteerd naar .md-bestanden
+naast het origineel in Drive. Ainstein leest de cache — niet het propriëtaire
+origineel. Schatting: 60-80% minder tokens per raadpleging.
 
 Gebruik (op de VM):
     python3 scripts/convert_to_markdown.py
@@ -42,13 +42,15 @@ logging.basicConfig(
 )
 log = logging.getLogger("convert_to_markdown")
 
-from scrape_slack import _get_drive_service, _resolve_folder_chain, _upload_markdown, _escape_drive_query
+from scrape_slack import _get_drive_service, _upload_markdown, _escape_drive_query
 from tools import _read_drive_file_content, _drive_list_files_in_folder
 
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
-CACHE_ROOT = "_cached"
 
-SOURCE_FOLDERS = ["01_Proposals", "02_Tools", "04_Experts"]
+# Folders aan de root die nooit source-material bevatten
+SKIP_FOLDER_NAMES = {"00_Werkdocumenten"}
+# Folders met underscore-prefix zijn pipeline-output of interne mappen
+SKIP_FOLDER_PREFIXES = ("_",)
 
 # Overslaan: al plain-text, of niet leesbaar (afbeeldingen, media, archieven)
 SKIP_EXTENSIONS = {".md", ".txt", ".json", ".csv", ".rtf"}
@@ -91,23 +93,34 @@ def _build_header(title: str, source_path: str, text: str, today: str) -> str:
 # Drive helpers
 # ---------------------------------------------------------------------------
 
-def _find_source_folder_id(service, folder_name: str) -> str | None:
-    """Zoek de ID van een top-level folder in de Shared Drive."""
+def _discover_source_folders(service) -> list[tuple[str, str]]:
+    """Ontdek alle source-folders dynamisch vanuit de Shared Drive root.
+
+    Geeft (naam, folder_id) tuples terug, gesorteerd op naam.
+    Overgeslagen: 00_Werkdocumenten en mappen met underscore-prefix.
+    Nieuwe mappen in Drive worden automatisch meegenomen zonder code-aanpassing.
+    """
     try:
         res = service.files().list(
             q=(
-                f"'{SHARED_DRIVE_ID}' in parents and name='{folder_name}' "
-                f"and mimeType='application/vnd.google-apps.folder' and trashed=false"
+                f"'{SHARED_DRIVE_ID}' in parents "
+                f"and mimeType='application/vnd.google-apps.folder' "
+                f"and trashed=false"
             ),
-            fields="files(id)",
+            fields="files(id, name)",
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
         ).execute()
-        files = res.get("files", [])
-        return files[0]["id"] if files else None
+        folders = res.get("files", [])
+        return sorted(
+            (f["name"], f["id"])
+            for f in folders
+            if f["name"] not in SKIP_FOLDER_NAMES
+            and not any(f["name"].startswith(p) for p in SKIP_FOLDER_PREFIXES)
+        )
     except Exception as e:
-        log.error("Fout bij zoeken folder %s: %s", folder_name, e)
-        return None
+        log.error("Fout bij ontdekken source-folders: %s", e)
+        return []
 
 
 def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> str | None:
@@ -131,32 +144,35 @@ def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 def convert_folder(
-    service, folder_name: str, dry_run: bool, force: bool, limit: int | None
+    service, folder_name: str, folder_id: str, dry_run: bool, force: bool, limit: int | None
 ) -> tuple[int, int, int]:
-    """Converteer één bron-folder. Retourneert (converted, skipped, errors)."""
+    """Converteer één bron-folder (inclusief subfolders). Retourneert (converted, skipped, errors)."""
     log.info("=== Folder: %s ===", folder_name)
 
-    src_folder_id = _find_source_folder_id(service, folder_name)
-    if not src_folder_id:
-        log.warning("Folder niet gevonden in Drive: %s", folder_name)
-        return 0, 0, 0
-
-    files = _drive_list_files_in_folder(service, src_folder_id)
+    files = _drive_list_files_in_folder(service, folder_id)
     log.info("  %d bestanden gevonden", len(files))
 
-    # Schrijf .md naast het origineel in dezelfde bronmap
-    cache_folder_id = src_folder_id if not dry_run else None
+    # Schrijf .md naast het origineel in de root van de source-folder
+    cache_folder_id = folder_id if not dry_run else None
 
     converted = skipped = errors = 0
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    seen_file_ids: set[str] = set()
 
     for f in files:
         if limit is not None and converted >= limit:
             log.info("  Limiet van %d bereikt.", limit)
             break
 
-        name = f["name"]
         file_id = f["id"]
+
+        # Deduplicatie: Drive BFS kan hetzelfde bestand via meerdere paden tegenkomen
+        if file_id in seen_file_ids:
+            skipped += 1
+            continue
+        seen_file_ids.add(file_id)
+
+        name = f["name"]
         mime_type = f.get("mimeType", "")
         source_modified = f.get("modifiedTime", "")
         stem = Path(name).stem
@@ -182,15 +198,15 @@ def convert_folder(
         # Skip grote PPTX-bestanden (>20 MB) — voorkomt OOM op e2-micro
         file_size = int(f.get("size", 0))
         if suffix == ".pptx" and file_size > 20 * 1024 * 1024:
-            log.warning("  Skip (te groot voor VM: %dMB): %s", file_size // (1024*1024), name)
+            log.warning("  Skip (te groot voor VM: %dMB): %s", file_size // (1024 * 1024), name)
             skipped += 1
             continue
 
         source_path = f"{folder_name}/{name}"
 
-        # Freshness check — sla over als .md in dezelfde map al recenter is dan bron
+        # Freshness check — sla over als .md al recenter is dan bron
         if not force and not dry_run:
-            cached_modtime = _get_cached_modtime(service, src_folder_id, stem)
+            cached_modtime = _get_cached_modtime(service, folder_id, stem)
             if cached_modtime and cached_modtime >= source_modified:
                 log.info("  Actueel (skip): %s", name)
                 skipped += 1
@@ -235,7 +251,7 @@ def convert_folder(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Converteer Drive-bronbestanden naar Markdown cache in _cached/."
+        description="Converteer Drive-bronbestanden naar Markdown cache naast het origineel."
     )
     parser.add_argument("--folder", help="Scan alleen deze folder (bijv. 01_Proposals)")
     parser.add_argument("--dry-run", action="store_true", help="Toon wat er zou gebeuren, schrijf niets")
@@ -245,15 +261,33 @@ def main():
 
     service = _get_drive_service()
 
-    folders = [args.folder] if args.folder else SOURCE_FOLDERS
-
     if args.dry_run:
         log.info("DRY-RUN modus — er wordt niets geschreven naar Drive.")
 
+    # Ontdek folders dynamisch vanuit Drive-root
+    all_folders = _discover_source_folders(service)
+    if not all_folders:
+        log.error("Geen source-folders gevonden in Drive. Check AINSTEIN_DRIVE_ROOT_ID en credentials.")
+        return
+
+    if args.folder:
+        folders = [(n, fid) for n, fid in all_folders if n == args.folder]
+        if not folders:
+            log.error(
+                "Folder '%s' niet gevonden. Beschikbaar: %s",
+                args.folder,
+                ", ".join(n for n, _ in all_folders),
+            )
+            return
+    else:
+        folders = all_folders
+
+    log.info("Folders om te verwerken: %s", ", ".join(n for n, _ in folders))
+
     total_converted = total_skipped = total_errors = 0
 
-    for folder_name in folders:
-        c, s, e = convert_folder(service, folder_name, args.dry_run, args.force, args.limit)
+    for folder_name, folder_id in folders:
+        c, s, e = convert_folder(service, folder_name, folder_id, args.dry_run, args.force, args.limit)
         total_converted += c
         total_skipped += s
         total_errors += e

@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 26 juni 2026*
+*Bijgewerkt: 29 juni 2026*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -661,6 +661,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 | Kennis-laag validatie: Charlotte bevestigt alle 7 items (100% klopt); 7 gecureerde .md documenten aangemaakt in Drive (4x 02_Tools, 3x 06_Marketing) | Ainstein scheduled task | 24 juni 2026 |
 | Kennis-laag pipeline-visualisatie (bronnen → MAP/REDUCE → injectie → gebruik) — SVG diagram | Claude Code | 22 juni 2026 |
 | Roadmap audit: 12 nieuwe items toegevoegd vanuit sessie-reviews, 2 achterhaalde items verwijderd | sessie | 22 juni 2026 |
+| Markdown conversie cache: `scripts/convert_to_markdown.py` + `read_file_cached()` in tools.py + `_cached/` folder op Drive. Aslander IA-principe: plain text > propriëtair. Schatting 60-80% minder tokens per raadpleging. | `8034292` | 29 juni 2026 |
 | Schrijfstijl levend organisme: `minkowski_voice.md` verrijkt uit bronmateriaal (LinkedIn/Substack/website), VM-cron (ma 04:00), Drive-backup + restore na deploy, 9 skills krijgen voice als prefix | `5be9c11` + `ff4760d` | 26 juni 2026 |
 | Kennis-laag map-reduce refactor | `c9bbf42` | 21 juni 2026 |
 | Kennis-laag tijd-dimensie (Trend, gedateerde facetten, Historie) | `1a3820a` | 21 juni 2026 |

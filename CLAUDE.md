@@ -41,6 +41,9 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
 - **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`); Sen ExtraBold OOXML-embedded; triggerable via Slack `/pptx`
 - **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen
+- **Double Helix kennislaag** — elke entiteit in kennis_laag.md heeft twee labels: `Zekerheid` (ONBEVESTIGD/INFORMATIE/KENNIS) + `Type` (feit/overtuiging/afleiding). Skills: `extract_knowledge_distilleer.md` en `extract_knowledge_merge.md`.
+- **Entiteiten-register** — `06_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`): 21 experts (correcte naam: Jörgen van der Sloot), 8 klanten. Merge-skill checkt nieuwe namen hiertegen. `[NIET_GEVERIFIEERD]` voor onbekende entiteiten.
+- **update_drive_file.py** — `scripts/update_drive_file.py`: update bestaand Drive-bestand via service account. Gebruik: `python3 scripts/update_drive_file.py --file-id <ID> --local-path <pad>`
 
 ### Wat pending is
 - Geen open PRs. Alles staat op main.

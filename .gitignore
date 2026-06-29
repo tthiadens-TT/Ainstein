@@ -4,10 +4,12 @@ conversations.db
 *.db
 client_secret*.json
 
-# Office documents ??? belong in Drive, not in the code repo
+# Office documents + PDFs + markdown docs ??? belong in Drive, not in the code repo
 *.pptx
 *.docx
 *.xlsx
+*.pdf
+ONBOARDING.md
 
 # Source layer lives in Google Drive (see tools.SOURCE_ROOT) ??? never in repo
 01_Proposals/

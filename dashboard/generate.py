@@ -49,7 +49,10 @@ def parse_ts(ts_str):
     if not ts_str:
         return None
     try:
-        return datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except (ValueError, AttributeError):
         return None
 

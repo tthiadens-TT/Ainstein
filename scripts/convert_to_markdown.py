@@ -42,7 +42,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("convert_to_markdown")
 
-from scrape_slack import _get_drive_service, _resolve_folder_chain, _upload_markdown
+from scrape_slack import _get_drive_service, _resolve_folder_chain, _upload_markdown, _escape_drive_query
 from tools import _read_drive_file_content, _drive_list_files_in_folder
 
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
@@ -108,11 +108,6 @@ def _find_source_folder_id(service, folder_name: str) -> str | None:
     except Exception as e:
         log.error("Fout bij zoeken folder %s: %s", folder_name, e)
         return None
-
-
-def _escape_drive_query(value: str) -> str:
-    """Escape enkelvoudige aanhalingstekens in Drive API query-strings."""
-    return value.replace("'", "\\'")
 
 
 def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> str | None:

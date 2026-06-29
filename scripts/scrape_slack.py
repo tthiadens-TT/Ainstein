@@ -114,6 +114,11 @@ def _get_or_create_folder(service, name: str, parent_id: str) -> str:
     return created["id"]
 
 
+def _escape_drive_query(value: str) -> str:
+    """Escape enkelvoudige aanhalingstekens in Drive API query-strings."""
+    return value.replace("'", "\\'")
+
+
 def _upload_markdown(service, title: str, content: str, folder_id: str) -> str:
     """Upload Markdown als plain-text .md bestand. Overschrijft bestaand bestand met zelfde naam.
 
@@ -125,7 +130,7 @@ def _upload_markdown(service, title: str, content: str, folder_id: str) -> str:
 
     # Check of er al een bestand met deze naam bestaat
     res = service.files().list(
-        q=f"'{folder_id}' in parents and name='{md_title}' and trashed=false",
+        q=f"'{folder_id}' in parents and name='{_escape_drive_query(md_title)}' and trashed=false",
         fields="files(id,name)",
         supportsAllDrives=True,
         includeItemsFromAllDrives=True,

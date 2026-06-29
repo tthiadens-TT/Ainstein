@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 29 juni 2026 (sessie: Aslander LLS + kennislaag architectuur)*
+*Bijgewerkt: 29 juni 2026 (sessie: Double Helix live, entiteiten-register, update_drive_file.py)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -45,25 +45,10 @@ Wat werkte: [3 bullets] | Propositie-kern: [1 zin]
 
 ## 📋 Backlog — Technisch (bouwwerk)
 
-### Drive-connector: update bestaand bestand (geen create-duplicaat)
-**Probleem:** de MCP Drive-connector (`mcp__4e943b1e`) heeft alleen `create_file` — geen `update_file`. Elke aanpassing aan een Drive-bestand maakt een duplicaat. Thomas moet handmatig opruimen.
-**Oplossing A (script op VM):** `scripts/update_drive_file.py --file-id <id> --local-path <pad>` — gebruikt service account om bestaand bestand bij te werken via `files.update()`. Dan kan ik het via een SSH-aanroep uitvoeren.
-**Oplossing B (connector uitbreiden):** update-endpoint toevoegen aan de MCP-connector config. Vereist toegang tot connector-instellingen.
-**Voorkeur:** Oplossing A — bouwbaar in 30 min, geen connector-afhankelijkheid.
-**Effort:** 30 min.
-**Prioriteit:** hoog — blokkeert elke Drive-aanpassing zonder handmatig opruimen.
-
-### Entiteiten-register completeren — actie Thomas
-**Wat:** `06_Marketing/_kennis/entiteiten.md` is aangemaakt als seed-bestand (lokaal, nog niet in Drive). Thomas vult de tabel aan met experts (uit 04_Experts, ~20 namen) en methodes (uit 02_Tools).
-**Daarna:** bestand uploaden naar Drive op pad `06_Marketing/_kennis/entiteiten.md`.
-**Effort:** 20-30 min. Eenmalig, daarna alleen kleine toevoegingen.
-**Waarom:** merge-skill kan nu [NIET_GEVERIFIEERD] taggen zodra het register in Drive staat.
-
-### Double Helix — eerste herrun na skill-update
-**Wat:** `run_kennisextractie.py` draaien op de VM na de skill-updates van deze sessie. Dit voegt `Type:` labels toe aan alle entiteiten in kennis_laag.md.
-**Voorwaarde:** entiteiten-register hoeft er nog niet te zijn — dat is optioneel in de merge-skill.
-**Actie:** `python3 scripts/run_kennisextractie.py` op de VM.
-**Effort:** 10-15 min (pipeline draait automatisch).
+### Double Helix — herrun verificatie
+**Wat:** controleren of de pipeline die gestart is (screen -S kennis op VM, 29 juni) Type-labels heeft toegevoegd aan kennis_laag.md.
+**Actie:** check `#ainstein-status` in Slack of `screen -r kennis` op VM. Verwacht: elke entiteit heeft nu `Type: feit | overtuiging | afleiding`.
+**Effort:** 5 min controle.
 
 ### Retrieval-first in build_proposal (na folder-migratie + Outcomes gevuld)
 **Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt deterministisch ophalen uit `Clients/<naam>/Outcomes/` voor vergelijkbare cases. Genereer alleen wat niet op te halen is.
@@ -717,6 +702,10 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 | DM naar Jörgen: dashboard URL + uitleg van alle kaarten | via Slack MCP | 22 juni 2026 |
 | Dashboard: live health checks per dienst (groen/rood), GCP CPU/geheugen/kosten, klanten-pilot, token-logging exacte kosten | `b2bee86`–`2d9fd6d` | 22 juni 2026 |
 | Management dashboard (`dashboard/generate.py`) — 4 KPI-kaarten, Minkowski-stijl, nginx + cron via deploy.yml | `5c33ae9` | 22 juni 2026 |
+| Double Helix epistemologisch labelen: `extract_knowledge_distilleer.md` + `extract_knowledge_merge.md` bijgewerkt, context-injectie in `agent.py`, `run_kennisextractie.py` gestart op VM | `008937a` | 29 juni 2026 |
+| Entiteiten-register aangemaakt: `06_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`), 21 experts (Jörgen van der Sloot gecorrigeerd), 8 klanten, merge-skill bijgewerkt | `008937a` | 29 juni 2026 |
+| `scripts/update_drive_file.py` gebouwd: update bestaand Drive-bestand via service account, lost MCP create-duplicaat probleem op | `8845648` | 29 juni 2026 |
+| CLAUDE.md bijgewerkt met Double Helix, entiteiten-register, update_drive_file.py | `d43f689` | 29 juni 2026 |
 | CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |
 | Kennis-laag Jörgen/Charlotte validatie verstuurd naar #about-ainstein — 7 items ter bevestiging; dagelijkse monitoring via scheduled task 09:05 | Slack MCP | 22 juni 2026 |
 | Kennis-laag validatie: Charlotte bevestigt alle 7 items (100% klopt); 7 gecureerde .md documenten aangemaakt in Drive (4x 02_Tools, 3x 06_Marketing) | Ainstein scheduled task | 24 juni 2026 |

@@ -144,10 +144,8 @@ def convert_folder(
     files = _drive_list_files_in_folder(service, src_folder_id)
     log.info("  %d bestanden gevonden", len(files))
 
-    if not dry_run:
-        cache_folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, CACHE_ROOT, folder_name)
-    else:
-        cache_folder_id = None
+    # Schrijf .md naast het origineel in dezelfde bronmap
+    cache_folder_id = src_folder_id if not dry_run else None
 
     converted = skipped = errors = 0
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -183,16 +181,16 @@ def convert_folder(
 
         source_path = f"{folder_name}/{name}"
 
-        # Freshness check — sla over als cache recenter is dan bron
+        # Freshness check — sla over als .md in dezelfde map al recenter is dan bron
         if not force and not dry_run:
-            cached_modtime = _get_cached_modtime(service, cache_folder_id, stem)
+            cached_modtime = _get_cached_modtime(service, src_folder_id, stem)
             if cached_modtime and cached_modtime >= source_modified:
                 log.info("  Actueel (skip): %s", name)
                 skipped += 1
                 continue
 
         if dry_run:
-            log.info("  [DRY-RUN] %s → _cached/%s/%s.md", name, folder_name, stem)
+            log.info("  [DRY-RUN] %s → %s/%s.md", name, folder_name, stem)
             converted += 1
             continue
 

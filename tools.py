@@ -1109,13 +1109,25 @@ def _read_text_uncached(path: Path) -> str:
         if path.suffix.lower() in {".docx", ".doc"}:
             from docx import Document
             doc = Document(str(path))
-            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            paragraphs = []
+            for p in doc.paragraphs:
+                if not p.text.strip():
+                    continue
+                style = p.style.name if p.style else ""
+                if style.startswith("Heading 1"):
+                    paragraphs.append(f"# {p.text}")
+                elif style.startswith("Heading 2"):
+                    paragraphs.append(f"## {p.text}")
+                elif style.startswith("Heading 3"):
+                    paragraphs.append(f"### {p.text}")
+                else:
+                    paragraphs.append(p.text)
             for table in doc.tables:
                 for row in table.rows:
                     row_text = " | ".join(c.text.strip() for c in row.cells if c.text.strip())
                     if row_text:
                         paragraphs.append(row_text)
-            return "\n".join(paragraphs)
+            return "\n\n".join(paragraphs)
         if path.suffix.lower() == ".pdf":
             try:
                 from pypdf import PdfReader
@@ -1143,7 +1155,12 @@ def _read_text_uncached(path: Path) -> str:
             prs = Presentation(str(path))
             parts = []
             for i, slide in enumerate(prs.slides, start=1):
-                slide_lines = [f"## Slide {i}"]
+                title = ""
+                for shape in slide.shapes:
+                    if shape.has_text_frame and shape.name.lower().startswith("title"):
+                        title = shape.text_frame.text.strip()
+                        break
+                slide_lines = [f"## Slide {i}: {title}" if title else f"## Slide {i}"]
                 for shape in slide.shapes:
                     if shape.has_text_frame:
                         for para in shape.text_frame.paragraphs:

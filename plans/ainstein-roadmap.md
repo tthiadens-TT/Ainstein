@@ -45,6 +45,14 @@ Wat werkte: [3 bullets] | Propositie-kern: [1 zin]
 
 ## 📋 Backlog — Technisch (bouwwerk)
 
+### Drive-connector: update bestaand bestand (geen create-duplicaat)
+**Probleem:** de MCP Drive-connector (`mcp__4e943b1e`) heeft alleen `create_file` — geen `update_file`. Elke aanpassing aan een Drive-bestand maakt een duplicaat. Thomas moet handmatig opruimen.
+**Oplossing A (script op VM):** `scripts/update_drive_file.py --file-id <id> --local-path <pad>` — gebruikt service account om bestaand bestand bij te werken via `files.update()`. Dan kan ik het via een SSH-aanroep uitvoeren.
+**Oplossing B (connector uitbreiden):** update-endpoint toevoegen aan de MCP-connector config. Vereist toegang tot connector-instellingen.
+**Voorkeur:** Oplossing A — bouwbaar in 30 min, geen connector-afhankelijkheid.
+**Effort:** 30 min.
+**Prioriteit:** hoog — blokkeert elke Drive-aanpassing zonder handmatig opruimen.
+
 ### Entiteiten-register completeren — actie Thomas
 **Wat:** `06_Marketing/_kennis/entiteiten.md` is aangemaakt als seed-bestand (lokaal, nog niet in Drive). Thomas vult de tabel aan met experts (uit 04_Experts, ~20 namen) en methodes (uit 02_Tools).
 **Daarna:** bestand uploaden naar Drive op pad `06_Marketing/_kennis/entiteiten.md`.

@@ -51,7 +51,7 @@ CACHE_ROOT = "_cached"
 SOURCE_FOLDERS = ["01_Proposals", "02_Tools", "04_Experts"]
 
 # Overslaan: al plain-text, of niet leesbaar (afbeeldingen, media, archieven)
-SKIP_EXTENSIONS = {".md", ".txt", ".json", ".csv", ".rtf", ".ds_store"}
+SKIP_EXTENSIONS = {".md", ".txt", ".json", ".csv", ".rtf"}
 UNSUPPORTED_EXTENSIONS = {
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
     ".mp4", ".mp3", ".wav", ".mov",
@@ -173,6 +173,11 @@ def convert_folder(
             continue
         if suffix in UNSUPPORTED_EXTENSIONS:
             log.debug("  Skip (niet ondersteund): %s", name)
+            skipped += 1
+            continue
+
+        # Skip verborgen bestanden (.DS_Store, .gitkeep, etc.)
+        if name.startswith("."):
             skipped += 1
             continue
 

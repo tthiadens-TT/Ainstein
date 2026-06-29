@@ -202,6 +202,7 @@ The local repo (`/Users/thomasthiadens/Ainstein`) holds only **code** — never 
 
 | Subfolder | Use for |
 |---|---|
+| `_cached/` | Markdown-conversie cache van bronbestanden (01_Proposals, 02_Tools, 04_Experts). Aangemaakt door `scripts/convert_to_markdown.py`. Lees via `read_file_cached()`. Niet handmatig bewerken. |
 | `00_Werkdocumenten` | Default landing zone for `save_note` output when no project hint is given. Working notes — not the source layer. |
 | `01_Proposals` | Previous proposals, proposal logic, commercial wording, module combinations. Contains client-specific subfolders (e.g. `NN Group/LEAD Programma's/Lead 3`). |
 | `02_Tools` | Frameworks, methods, workshop formats, facilitation tools, templates |

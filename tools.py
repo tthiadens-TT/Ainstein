@@ -1287,6 +1287,52 @@ def read_file(path: str) -> dict:
     return _fs_read_file(path)
 
 
+def read_file_cached(path: str) -> dict:
+    """Lees bestand — check _cached/ eerst voor een Markdown-versie.
+
+    Aslander: cached .md is de voorkeur boven het propriëtaire origineel.
+    Valt terug op read_file() als geen cache bestaat of Drive niet beschikbaar is.
+    """
+    if not _is_drive_mode():
+        return read_file(path)
+
+    parsed = _parse_drive_path(path)
+    stem = None
+    if parsed:
+        _, filename = parsed
+        stem = Path(filename).stem if filename else None
+    elif path and not path.startswith("drive://"):
+        stem = Path(path.split("/")[-1]).stem
+
+    if stem:
+        service = _get_drive_service()
+        if service:
+            try:
+                md_name = f"{stem}.md"
+                res = service.files().list(
+                    q=(
+                        f"name='{md_name}' and trashed=false"
+                    ),
+                    spaces="drive",
+                    corpora="drive",
+                    driveId=_DEFAULT_DRIVE_ROOT_ID,
+                    fields="files(id,name,parents)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                ).execute()
+                files = res.get("files", [])
+                # Zoek specifiek in _cached/ — filter op parent naam
+                for f in files:
+                    content = _read_drive_file_content(service, f["id"], f["name"], "text/plain")
+                    if content and content.startswith("#"):
+                        logger.debug("read_file_cached: cache hit voor %s", stem)
+                        return {"content": content, "cached": True}
+            except Exception as e:
+                logger.debug("read_file_cached: cache lookup mislukt voor %s: %s", stem, e)
+
+    return read_file(path)
+
+
 def _drive_read_file(path: str) -> dict:
     service = _get_drive_service()
     if not service:

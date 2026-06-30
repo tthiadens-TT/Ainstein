@@ -348,6 +348,12 @@ def main() -> int:
     )
 
     log.info("=== Stijl-update afgerond ===")
+    # Schrijf uitvoertijdstempel voor het dashboard
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        (_REPO_ROOT / "logs" / "cron_stijl.txt").write_text(_dt.now(_tz.utc).isoformat())
+    except Exception:
+        pass
     return 0
 
 

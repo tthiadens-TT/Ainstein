@@ -390,6 +390,12 @@ def main():
         log.info("  %d berichten in %d maanden", len(messages), len(monthly_groups))
 
     log.info("Klaar.")
+    # Schrijf uitvoertijdstempel voor het dashboard
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        (_REPO_ROOT / "logs" / "cron_scraper.txt").write_text(_dt.now(_tz.utc).isoformat())
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

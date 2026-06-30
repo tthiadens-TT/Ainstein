@@ -288,6 +288,13 @@ def check_service_connectivity():
     # Tavily API key aanwezig
     c["tavily"] = bool(os.environ.get("TAVILY_API_KEY"))
 
+    # nginx — webserver die inbound verkeer verwerkt (poort 80/443)
+    nginx_raw = run_cmd(
+        ["bash", "-c", "systemctl is-active --quiet nginx && echo ok"],
+        timeout=3,
+    )
+    c["nginx"] = bool(nginx_raw and "ok" in nginx_raw)
+
     # SocketMode heartbeat — slack_app.py schrijft elke 30 min via auth.test
     hb_file = BASE / "logs" / "socketmode_heartbeat.txt"
     c["socketmode_age_h"] = None
@@ -305,6 +312,33 @@ def check_service_connectivity():
             pass
 
     return c
+
+
+def read_cron_timestamps():
+    """Lees de laatste uitvoertijden van geplande taken uit hun logbestanden."""
+    jobs = {
+        "dashboard": (BASE / "logs" / "cron_dashboard.txt", 7, 13),    # elke 6u
+        "scraper":   (BASE / "logs" / "cron_scraper.txt",   4 * 24, 8 * 24),  # werkdagen
+        "stijl":     (BASE / "logs" / "cron_stijl.txt",     8 * 24, 14 * 24), # wekelijks
+        "backup":    (BASE / "logs" / "cron_backup.txt",    8 * 24, 14 * 24), # wekelijks
+    }
+    now = datetime.now(timezone.utc)
+    result = {}
+    for key, (path, warn_h, crit_h) in jobs.items():
+        if not path.exists():
+            result[key] = {"ts": None, "age_h": None, "ok": None, "warn_h": warn_h, "crit_h": crit_h}
+            continue
+        try:
+            raw = path.read_text().strip()
+            ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            age_h = (now - ts).total_seconds() / 3600
+            ok = True if age_h < warn_h else (None if age_h < crit_h else False)
+            result[key] = {"ts": ts, "age_h": age_h, "ok": ok, "warn_h": warn_h, "crit_h": crit_h}
+        except Exception:
+            result[key] = {"ts": None, "age_h": None, "ok": None, "warn_h": warn_h, "crit_h": crit_h}
+    return result
 
 
 def get_gcp_info():
@@ -473,6 +507,7 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "svc_health": svc_health,
         "gcp": gcp,
         "errors": errors,
+        "cron_jobs": read_cron_timestamps(),
         "now": now,
     }
 
@@ -1446,25 +1481,26 @@ footer a:hover {{ opacity: 1; }}
 
 
 def render_card_systeem(m):
-    """Card 1: Werkt het systeem? — overall health + service dots + VM vitals."""
+    """Card 1: Werkt het systeem? — overall health, koppelingen, geplande taken, VM vitals."""
     h = m["svc_health"]
     vm = m["vm"]
     errors = m["errors"]
+    cron = m.get("cron_jobs", {})
 
     svc_raw = vm.get("service_status")
     service_ok = svc_raw == "active"
     has_critical = any(lvl == "CRITICAL" for _, lvl, _ in errors)
     age_h = m["last_age_hours"]
 
-    key_svcs_ok = [h.get("flask"), h.get("slack"), h.get("anthropic"), h.get("drive"), h.get("jamie")]
+    key_svcs_ok = [h.get("nginx"), h.get("flask"), h.get("slack"), h.get("anthropic"), h.get("drive"), h.get("jamie")]
     n_red = sum(1 for s in key_svcs_ok if s is False)
 
     if has_critical or not service_ok or (age_h is not None and age_h >= 72):
         ov_label, ov_col = "ACTIE VEREIST", "#C0392B"
         if not service_ok:
-            ov_sub = f"ainstein.service: {svc_raw or 'onbekend'} — herstart via GitHub Actions"
+            ov_sub = f"Ainstein draait niet — herstart via GitHub Actions"
         elif has_critical:
-            ov_sub = "Kritieke fout in logboek — zie fouten hieronder"
+            ov_sub = "Ernstige fout gedetecteerd — zie fouten hieronder"
         else:
             ov_sub = "Geen activiteit in 3+ dagen"
     elif n_red >= 1 or (age_h is not None and age_h >= 24):
@@ -1472,53 +1508,130 @@ def render_card_systeem(m):
         if age_h is not None and age_h >= 24:
             ov_sub = f"Laatste gebruik: {m['last_activity'] or 'onbekend'}"
         else:
-            ov_sub = f"{n_red} koppeling(en) niet geconfigureerd"
+            ov_sub = f"{n_red} koppeling(en) niet actief"
     else:
         ov_label, ov_col = "OPERATIONEEL", "#2A7A5A"
         disk = vm.get("disk_pct")
-        ov_sub = f"Service actief · schijf {disk}%" if disk else "Service actief"
+        ov_sub = f"Alle systemen actief · schijf {disk}%" if disk else "Alle systemen actief"
 
+    # ── Koppelingen (plain Dutch, tooltips in begrijpelijk Nederlands) ──────────
     svc_map = [
-        ("Flask", h.get("flask")),
-        ("Slack", h.get("slack")),
-        ("Anthropic", h.get("anthropic")),
-        ("Drive", h.get("drive")),
-        ("Jamie", h.get("jamie")),
-        ("SSL", vm.get("ssl_days") is not None and (vm.get("ssl_days") or 0) > 10),
+        ("Buitendeur",
+         h.get("nginx"),
+         "De webserver die ervoor zorgt dat Ainstein via internet bereikbaar is. "
+         "Als dit stopt, ontvangen we geen vergaderverslagen meer van Jamie."),
+        ("Slack-verbinding",
+         h.get("slack"),
+         "De directe lijn tussen Ainstein en Slack. "
+         "Als dit wegvalt, reageert Ainstein niet meer op berichten."),
+        ("AI-dienst",
+         h.get("anthropic"),
+         "De kunstmatige intelligentie die Ainstein gebruikt om te denken en te schrijven. "
+         "Zonder dit werkt Ainstein niet."),
+        ("Documenten",
+         h.get("drive"),
+         "Verbinding met de Minkowski-map in Google Drive: voorstellen, expertprofielen en methodologie. "
+         "Ainstein raadpleegt deze documenten bij elk antwoord."),
+        ("Vergaderapp",
+         h.get("jamie"),
+         "Koppeling met Jamie. Na elke vergadering stuurt Jamie het transcript automatisch naar Ainstein voor analyse."),
+        ("Beveiligd (HTTPS)",
+         vm.get("ssl_days") is not None and (vm.get("ssl_days") or 0) > 10,
+         f"Het beveiligingscertificaat van de website — verloopt over {vm.get('ssl_days') or '?'} dagen. "
+         "Verloopt dit, dan werkt de Jamie-koppeling niet meer."),
+        ("Interne app",
+         h.get("flask"),
+         "De applicatie die binnenkomende berichten van Slack en Jamie verwerkt. "
+         "Dit is de directste indicator dat Ainstein draait."),
     ]
-    dot_row = "".join(
-        f'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7A89A8">'
-        f'{_dot("#2A7A5A" if ok is True else "#C0392B" if ok is False else "#8492A6", 7)}'
-        f'{name}</div>'
-        for name, ok in svc_map
-    )
 
     sm_ok = h.get("socketmode_ok")
     sm_age_h = h.get("socketmode_age_h")
     sm_col = "#2A7A5A" if sm_ok is True else "#C0392B" if sm_ok is False else "#8492A6"
     if sm_age_h is None:
-        sm_txt = "SocketMode: geen data"
+        sm_txt = "Slack-heartbeat: geen data"
+        sm_tip = "Ainstein verstuurt elke 30 minuten een levensteken naar Slack. Er is nog geen data beschikbaar."
     elif sm_age_h < 1:
-        sm_txt = f"SocketMode: {int(sm_age_h * 60)}m geleden"
+        sm_txt = f"Slack-heartbeat: {int(sm_age_h * 60)}m geleden"
+        sm_tip = "Ainstein heeft recent een levensteken verstuurd. De Slack-verbinding is actief."
     else:
-        sm_txt = f"SocketMode: {sm_age_h:.1f}u geleden"
+        sm_txt = f"Slack-heartbeat: {sm_age_h:.1f}u geleden"
+        sm_tip = (
+            "Ainstein verstuurt elke 30 minuten een levensteken naar Slack. "
+            f"Het laatste levensteken was {sm_age_h:.1f} uur geleden — "
+            + ("mogelijk een probleem." if sm_age_h > 1.5 else "dit is normaal.")
+        )
 
-    # VM vitals: CPU, memory, deploy
+    dot_row = "".join(
+        f'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7A89A8;flex-shrink:0">'
+        f'{_dot("#2A7A5A" if ok is True else "#C0392B" if ok is False else "#8492A6", 7)}'
+        f'{_tip(name, tip)}</div>'
+        for name, ok, tip in svc_map
+    )
+
+    # ── Geplande taken ──────────────────────────────────────────────────────────
+    cron_map = [
+        ("dashboard",
+         "Dashboard bijwerken",
+         "Genereert dit overzicht automatisch elke 6 uur met de meest recente gegevens. "
+         "Als dit te lang geleden is, kijk je naar verouderde informatie."),
+        ("scraper",
+         "Kennisbronnen bijhouden",
+         "Haalt automatisch nieuwe content op uit LinkedIn, Medium, Slack en de website — elke werkdag. "
+         "Zo blijft Ainsteins kennis van Minkowski actueel."),
+        ("stijl",
+         "Schrijfstijl vernieuwen",
+         "Verfijnt elke week Ainsteins schrijfstijl aan de hand van nieuwe Minkowski-communicatie. "
+         "Zorgt dat Ainstein klinkt zoals Minkowski."),
+        ("backup",
+         "Veiligheidskopie",
+         "Maakt elke week een volledige back-up van alle bestanden op de server. "
+         "Zorgt dat we bij een storing alles kunnen herstellen."),
+    ]
+
+    cron_rows = ""
+    for key, label, tip in cron_map:
+        job = cron.get(key) or {}
+        ok = job.get("ok")
+        age_h_val = job.get("age_h")
+        col = "#2A7A5A" if ok is True else "#C0392B" if ok is False else "#8492A6"
+        if age_h_val is None:
+            age_txt = "nog niet gedraaid"
+        elif age_h_val < 1:
+            age_txt = f"{int(age_h_val * 60)}m geleden"
+        elif age_h_val < 24:
+            age_txt = f"{age_h_val:.0f}u geleden"
+        else:
+            age_txt = f"{int(age_h_val // 24)}d geleden"
+        cron_rows += (
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'padding:5px 0;border-bottom:1px solid #F5F3EE;font-size:12px">'
+            f'<span style="display:flex;align-items:center;gap:5px;color:#001C40">'
+            f'{_dot(col, 7)}{_tip(label, tip)}</span>'
+            f'<span style="color:#9AA5BE;font-size:11px;flex-shrink:0">{age_txt}</span>'
+            f'</div>'
+        )
+
+    # ── VM vitals ───────────────────────────────────────────────────────────────
     load = vm.get("load_1m")
     cpu_col = "#2A7A5A" if load is None or load < 0.8 else "#E67E22" if load < 1.5 else "#C0392B"
     cpu_txt = f"{load:.2f}" if load is not None else "n.v.t."
-
     mem_pct = vm.get("mem_pct")
     mem_col = "#2A7A5A" if mem_pct is None or mem_pct < 70 else "#E67E22" if mem_pct < 85 else "#C0392B"
     mem_txt = f"{mem_pct}%" if mem_pct is not None else "n.v.t."
-
     deploy_txt = (vm.get("last_deploy") or "onbekend")[:10]
+
+    vitals_tip = "Technische maatstaven van de server: hoe hard hij werkt (CPU) en hoeveel geheugen er nog vrij is."
+    deploy_tip = "De datum waarop de laatste software-update automatisch is uitgerold vanuit GitHub."
 
     vitals_row = (
         f'<div style="display:flex;gap:16px;padding-top:8px;flex-wrap:wrap">'
-        f'<span style="font-size:11px;color:#9AA5BE">CPU <span style="color:{cpu_col};font-weight:600">{cpu_txt}</span></span>'
-        f'<span style="font-size:11px;color:#9AA5BE">RAM <span style="color:{mem_col};font-weight:600">{mem_txt}</span></span>'
-        f'<span style="font-size:11px;color:#9AA5BE">Deploy <span style="color:#7A89A8">{deploy_txt}</span></span>'
+        f'<span style="font-size:11px;color:#9AA5BE">'
+        f'{_tip("Processor", vitals_tip)} <span style="color:{cpu_col};font-weight:600">{cpu_txt}</span></span>'
+        f'<span style="font-size:11px;color:#9AA5BE">'
+        f'{_tip("Geheugen", vitals_tip)} <span style="color:{mem_col};font-weight:600">{mem_txt}</span></span>'
+        f'<span style="font-size:11px;color:#9AA5BE">'
+        f'{_tip("Laatste update", deploy_tip)} <span style="color:#7A89A8">{deploy_txt}</span></span>'
         f'</div>'
     )
 
@@ -1529,13 +1642,16 @@ def render_card_systeem(m):
       {_dot(ov_col, 12)}
       <span style="font-size:22px;font-weight:800;color:{ov_col};font-family:'Sen',Helvetica,sans-serif;letter-spacing:-0.02em">{ov_label}</span>
     </div>
-    <div style="font-size:12px;color:#7A89A8;margin-bottom:14px">{ov_sub}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 0;border-top:1px solid #EEEAE2;border-bottom:1px solid #EEEAE2">
+    <div style="font-size:12px;color:#7A89A8;margin-bottom:12px">{ov_sub}</div>
+    <div style="font-size:10px;color:#9AA5BE;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Koppelingen</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px 16px;padding-bottom:10px;border-bottom:1px solid #EEEAE2">
       {dot_row}
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:{sm_col};flex-shrink:0">
+        {_dot(sm_col, 7)}{_tip("Slack-heartbeat", sm_tip)}
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:{sm_col};margin-top:8px">
-      {_dot(sm_col, 7)}{sm_txt}
-    </div>
+    <div style="font-size:10px;color:#9AA5BE;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px">Geplande taken</div>
+    {cron_rows}
     {vitals_row}
   </div>"""
 
@@ -1741,13 +1857,26 @@ def render_action_banner(m):
     """Eén actionabele suggestie afgeleid van de zwakste signalen. Alleen tonen als relevant."""
     kl_age = m.get("kl_age_days")
     tavily_used = m["svc"].get("tavily_month", 0)
+    cron = m.get("cron_jobs", {})
+
+    stale_jobs = [
+        label for key, label in [
+            ("backup", "veiligheidskopie"),
+            ("scraper", "kennisbronnen"),
+            ("stijl", "schrijfstijl"),
+        ]
+        if (cron.get(key) or {}).get("ok") is False
+    ]
 
     if kl_age is not None and kl_age > 14:
-        msg = f"Kennislaag {kl_age}d oud — draai <code>run_kennisextractie.py</code> op de VM"
+        msg = f"Kennislaag {kl_age} dagen oud — vraag een beheerder om <code>run_kennisextractie.py</code> te draaien op de server"
     elif tavily_used >= 800:
-        msg = f"Tavily bijna vol: {tavily_used}/1.000 zoekopdrachten gebruikt deze maand"
+        msg = f"Zoekbudget bijna op: {tavily_used} van de 1.000 gratis zoekopdrachten deze maand gebruikt"
+    elif stale_jobs:
+        jobs_txt = " en ".join(stale_jobs)
+        msg = f"Geplande taak '{jobs_txt}' heeft te lang niet gedraaid — controleer de server"
     elif m["messages_7d"] == 0 and m["meetings_7d"] == 0:
-        msg = "Geen activiteit deze week — is de bot bereikbaar? Check <code>systemctl status ainstein</code>"
+        msg = "Geen activiteit deze week — check of Ainstein bereikbaar is"
     else:
         return ""
 
@@ -1851,6 +1980,9 @@ def main():
     OUTPUT.parent.mkdir(exist_ok=True)
     OUTPUT.write_text(html, encoding="utf-8")
     print(f"  Gegenereerd: {OUTPUT}")
+    # Schrijf uitvoertijdstempel zodat het dashboard zichzelf kan monitoren
+    cron_ts_file = BASE / "logs" / "cron_dashboard.txt"
+    cron_ts_file.write_text(datetime.now(timezone.utc).isoformat())
 
 
 if __name__ == "__main__":

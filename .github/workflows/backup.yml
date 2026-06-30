@@ -20,3 +20,4 @@ jobs:
             set -a; source .env; set +a
             .venv311/bin/python3 scripts/backup_drive.py 2>&1 | tee -a logs/backup.log
             echo "Backup exit code: ${PIPESTATUS[0]}"
+            date -u +"%Y-%m-%dT%H:%M:%S+00:00" > logs/cron_backup.txt

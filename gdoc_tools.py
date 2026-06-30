@@ -21,7 +21,7 @@ logger = logging.getLogger("gdoc_tools")
 _DOCS_SERVICE = None
 _DRIVE_WRITE_SERVICE = None
 
-# Google Drive folder ID for the AInstein root (contains 01_Proposals … 07_Feedback)
+# Google Drive folder ID for the AInstein root (contains 01_Clients … 05_Ainstein Knowledge Base)
 # Default points to the Workspace Shared Drive "Minkowski AInstein" — same as tools.py.
 _AINSTEIN_DRIVE_ROOT_ID = os.environ.get(
     "AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA"
@@ -127,8 +127,8 @@ def _get_drive_write_service():
 def _get_or_create_werkdocumenten_folder() -> str:
     """Return the Drive folder ID for '00_Werkdocumenten', creating it if needed.
 
-    This keeps Ainstein draft docs out of the curated source layer (01_Proposals…07_Feedback).
-    Thomas moves finalized proposals to 01_Proposals manually.
+    This keeps Ainstein draft docs out of the curated source layer (01_Clients…05_Ainstein Knowledge Base).
+    Thomas moves finalized proposals to 01_Clients/<naam>/Proposals manually.
     """
     global _WERKDOCUMENTEN_FOLDER_ID
     if _WERKDOCUMENTEN_FOLDER_ID is not None:

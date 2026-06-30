@@ -86,7 +86,7 @@ def process_transcript(
 
 
 def _save_transcript_bakje(event: TranscriptEvent) -> None:
-    """Bewaar de ruwe transcript als platte-tekst .md-bakje in 06_Marketing/_bronmateriaal/jamie/.
+    """Bewaar de ruwe transcript als platte-tekst .md-bakje in 04_Marketing/_bronmateriaal/jamie/.
 
     Aslander: de ruwe bron — met klant-, expert- en collega-stemmen — is het goud dat we bewaren;
     de AI-samenvatting is afgeleid en wegwerpbaar. Dit bakje voedt de kennis-laag
@@ -116,7 +116,7 @@ def _save_transcript_bakje(event: TranscriptEvent) -> None:
             f"_Ruwe transcript — onafhankelijke bron, NIET de AI-samenvatting._\n\n"
             f"{raw}\n"
         )
-        result = save_text_bakje(["06_Marketing", "_bronmateriaal", "jamie"], bakje_title, content)
+        result = save_text_bakje(["04_Marketing", "_bronmateriaal", "jamie"], bakje_title, content)
         if result.get("error"):
             logger.warning("Transcript-bakje niet opgeslagen (meeting_id=%s): %s", event.meeting_id, result["error"])
         else:
@@ -305,7 +305,7 @@ def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
         + "\nVolg de meeting_reviewer skill:\n"
         + "1. Lees het transcript zelf en extraheer je EIGEN takenlijst (onafhankelijk van Jamie).\n"
         + "2. Vergelijk daarna met Jamie's taken — wat klopt, wat mist, wat verschilt?\n"
-        + "3. Zoek relevante context in de bronnenlaag (01_Proposals, 02_Tools, 04_Experts).\n"
+        + "3. Zoek relevante context in de bronnenlaag (01_Clients, 02_Frameworks & Tools, 03_Experts).\n"
         + "4. Sla gespreksnotities op via save_note (folder_hint = klantnaam indien bekend).\n"
         + "5. Formuleer wat JIJ direct kunt oppakken."
     )

@@ -82,14 +82,11 @@ _DEFAULT_SOURCE_ROOT = (
 SOURCE_ROOT = Path(os.environ.get("AINSTEIN_SOURCE_ROOT", _DEFAULT_SOURCE_ROOT))
 
 _FOLDER_NAMES = [
-    "01_Proposals",
-    "02_Tools",
-    "03_Pricing",
-    "04_Experts",
-    "05_Venues",
-    "06_Marketing",
-    "07_Feedback",
-    "08_Outcomes",
+    "01_Clients",
+    "02_Frameworks & Tools",
+    "03_Experts",
+    "04_Marketing",
+    "05_Ainstein Knowledge Base",
 ]
 
 SOURCE_FOLDERS = {name: SOURCE_ROOT / name for name in _FOLDER_NAMES}
@@ -114,7 +111,7 @@ _DEFAULT_DRIVE_ROOT_ID = "0AFvBEDYKrnHbUk9PVA"  # Workspace Shared Drive "Minkow
 _DRIVE_FILE_PREFIX = "drive://"
 
 _DRIVE_SERVICE = None                    # cached Drive v3 API client
-_DRIVE_FOLDER_IDS: dict[str, str] | None = None  # {"01_Proposals": "id…", …}
+_DRIVE_FOLDER_IDS: dict[str, str] | None = None  # {"01_Clients": "id…", …}
 
 # Google-native MIME types and their plain-text export formats
 _GOOGLE_NATIVE_MIMES: dict[str, str] = {
@@ -546,9 +543,9 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
         return
 
     folder_ids = _get_drive_folder_ids()
-    feedback_folder_id = folder_ids.get("07_Feedback")
+    feedback_folder_id = folder_ids.get("05_Ainstein Knowledge Base")
     if not feedback_folder_id:
-        logger.error("Drive: 07_Feedback folder ID not found — cannot write feedback")
+        logger.error("Drive: 05_Ainstein Knowledge Base folder ID not found — cannot write feedback")
         return
 
     # Find gaps.md in 07_Feedback
@@ -582,7 +579,7 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
             logger.info("Drive: created gaps.md with new feedback entry")
             from log_setup import append_decision_trace
             import datetime as _dt
-            append_decision_trace({"timestamp": _dt.datetime.utcnow().isoformat(), "event": "drive_write", "drive_write": True, "target": "07_Feedback/gaps.md", "action": "created"})
+            append_decision_trace({"timestamp": _dt.datetime.utcnow().isoformat(), "event": "drive_write", "drive_write": True, "target": "05_Ainstein Knowledge Base/gaps.md", "action": "created"})
         except Exception as e:
             logger.error("Drive: failed to create gaps.md: %s", e)
     else:
@@ -612,7 +609,7 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
             logger.info("Drive: updated gaps.md with new feedback entry")
             from log_setup import append_decision_trace
             import datetime as _dt
-            append_decision_trace({"timestamp": _dt.datetime.utcnow().isoformat(), "event": "drive_write", "drive_write": True, "target": "07_Feedback/gaps.md", "action": "updated"})
+            append_decision_trace({"timestamp": _dt.datetime.utcnow().isoformat(), "event": "drive_write", "drive_write": True, "target": "05_Ainstein Knowledge Base/gaps.md", "action": "updated"})
         except Exception as e:
             logger.error("Drive: failed to update gaps.md: %s", e)
 
@@ -625,7 +622,7 @@ def drive_read_gaps(max_chars: int = 5000) -> str | None:
     if not service:
         return None
     folder_ids = _get_drive_folder_ids()
-    feedback_folder_id = folder_ids.get("07_Feedback")
+    feedback_folder_id = folder_ids.get("05_Ainstein Knowledge Base")
     if not feedback_folder_id:
         return None
     try:
@@ -675,7 +672,7 @@ def drive_read_kennis_laag(max_chars: int = 8000) -> str | None:
     if not service:
         return None
     folder_ids = _get_drive_folder_ids()
-    marketing_id = folder_ids.get("06_Marketing")
+    marketing_id = folder_ids.get("04_Marketing")
     if not marketing_id:
         return None
     try:
@@ -744,7 +741,7 @@ def load_kennis_context(max_chars: int = 8000) -> str:
                 raw = drive_read_kennis_laag(max_chars=max_chars)
                 content = raw or ""
             else:
-                kennis_path = SOURCE_ROOT / "06_Marketing" / "_kennis" / "kennis_laag.md"
+                kennis_path = SOURCE_ROOT / "04_Marketing" / "_kennis" / "kennis_laag.md"
                 if kennis_path.exists():
                     raw = kennis_path.read_text(encoding="utf-8")
                     if len(raw) > max_chars:
@@ -2023,7 +2020,7 @@ TOOL_SCHEMAS = [
             "Results are sorted by modified date (newest first). "
             "Use this to understand what material is available, find recent additions, "
             "compare versions, or answer questions about when files were added or changed. "
-            "Folders: 01_Proposals, 02_Tools, 03_Pricing, 04_Experts, 05_Venues, 06_Marketing, 07_Feedback, 08_Outcomes."
+            "Folders: 01_Clients, 02_Frameworks & Tools, 03_Experts, 04_Marketing, 05_Ainstein Knowledge Base."
         ),
         "input_schema": {
             "type": "object",

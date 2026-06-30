@@ -21,7 +21,7 @@ Use this skill when the request includes questions like:
 
 ## Stap 0 — ICP-check (altijd eerst)
 
-Lees `06_Marketing/icp.md` uit de bronnenlaag vóórdat je begint.
+Lees `04_Marketing/icp.md` uit de bronnenlaag vóórdat je begint.
 Toets de prospect op: doelgroep, trigger, organisatiekenmerken, rode vlaggen.
 Geef een ICP-verdict: **Fit** / **Fit met voorbehoud** / **Geen fit**.
 Bij **Geen fit**: stop direct. Leg uit waarom. Ga niet verder.
@@ -29,10 +29,10 @@ Bij **Geen fit**: stop direct. Leg uit waarom. Ga niet verder.
 ## Inputs to Retrieve
 
 **GTM-bronnen (lees als eerste):**
-- `06_Marketing/icp.md` — ICP-check (zie Stap 0 hierboven)
-- `06_Marketing/acquisitie_protocol.md` — de vereiste outputstructuur (7 stappen) en gedragsregels
-- `06_Marketing/positioning.md` — propositie en message pillars voor de koppeling in stap 2
-- `06_Marketing/gtm_strategy.md` — GTM-aanpak en salesprincipes
+- `04_Marketing/icp.md` — ICP-check (zie Stap 0 hierboven)
+- `04_Marketing/acquisitie_protocol.md` — de vereiste outputstructuur (7 stappen) en gedragsregels
+- `04_Marketing/positioning.md` — propositie en message pillars voor de koppeling in stap 2
+- `04_Marketing/gtm_strategy.md` — GTM-aanpak en salesprincipes
 
 **Commerciële bronnen:**
 Pull relevant source material from:

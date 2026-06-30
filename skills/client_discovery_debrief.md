@@ -19,10 +19,10 @@ Use this skill when:
 
 ## What to Do Before Generating
 1. Read all input — call notes, email context, any prior information about the client
-2. Search `01_Proposals` for comparable client situations (same sector, similar challenge type)
-3. Search `02_Tools` for SCOPE for Change module logic relevant to the apparent need
+2. Search `01_Clients` for comparable client situations (same sector, similar challenge type)
+3. Search `02_Frameworks & Tools` for SCOPE for Change module logic relevant to the apparent need
 
-(Past feedback in `07_Feedback/gaps.md` is consulted globally — see the system-level feedback rule.)
+(Past feedback in `05_Ainstein Knowledge Base/gaps.md` is consulted globally — see the system-level feedback rule.)
 
 ## The 11 Required Output Sections
 
@@ -63,7 +63,7 @@ State the diagnosis clearly: "This is primarily a [dimension] challenge with a s
 
 ### 7. Relevant SCOPE for Change Direction
 Based on the diagnosis, which SCOPE for Change modules are most likely to be relevant?
-Search `02_Tools` for module descriptions. Name 2–4 modules with a brief rationale for each.
+Search `02_Frameworks & Tools` for module descriptions. Name 2–4 modules with a brief rationale for each.
 Do not force-fit the full 10-module program — match to the actual need.
 Flag if the source layer is thin on specific module detail.
 
@@ -103,7 +103,7 @@ Format each as a direct question:
 
 Each proposal must be specific and immediately executable. Not "do more research" — name what, for whom, to what end. Examples:
 - "Wil je dat ik een eerste voorstel-richting voor [klant] uitwerk op basis van de SCOPE-modules die passen?"
-- "Wil je dat ik de drie meest relevante experts uit 04_Experts zoek voor dit type programma?"
+- "Wil je dat ik de drie meest relevante experts uit 03_Experts zoek voor dit type programma?"
 - "Wil je dat ik de open vragen uit sectie 9 omzet in een concrete vragenlijst voor de volgende call?"
 
 If you cannot identify a genuinely useful proactive action, skip this section rather than filling it with generic suggestions.
@@ -116,7 +116,7 @@ If you cannot identify a genuinely useful proactive action, skip this section ra
 5. The debrief must be useful to someone who was NOT on the call. No references to "as mentioned" without the content.
 6. Never fabricate client facts, organizational context, or commercial signals not present in the input.
 7. **Challenge the assumptions in the meeting.** Identify where the client or the Minkowski team accepted something without questioning it. Name the assumption explicitly and explain why it deserves scrutiny. This is often more valuable than summarising what was agreed.
-8. **Add what the source layer knows but the meeting didn't surface.** Search `01_Proposals` and `02_Tools` for relevant patterns. If something important was not discussed but should have been — a relevant program, a known risk, a comparable client situation — name it. Don't wait to be asked.
+8. **Add what the source layer knows but the meeting didn't surface.** Search `01_Clients` and `02_Frameworks & Tools` for relevant patterns. If something important was not discussed but should have been — a relevant program, a known risk, a comparable client situation — name it. Don't wait to be asked.
 
 ## Quality Check
 Before finalizing, ask:

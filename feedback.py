@@ -5,7 +5,7 @@ Flow (Slack 👎):
   1. User reacts 👎 on a bot message in Slack
   2. Bot posts a thread follow-up: "what could be better?"
   3. User's next thread message is captured, classified (technical/qualitative + sub-label),
-     and appended to 07_Feedback/gaps.md
+     and appended to 05_Ainstein Knowledge Base/gaps.md
   4. search_files picks up that file automatically on future retrievals
 
 Flow (inline correction):
@@ -25,7 +25,7 @@ from threading import Lock
 
 from tools import SOURCE_ROOT
 
-FEEDBACK_DIR = SOURCE_ROOT / "07_Feedback"
+FEEDBACK_DIR = SOURCE_ROOT / "05_Ainstein Knowledge Base"
 GAPS_FILE = FEEDBACK_DIR / "gaps.md"
 
 # Vaste labelset. Auto-classifier moet hieruit kiezen; gebruiker kan overrulen.

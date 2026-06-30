@@ -14,9 +14,9 @@ Use this skill when:
 ## Inputs to Retrieve
 
 **Start hier:**
-- `01_Proposals` — zoek het voorstel of vergelijkbare deals. Lees de aanpak, het team, de prijslogica. Objecties komen altijd uit iets dat in het voorstel staat.
-- `03_Pricing/pricing_decision_matrix.md` en `03_Pricing/discount_and_escalation_rules.md` — voor prijs-gerelateerde bezwaren
-- `04_Experts` — als de bezwaren team-gerelateerd zijn of gaan over geloofwaardigheid van de mensen
+- `01_Clients` — zoek het voorstel of vergelijkbare deals. Lees de aanpak, het team, de prijslogica. Objecties komen altijd uit iets dat in het voorstel staat.
+- `04_Marketing/Pricing/pricing_decision_matrix.md` en `04_Marketing/Pricing/discount_and_escalation_rules.md` — voor prijs-gerelateerde bezwaren
+- `03_Experts` — als de bezwaren team-gerelateerd zijn of gaan over geloofwaardigheid van de mensen
 
 **Web research (altijd, bij bekende klant):**
 Zoek naar recente veranderingen bij de klant die een bezwaar kunnen verklaren: nieuw leiderschap, kostenbesparingen, gewijzigde strategie, concurrent die heeft binnengehaald.

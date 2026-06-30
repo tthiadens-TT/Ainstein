@@ -14,13 +14,13 @@ Use this skill when:
 ## Inputs to Retrieve — Always Start Here
 
 **Verplicht ophalen vóór je begint:**
-- `06_Marketing/positioning.md` — de kernbelofte en differentiators die je vertaalt (nooit iets verzinnen dat hier niet in staat)
-- `06_Marketing/verbal_identity.md` — toon en vocabulaire die ook in de vertaling overeind moeten blijven
-- `06_Marketing/brand_core.md` — de waarden die in alle versies intact zijn
+- `04_Marketing/positioning.md` — de kernbelofte en differentiators die je vertaalt (nooit iets verzinnen dat hier niet in staat)
+- `04_Marketing/verbal_identity.md` — toon en vocabulaire die ook in de vertaling overeind moeten blijven
+- `04_Marketing/brand_core.md` — de waarden die in alle versies intact zijn
 
 **Conditioneel ophalen:**
-- `04_Experts` — zijn er experts met directe sector-credibiliteit? Haal het profiel op, noem ze met naam
-- `01_Proposals` — zijn er eerdere voorstellen aan dezelfde sector of hetzelfde roltype? Wat werkte?
+- `03_Experts` — zijn er experts met directe sector-credibiliteit? Haal het profiel op, noem ze met naam
+- `01_Clients` — zijn er eerdere voorstellen aan dezelfde sector of hetzelfde roltype? Wat werkte?
 
 **Web research (bij bekende sector of bedrijf):**
 Zoek naar wat de dominante zorg is bij de doelrol in deze sector op dit moment. "CHRO healthcare Netherlands 2025" of "CFO financial services leadership development" — wat houdt ze bezig? Dit maakt de vertaling concreet en actueel.
@@ -46,9 +46,9 @@ Gebruik de kernbelofte uit `positioning.md` als basis — niet als copy-paste, m
 
 ### 5. Select Proof Signals
 Welke concrete elementen uit de bronnenlaag zijn het meest geloofwaardig voor dit publiek?
-- Sector-relevante cases of klanten (uit `01_Proposals`)
-- Experts met directe sector-achtergrond (uit `04_Experts`)
-- Methodes of formats die bij hun manier van werken passen (uit `02_Tools`)
+- Sector-relevante cases of klanten (uit `01_Clients`)
+- Experts met directe sector-achtergrond (uit `03_Experts`)
+- Methodes of formats die bij hun manier van werken passen (uit `02_Frameworks & Tools`)
 
 Als de bronnenlaag hier te dun is: zeg dat expliciet. Dat is bruikbare commerciële intelligentie.
 

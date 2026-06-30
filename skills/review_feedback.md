@@ -10,8 +10,8 @@ This is the loop-closing skill. Without it, `gaps.md` just grows; with it, patte
 - Recommended cadence: weekly or after every ~10 new entries — but only when the user asks
 
 ## Inputs to Retrieve
-1. Read `07_Feedback/gaps.md` in full (use `read_file`)
-2. Optional: list `07_Feedback/reviews/` so you don't repeat actions already proposed in a recent review
+1. Read `05_Ainstein Knowledge Base/gaps.md` in full (use `read_file`)
+2. Optional: list `05_Ainstein Knowledge Base/reviews/` so you don't repeat actions already proposed in a recent review
 
 If `gaps.md` is empty or has fewer than 3 entries: say so explicitly and stop. A review on 1–2 entries is noise, not signal.
 
@@ -48,7 +48,7 @@ Every action must be:
 - One per pattern — don't bundle
 
 ### 4. Write the report
-Write the report to `07_Feedback/reviews/YYYY-MM-DD.md` using the `read_file` + filesystem tools available. (If you cannot write to the source layer directly, output the report content in your reply and tell the user to save it manually with the suggested filename.)
+Write the report to `05_Ainstein Knowledge Base/reviews/YYYY-MM-DD.md` using the `read_file` + filesystem tools available. (If you cannot write to the source layer directly, output the report content in your reply and tell the user to save it manually with the suggested filename.)
 
 ## Output Format
 

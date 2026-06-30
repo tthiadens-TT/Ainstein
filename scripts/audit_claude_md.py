@@ -47,14 +47,11 @@ SKIP_MODULES = {
 # Drive-mappen die in de code voorkomen en gedocumenteerd moeten zijn
 EXPECTED_DRIVE_FOLDERS = [
     "00_Werkdocumenten",
-    "01_Proposals",
-    "02_Tools",
-    "03_Pricing",
-    "04_Experts",
-    "05_Venues",
-    "06_Marketing",
-    "07_Feedback",
-    "08_Outcomes",
+    "01_Clients",
+    "02_Frameworks & Tools",
+    "03_Experts",
+    "04_Marketing",
+    "05_Ainstein Knowledge Base",
     "_bronmateriaal",
     "_kennis",
 ]

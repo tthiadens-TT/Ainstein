@@ -14,15 +14,15 @@ Use this skill when:
 ## Inputs to Retrieve — Read These First
 
 **Verplicht ophalen — dit is het materiaal dat je aanscherpt:**
-- `06_Marketing/positioning.md` — de huidige kernpositionering (dit is je startpunt, niet blanco)
-- `06_Marketing/verbal_identity.md` — toon, stijl, verboden woorden, wat Minkowski wel en niet zegt
-- `06_Marketing/brand_core.md` — waarden, DNA, wat echt distinctief is
+- `04_Marketing/positioning.md` — de huidige kernpositionering (dit is je startpunt, niet blanco)
+- `04_Marketing/verbal_identity.md` — toon, stijl, verboden woorden, wat Minkowski wel en niet zegt
+- `04_Marketing/brand_core.md` — waarden, DNA, wat echt distinctief is
 
 **Als er specifieke tekst meegegeven is:** werk vanuit die tekst. Lees dan bovenstaande bestanden als referentiekader, niet als vervanging.
 
 **Conditioneel ophalen:**
-- `01_Proposals` — voor concrete bewijs-grounding: welke claims zijn al succesvol gebruikt in proposals?
-- `04_Experts` — als de positionering rond expertise of menselijk kapitaal gaat
+- `01_Clients` — voor concrete bewijs-grounding: welke claims zijn al succesvol gebruikt in proposals?
+- `03_Experts` — als de positionering rond expertise of menselijk kapitaal gaat
 
 ## Steps
 
@@ -72,7 +72,7 @@ Korte aanpassingen per sector of doelgroep — vertaling van dezelfde kern, niet
 - Vermijd: "holistic", "transformational", "world-class", "end-to-end", "synergy".
 - Prefer: specifieke uitkomsten, spanningstermen die kopers herkennen, concrete activiteiten.
 - Als de bronnenlaag een claim niet ondersteunt: schrap de claim — verzacht hem niet.
-- Haal `06_Marketing` altijd op. Nooit aanscherpen zonder te weten wat er al staat.
+- Haal `04_Marketing` altijd op. Nooit aanscherpen zonder te weten wat er al staat.
 
 ## Quality Check
 Before finalizing, ask:

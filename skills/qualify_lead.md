@@ -7,7 +7,7 @@ The output is a clear, grounded qualification verdict — not a polite "let's ex
 
 ## Stap 0 — ICP-check (altijd eerst)
 
-Lees `06_Marketing/icp.md` uit de bronnenlaag vóórdat je kwalificeert.
+Lees `04_Marketing/icp.md` uit de bronnenlaag vóórdat je kwalificeert.
 Toets de prospect op: doelgroep, trigger, organisatiekenmerken, rode vlaggen.
 Geef een ICP-verdict: **Fit** / **Fit met voorbehoud** / **Geen fit**.
 Bij **Geen fit**: stop direct. Geef een Deprioritize-verdict met uitleg waarom de prospect niet in de ICP past. Ga niet verder naar stap 1.
@@ -16,12 +16,12 @@ Ga alleen door naar stap 1 als de ICP-check positief is.
 ## Inputs to Retrieve
 
 **Primary — Minkowski source layer (start here):**
-- `06_Marketing/icp.md` — ICP-check (zie Stap 0 hierboven)
-- `06_Marketing/acquisitie_protocol.md` — structuur voor output en gedragsregels
-- `01_Proposals` — has Minkowski done comparable work in this sector or for this type of buyer? What was the framing, scope, outcome?
-- `04_Experts` — does Minkowski have credible facilitator/expert profiles for this kind of challenge?
-- `02_Tools` — are there relevant SCOPE for Change modules or methods that match the apparent need?
-- `03_Pricing` — what does Minkowski's pricing look like for comparable engagements?
+- `04_Marketing/icp.md` — ICP-check (zie Stap 0 hierboven)
+- `04_Marketing/acquisitie_protocol.md` — structuur voor output en gedragsregels
+- `01_Clients` — has Minkowski done comparable work in this sector or for this type of buyer? What was the framing, scope, outcome?
+- `03_Experts` — does Minkowski have credible facilitator/expert profiles for this kind of challenge?
+- `02_Frameworks & Tools` — are there relevant SCOPE for Change modules or methods that match the apparent need?
+- `04_Marketing/Pricing` — what does Minkowski's pricing look like for comparable engagements?
 
 **Secondary — web search (always run, validates assumptions):**
 For every qualification, run at least 2 web searches:

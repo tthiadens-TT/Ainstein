@@ -15,14 +15,14 @@ Do NOT trigger on "content" alone — that word appears in too many other contex
 ## Inputs to Retrieve — Always Start Here
 
 **Verplicht ophalen vóór je begint:**
-- `06_Marketing/positioning.md` — kernbelofte, differentiators, wat Minkowski wel en niet is
-- `06_Marketing/verbal_identity.md` — toon, woordkeuze, wat te vermijden
-- `06_Marketing/brand_core.md` — brand DNA, waarden, missie
+- `04_Marketing/positioning.md` — kernbelofte, differentiators, wat Minkowski wel en niet is
+- `04_Marketing/verbal_identity.md` — toon, woordkeuze, wat te vermijden
+- `04_Marketing/brand_core.md` — brand DNA, waarden, missie
 
 **Conditioneel ophalen:**
-- `06_Marketing/one_pager_template.md` — bij one-pager verzoek: gebruik de structuur die er al is
-- `01_Proposals` — bij concrete cases of proof points: zoek vergelijkbare klantcontext
-- `04_Experts` — bij content over expertise of mensen: haal het echte profiel op, verzin niets
+- `04_Marketing/one_pager_template.md` — bij one-pager verzoek: gebruik de structuur die er al is
+- `01_Clients` — bij concrete cases of proof points: zoek vergelijkbare klantcontext
+- `03_Experts` — bij content over expertise of mensen: haal het echte profiel op, verzin niets
 
 Als de bronnenlaag te dun is voor het gevraagde claim: zeg dat expliciet. Schrijf nooit om dat te verbergen.
 
@@ -71,7 +71,7 @@ CTA (één duidelijke actie, niet drie)
 Max 300 woorden.
 
 ### One-Pager
-Gebruik de structuur uit `06_Marketing/one_pager_template.md` als basis.
+Gebruik de structuur uit `04_Marketing/one_pager_template.md` als basis.
 Volgorde: uitdaging-framing → Minkowski-hoek → programmalogica → uitkomst-framing → call to action.
 
 ### Artikel
@@ -85,7 +85,7 @@ Slot (wat te doen met dit denken)
 - Elk asset heeft een scherp punt — niet alleen een onderwerp.
 - Verzin nooit case-resultaten, klantnamen of uitkomsten.
 - Als bewijs ontbreekt: schrijf er eerlijk omheen of benoem de gap.
-- Haal altijd de bronnenlaag op. Nooit blind schrijven zonder `06_Marketing` te hebben gelezen.
+- Haal altijd de bronnenlaag op. Nooit blind schrijven zonder `04_Marketing` te hebben gelezen.
 
 ## Quality Check
 Before finalizing, ask:

@@ -8,12 +8,12 @@ The output is a structured set of questions that closes the gaps identified in q
 ## Inputs to Retrieve
 
 **Primary — Minkowski source layer (start here):**
-- `01_Proposals` — comparable client situations (same sector, similar challenge type). What did Minkowski ask in those briefs?
-- `02_Tools` — relevant SCOPE for Change modules and frameworks that suggest the right reframe questions.
-- `04_Experts` — expert perspectives that point to deeper questions about leadership, facilitation, or program design.
-- `06_Marketing` — Minkowski's positioning language to inform the framing question.
+- `01_Clients` — comparable client situations (same sector, similar challenge type). What did Minkowski ask in those briefs?
+- `02_Frameworks & Tools` — relevant SCOPE for Change modules and frameworks that suggest the right reframe questions.
+- `03_Experts` — expert perspectives that point to deeper questions about leadership, facilitation, or program design.
+- `04_Marketing` — Minkowski's positioning language to inform the framing question.
 
-(Past feedback in `07_Feedback/gaps.md` is consulted globally — see the system-level feedback rule.)
+(Past feedback in `05_Ainstein Knowledge Base/gaps.md` is consulted globally — see the system-level feedback rule.)
 
 **Secondary — web search (always run, validates current company context):**
 For every discovery prep, run at least 2 web searches:

@@ -11,8 +11,8 @@ Onafhankelijkheid bepaalt *zekerheid*; verrijking bepaalt *compleetheid*. Dit is
 ## Wat een oorsprong betekent (voorbeelden)
 - `jorgen` / `minkowski` — wat Minkowski naar buiten **verkondigt** (LinkedIn, Substack, Medium, website). Let op: al deze eigen kanalen zijn ten hoogste twee stemmen (`jorgen`, `minkowski`), géén losse bevestigingen per kanaal.
 - `minkowski-intern` (Slack) — intern denken/operatie.
-- `commercieel` (01_Proposals) — wat we **verkopen/pitchen**.
-- `klant` (08_Outcomes) — win/verlies; een volledig onafhankelijke stem.
+- `commercieel` (01_Clients) — wat we **verkopen/pitchen**.
+- `klant` (01_Clients/<naam>/Outcomes) — win/verlies; een volledig onafhankelijke stem.
 - `gesprekken` (Jamie) — meetings; klanten/experts/collega's.
 
 ## Werkwijze
@@ -86,7 +86,7 @@ _Laatste run: {datum} | verrijken + bevestigen (onafhankelijke oorsprongen) | NI
 **Verkocht, niet verkondigd:** [bullets of "niets opvallends"]
 **Nieuwe bevestigde kennis (3+ oorsprongen):** [bullets]
 **Veranderd/vervaagd over tijd:** [bullets — gewijzigde of vervagende entiteiten + wat te herverifiëren is; of "niets opvallends"]
-**Kanttekening:** [bv. dun klant-signaal als 08_Outcomes leeg is]
+**Kanttekening:** [bv. dun klant-signaal als 01_Clients/<naam>/Outcomes leeg is]
 <<<SAMENVATTING_END>>>
 ```
 

@@ -17,16 +17,16 @@ Use this skill when the request includes questions like:
 ## Inputs to Retrieve
 
 **Start altijd hier — in deze volgorde:**
-1. `04_Experts/minkowski_decision_layer.json` — gestructureerde index: expertise per expert, rollen, sectoren. Gebruik dit voor de eerste filtering voordat je individuele profielen leest.
-2. `04_Experts/minkowski_team_profiles_index.json` — profielen-index met kerncompetenties en trefwoorden.
-3. `04_Experts/Minkowski_AI_Assistant_Selection_Logic.docx` — de selectiecriteria die Minkowski hanteert. Raadpleeg dit als je twijfelt over rol-fit of combinaties.
-4. Individuele `04_Experts/<naam>_Profile.docx` — voor de shortlist: lees het volledige profiel van elke kandidaat die je serieus overweegt. Er zijn 18 individuele profielen beschikbaar.
-5. `04_Experts/00_Minkowski_Team_Profiles_Overview.docx` — teamoverzicht als contextuele aanvulling.
+1. `03_Experts/minkowski_decision_layer.json` — gestructureerde index: expertise per expert, rollen, sectoren. Gebruik dit voor de eerste filtering voordat je individuele profielen leest.
+2. `03_Experts/minkowski_team_profiles_index.json` — profielen-index met kerncompetenties en trefwoorden.
+3. `03_Experts/Minkowski_AI_Assistant_Selection_Logic.docx` — de selectiecriteria die Minkowski hanteert. Raadpleeg dit als je twijfelt over rol-fit of combinaties.
+4. Individuele `03_Experts/<naam>_Profile.docx` — voor de shortlist: lees het volledige profiel van elke kandidaat die je serieus overweegt. Er zijn 18 individuele profielen beschikbaar.
+5. `03_Experts/00_Minkowski_Team_Profiles_Overview.docx` — teamoverzicht als contextuele aanvulling.
 
 **Conditioneel ophalen:**
-- `01_Proposals` — voor voorbeelden van eerdere expert-combinaties in vergelijkbare opdrachten
-- `02_Tools` — als het format of de methode het type expert bepaalt (b.v. Wheel of Reasoning vraagt een specifiek facilitatieprofiel)
-- `06_Marketing` — als team-positionering commercieel relevant is in een voorstel
+- `01_Clients` — voor voorbeelden van eerdere expert-combinaties in vergelijkbare opdrachten
+- `02_Frameworks & Tools` — als het format of de methode het type expert bepaalt (b.v. Wheel of Reasoning vraagt een specifiek facilitatieprofiel)
+- `04_Marketing` — als team-positionering commercieel relevant is in een voorstel
 
 **Gebruik ook:**
 - Client brief, programma-doelstelling, doelgroep, sessieformat, gewenste toon of geloofwaardigheidsniveau

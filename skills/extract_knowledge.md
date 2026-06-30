@@ -21,8 +21,8 @@ Onafhankelijkheid bepaalt *zekerheid*; verrijking bepaalt *compleetheid*. Dit is
 
 - `jorgen-published` (LinkedIn, Substack) — wat Minkowski naar buiten **verkondigt**.
 - `minkowski-intern` (Slack) — intern denken/operatie.
-- `commercieel` (01_Proposals) — wat we **verkopen/pitchen**.
-- `klant` (08_Outcomes) — win/verlies; de enige volledig onafhankelijke stem.
+- `commercieel` (01_Clients) — wat we **verkopen/pitchen**.
+- `klant` (01_Clients/<naam>/Outcomes) — win/verlies; de enige volledig onafhankelijke stem.
 
 ## Werkwijze
 
@@ -32,7 +32,7 @@ Neem elk bestaand blok over. Onthoud welke entiteiten `gepromoveerd` of `afgewez
 **Stap 2 — Verrijken: lees alle bronnen per oorsprong.**
 Voor elke bron in de lijst: gebruik `list_folder` op de top-map uit `locatie` en filter op het pad, dan `read_file` op de relevante bestanden.
 - Goedkope bronnen (`.md` in `_bronmateriaal`): lees volledig.
-- Dure bronnen (`01_Proposals`, `.docx`/`.pdf`): lees de **recentste per klant-submap, totaal ≤8**. Toets daarna kandidaat-onderwerpen liever met `search_files` dan alles voluit te lezen.
+- Dure bronnen (`01_Clients`, `.docx`/`.pdf`): lees de **recentste per klant-submap, totaal ≤8**. Toets daarna kandidaat-onderwerpen liever met `search_files` dan alles voluit te lezen.
 - Een lege/onleesbare bron: meld het expliciet, ga door (nooit stilzwijgend overslaan).
 
 Verzamel per onderwerp (entiteit) de **facetten**: welke concrete dingen zeggen de bronnen erover, en bij welke oorsprong hoort elk facet?
@@ -61,7 +61,7 @@ Match nieuwe bevindingen op **genormaliseerde naam** (lowercase, leestekens weg,
 **Verkondigd, niet verkocht:** [bullets of "niets opvallends"]
 **Verkocht, niet verkondigd:** [bullets of "niets opvallends"]
 **Nieuwe bevestigde kennis (3+ oorsprongen):** [bullets]
-**Kanttekening:** [bv. dun klant-signaal als 08_Outcomes leeg is]
+**Kanttekening:** [bv. dun klant-signaal als 01_Clients/<naam>/Outcomes leeg is]
 ```
 
 **Laag-modus** — exact twee fenced blokken, niets eromheen dat ertussen hoort:

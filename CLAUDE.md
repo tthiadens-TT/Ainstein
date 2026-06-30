@@ -42,10 +42,10 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`); Sen ExtraBold OOXML-embedded; triggerable via Slack `/pptx`
 - **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen
 - **Double Helix kennislaag** — elke entiteit in kennis_laag.md heeft twee labels: `Zekerheid` (ONBEVESTIGD/INFORMATIE/KENNIS) + `Type` (feit/overtuiging/afleiding). Skills: `extract_knowledge_distilleer.md` en `extract_knowledge_merge.md`.
-- **Entiteiten-register** — `06_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`): 21 experts (correcte naam: Jörgen van der Sloot), 8 klanten. Merge-skill checkt nieuwe namen hiertegen. `[NIET_GEVERIFIEERD]` voor onbekende entiteiten.
+- **Entiteiten-register** — `04_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`): 21 experts (correcte naam: Jörgen van der Sloot), 8 klanten. Merge-skill checkt nieuwe namen hiertegen. `[NIET_GEVERIFIEERD]` voor onbekende entiteiten.
 - **update_drive_file.py** — `scripts/update_drive_file.py`: update bestaand Drive-bestand via service account. Gebruik: `python3 scripts/update_drive_file.py --file-id <ID> --local-path <pad>`
 - **Double Helix kennislaag herrun** — pipeline succesvol gedraaid 30 juni 2026 (stop_reason=end_turn, 111k chars). Type-labels actief in kennis_laag.md. REDUCE loopt via directe API-call, niet run_agent.
-- **kansen.md** — `06_Marketing/kansen.md` in Drive (ID: `1lcSCyA3QBMwLQTCFCKhIWC4MqHMGDDQN`): 4 say-vs-sell kansen geformuleerd als commercieel aandachtspunt. Aangemaakt 30 juni 2026.
+- **kansen.md** — `04_Marketing/kansen.md` in Drive (ID: `1lcSCyA3QBMwLQTCFCKhIWC4MqHMGDDQN`): 4 say-vs-sell kansen geformuleerd als commercieel aandachtspunt. Aangemaakt 30 juni 2026.
 
 ### Wat pending is
 - Geen open PRs. Alles staat op main.
@@ -208,20 +208,18 @@ The local repo (`/Users/thomasthiadens/Ainstein`) holds only **code** — never 
 | Subfolder | Use for |
 |---|---|
 | `00_Werkdocumenten` | Default landing zone for `save_note` output when no project hint is given. Working notes — not the source layer. |
-| `01_Proposals` | Previous proposals, proposal logic, commercial wording, module combinations. Contains client-specific subfolders (e.g. `NN Group/LEAD Programma's/Lead 3`). |
-| `02_Tools` | Frameworks, methods, workshop formats, facilitation tools, templates |
-| `03_Pricing` | Pricing structures, fee logic, modular pricing, assumptions |
-| `04_Experts` | Expert profiles, role definitions, expertise comparisons, matching logic |
-| `05_Venues` | Venue suggestions, format fit, experience design trade-offs |
-| `06_Marketing` | Proposition language, positioning, external messaging |
-| `06_Marketing/_bronmateriaal/` | Output van scrapers (LinkedIn, Medium, Substack, website, Slack) — plain-text `.md` per bron. Invoer voor kennis-laag pipeline. **Niet handmatig bewerken.** |
-| `06_Marketing/_kennis/` | Output van `run_kennisextractie.py` — `kennis_laag.md` (getrianguleerde kennis). **Niet handmatig bewerken — promotie is mensenwerk via Promotiebesluiten.** |
-| `07_Feedback` | Logged gaps from past bot answers — user critiques after 👎 reactions. Consult `gaps.md` directly via `read_file` before answering (not via search — term-matching is unreliable). |
-| `08_Outcomes` | Win/loss-records per voorstel. **Verplicht te raadplegen bij elk voorstel bouwen.** Gebruik logica en taal van WON voorstellen. Flag expliciet als je logica van een LOST voorstel hergebruikt — leg uit waarom het hier toch geldt. Als de map leeg is of geen relevant record bevat: zeg dat expliciet. |
+| `01_Clients` | All client work: proposals, outcomes, meeting notes, briefs. Structure: `01_Clients/<naam>/<Proposals|Outcomes|Meeting Notes|Presentations|Programs|Client Briefs>/`. E.g. `NN Group/LEAD Programma's/Lead 3/Proposals/`. |
+| `02_Frameworks & Tools` | Frameworks, methods, workshop formats, facilitation tools, templates |
+| `03_Experts` | Expert profiles, role definitions, expertise comparisons, matching logic. Contains 20+ individual profiles (.docx), decision layer JSON, and team overview. Always start here for expert matching. |
+| `04_Marketing` | Proposition language, positioning, external messaging |
+| `04_Marketing/_bronmateriaal/` | Output van scrapers (LinkedIn, Medium, Substack, website, Slack) — plain-text `.md` per bron. Invoer voor kennis-laag pipeline. **Niet handmatig bewerken.** |
+| `04_Marketing/_kennis/` | Output van `run_kennisextractie.py` — `kennis_laag.md` (getrianguleerde kennis). **Niet handmatig bewerken — promotie is mensenwerk via Promotiebesluiten.** |
+| `04_Marketing/Pricing/` | Pricing structures, fee logic, modular pricing, assumptions |
+| `04_Marketing/Venues/` | Venue suggestions, format fit, experience design trade-offs |
+| `05_Ainstein Knowledge Base` | Ainstein-intern: `gaps.md` (feedback loop), `Roadmap/` (strategische architectuurdocs). Consult `gaps.md` directly via `read_file` before answering (not via search — term-matching is unreliable). |
 
-**Writing to Drive:** Ainstein can create new Google Docs via the `save_note` tool. By default, docs land in `00_Werkdocumenten`. When a project hint (e.g. "LEAD3", "NN Group") is recognised, the doc is created in the matching subfolder (up to 5 levels deep). The source layer (`01_Proposals` to `07_Feedback`) should stay clean — only finalised, curated documents belong there. Aantekeningen and drafts live in `00_Werkdocumenten` until they're explicitly promoted.
+**Writing to Drive:** Ainstein can create new Google Docs via the `save_note` tool. By default, docs land in `00_Werkdocumenten`. When a project hint (e.g. "LEAD3", "NN Group") is recognised, the doc is created in the matching subfolder (up to 5 levels deep). The source layer (`01_Clients` to `05_Ainstein Knowledge Base`) should stay clean — only finalised, curated documents belong there. Aantekeningen and drafts live in `00_Werkdocumenten` until they're explicitly promoted.
 
-The `04_Experts` folder contains 20+ individual expert profiles (.docx), a team overview, a decision layer spreadsheet, and a structured JSON index — always start there for expert matching.
 
 ## How You Work
 
@@ -232,10 +230,10 @@ Identify whether the request calls for opportunity analysis, proposal support, e
 Use your tools to search and read source material first. Never skip this step. Use Grep and Glob to search the source folders. Use Read to open relevant files. Reuse before rewriting.
 
 **Mandatory files per task type:**
-- Methodologie beschrijven → lees altijd eerst `02_Tools/02_Tools_Agent_README.md` (SCOPE, Futures Cone, 7 Practices, Jörgens eigen uitleg)
-- Merk/toon/taal schrijven → lees `06_Marketing/verbal_identity.md` (verboden woorden, vocabulary pairs, directe citatbronnen)
-- Voorstel bouwen of verbeteren → raadpleeg `08_Outcomes` vóór alles
-- Vóór elk niet-triviaal antwoord → lees `07_Feedback/gaps.md` DIRECT via `read_file` (niet via `search_files` — term-matching is onbetrouwbaar)
+- Methodologie beschrijven → lees altijd eerst `02_Frameworks & Tools/02_Tools_Agent_README.md` (SCOPE, Futures Cone, 7 Practices, Jörgens eigen uitleg)
+- Merk/toon/taal schrijven → lees `04_Marketing/verbal_identity.md` (verboden woorden, vocabulary pairs, directe citatbronnen)
+- Voorstel bouwen of verbeteren → raadpleeg `01_Clients/<naam>/Outcomes` vóór alles
+- Vóór elk niet-triviaal antwoord → lees `05_Ainstein Knowledge Base/gaps.md` DIRECT via `read_file` (niet via `search_files` — term-matching is onbetrouwbaar)
 
 **Step 3 — Ground your answer in the Minkowski context.**
 Prefer Minkowski language, logic, examples, and structures over generic best practices.

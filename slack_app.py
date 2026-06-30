@@ -757,9 +757,9 @@ def cmd_kennisbronnen(body, ack, say):
         "Voer een kennis-analyse uit volgens de extract_knowledge skill in ad-hoc modus "
         "(géén kennis-laag aanwezig, dus geen laag-mutatie en geen fenced blokken). "
         "Lees de databronnen en weeg bevestiging per onafhankelijke oorsprong, niet per bron: "
-        "LinkedIn + Substack (`06_Marketing/_bronmateriaal/`) = oorsprong 'jorgen-published' (verkondigd); "
-        "Slack (`06_Marketing/_bronmateriaal/slack/`) = 'minkowski-intern'; "
-        "`01_Proposals` = 'commercieel' (verkocht); `08_Outcomes` = 'klant'. "
+        "LinkedIn + Substack (`04_Marketing/_bronmateriaal/`) = oorsprong 'jorgen-published' (verkondigd); "
+        "Slack (`04_Marketing/_bronmateriaal/slack/`) = 'minkowski-intern'; "
+        "`01_Clients` = 'commercieel' (verkocht); `01_Clients/<naam>/Outcomes` = 'klant'. "
         "Geef als kop de twee gaten: verkondigd-niet-verkocht en verkocht-niet-verkondigd."
     )
     t = threading.Thread(
@@ -1020,7 +1020,7 @@ def handle_dm(event, say, client):
             else:
                 say(
                     text=(
-                        f"_Genoteerd ✅ als `{ftype} / {cat}` in `07_Feedback/gaps.md`. "
+                        f"_Genoteerd ✅ als `{ftype} / {cat}` in `05_Ainstein Knowledge Base/gaps.md`. "
                         "Auto-classified door Ainstein — corrigeer het label direct in "
                         "`gaps.md` als het niet klopt. Volgende vergelijkbare vraag "
                         "komt dit in context, en `/feedback-review` haalt patronen eruit._"
@@ -1033,7 +1033,7 @@ def handle_dm(event, say, client):
             # Auto-trigger: stel review voor na elke 10 feedback-entries.
             if increment_and_check(threshold=10):
                 _notify_status(
-                    "_:bulb: 10 nieuwe feedback-entries geregistreerd in `07_Feedback/gaps.md`. "
+                    "_:bulb: 10 nieuwe feedback-entries geregistreerd in `05_Ainstein Knowledge Base/gaps.md`. "
                     "Overweeg `/feedback-review` te draaien om patronen te identificeren en "
                     "de bronnenlaag gericht te verbeteren._"
                 )
@@ -1211,7 +1211,7 @@ def handle_reaction(event, client):
             text=(
                 "_Dank voor de 👎. Wat had hier beter gekund? "
                 "Antwoord in deze thread — één regel is genoeg. "
-                "Komt terecht in `07_Feedback/gaps.md` zodat Ainstein er scherper van wordt._"
+                "Komt terecht in `05_Ainstein Knowledge Base/gaps.md` zodat Ainstein er scherper van wordt._"
             ),
             mrkdwn=True,
         )

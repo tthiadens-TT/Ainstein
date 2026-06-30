@@ -11,7 +11,7 @@ Je distilleert **één** databron tot een compacte lijst van onderwerpen (entite
 **Stap 1 — Lees de bestanden in deze bron.**
 Gebruik `list_folder` op de top-map uit `locatie` en filter op het pad, dan `read_file` op de relevante bestanden.
 - Goedkope bronnen (`.md` in `_bronmateriaal`): lees volledig.
-- Dure bronnen (`01_Proposals`, `.docx`/`.pdf`): lees de **recentste per klant-submap, totaal ≤8**. Toets kandidaat-onderwerpen liever met `search_files` dan alles voluit te lezen.
+- Dure bronnen (`01_Clients`, `.docx`/`.pdf`): lees de **recentste per klant-submap, totaal ≤8**. Toets kandidaat-onderwerpen liever met `search_files` dan alles voluit te lezen.
 - Een leeg/onleesbaar bestand: meld het op een eigen regel (`- LET OP: {bestand} onleesbaar`), ga door — nooit stilzwijgend overslaan.
 
 **Stap 2 — Verzamel per onderwerp de facetten.**

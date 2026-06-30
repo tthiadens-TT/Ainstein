@@ -30,9 +30,9 @@ Gebruik deze notatie:
 
 **Stap 4 — Kennis ophalen uit de bronnenlaag**
 Zoek in Drive wat relevant is voor dit gesprek en deze taken:
-- Eerdere voorstellen of werk voor deze klant (01_Proposals)
-- Vergelijkbare programma's of formats (02_Tools)
-- Expert-profielen die relevant zijn (04_Experts)
+- Eerdere voorstellen of werk voor deze klant (01_Clients)
+- Vergelijkbare programma's of formats (02_Frameworks & Tools)
+- Expert-profielen die relevant zijn (03_Experts)
 Gebruik search_files en read_file. Alleen als het echt relevant is.
 
 **Stap 5 — Bronnenlaag aanvullen**

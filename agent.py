@@ -84,7 +84,7 @@ SKILL_INTROS = {
     ),
     # Meta-skill
     "review_feedback": (
-        "I'm ready to review the feedback log. I'll read `07_Feedback/gaps.md`, group entries into patterns, "
+        "I'm ready to review the feedback log. I'll read `05_Ainstein Knowledge Base/gaps.md`, group entries into patterns, "
         "and propose one concrete edit per pattern — with file paths Thomas can act on."
     ),
 }
@@ -256,7 +256,7 @@ def run_agent(
             system.append({
                 "type": "text",
                 "text": (
-                    "## Feedback log (07_Feedback/gaps.md)\n\n"
+                    "## Feedback log (05_Ainstein Knowledge Base/gaps.md)\n\n"
                     "Recente 👎-feedback van gebruikers op eerdere antwoorden. "
                     "Verwerk dit als context: vermijd patroonfouten die hier benoemd zijn, "
                     "en houd rekening met open items bij het formuleren van je antwoord.\n\n"
@@ -274,7 +274,7 @@ def run_agent(
             system.append({
                 "type": "text",
                 "text": (
-                    "## Kennis-laag (06_Marketing/_kennis/kennis_laag.md)\n\n"
+                    "## Kennis-laag (04_Marketing/_kennis/kennis_laag.md)\n\n"
                     "Getrianguleerde Minkowski-kennis — bevestigd over meerdere onafhankelijke bronnen. "
                     "Gebruik als achtergrond bij voorstellen, expert-matching en positioneringsvragen.\n\n"
                     "Elke entiteit heeft twee onafhankelijke kwaliteitslabels (Double Helix):\n"

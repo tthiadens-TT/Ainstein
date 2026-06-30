@@ -22,11 +22,11 @@ Use this skill when the request includes questions like:
 
 ## Inputs to Retrieve
 Retrieve from:
-- `01_Proposals` for similar proposals, structures, and wording
-- `02_Tools` for methods, formats, and program logic
-- `03_Pricing` for commercial structure and pricing logic
-- `04_Experts` for relevant profiles and staffing options
-- `06_Marketing` for proposition language and positioning
+- `01_Clients` for similar proposals, structures, and wording
+- `02_Frameworks & Tools` for methods, formats, and program logic
+- `04_Marketing/Pricing` for commercial structure and pricing logic
+- `03_Experts` for relevant profiles and staffing options
+- `04_Marketing` for proposition language and positioning
 
 Also use:
 - client brief

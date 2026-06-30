@@ -28,7 +28,6 @@ SKIP_MODULES = {
     "read_gdoc_comments.py", # utility
     "update_gdoc.py",        # utility
     "list_drive_changes.py", # utility
-    "setup_outcomes.py",     # eenmalig setup script
     "run_backup.sh",         # bash, geen py
     "__init__.py",
     # Scrapers: gedekt door generieke vermelding in Current State

@@ -12,7 +12,7 @@ Onafhankelijkheid bepaalt *zekerheid*; verrijking bepaalt *compleetheid*. Dit is
 - `jorgen` / `minkowski` — wat Minkowski naar buiten **verkondigt** (LinkedIn, Substack, Medium, website). Let op: al deze eigen kanalen zijn ten hoogste twee stemmen (`jorgen`, `minkowski`), géén losse bevestigingen per kanaal.
 - `minkowski-intern` (Slack) — intern denken/operatie.
 - `commercieel` (01_Clients) — wat we **verkopen/pitchen**.
-- `klant` (01_Clients/<naam>/Outcomes) — win/verlies; een volledig onafhankelijke stem.
+- `klant` (01_Clients/<naam>/Programs of finale voorstel-doc) — geaccepteerd voorstel of programma-ontwerp is het sterkste klant-signaal.
 - `gesprekken` (Jamie) — meetings; klanten/experts/collega's.
 
 ## Werkwijze

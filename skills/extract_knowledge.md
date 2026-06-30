@@ -22,7 +22,7 @@ Onafhankelijkheid bepaalt *zekerheid*; verrijking bepaalt *compleetheid*. Dit is
 - `jorgen-published` (LinkedIn, Substack) — wat Minkowski naar buiten **verkondigt**.
 - `minkowski-intern` (Slack) — intern denken/operatie.
 - `commercieel` (01_Clients) — wat we **verkopen/pitchen**.
-- `klant` (01_Clients/<naam>/Outcomes) — win/verlies; de enige volledig onafhankelijke stem.
+- `klant` (01_Clients/<naam>/Programs of finale voorstel-doc) — programma-ontwerp en geaccepteerd voorstel zijn het sterkste signaal dat iets werkt. Volledig onafhankelijke stem.
 
 ## Werkwijze
 

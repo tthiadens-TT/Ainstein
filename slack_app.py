@@ -759,7 +759,7 @@ def cmd_kennisbronnen(body, ack, say):
         "Lees de databronnen en weeg bevestiging per onafhankelijke oorsprong, niet per bron: "
         "LinkedIn + Substack (`04_Marketing/_bronmateriaal/`) = oorsprong 'jorgen-published' (verkondigd); "
         "Slack (`04_Marketing/_bronmateriaal/slack/`) = 'minkowski-intern'; "
-        "`01_Clients` = 'commercieel' (verkocht); `01_Clients/<naam>/Outcomes` = 'klant'. "
+        "`01_Clients` = 'commercieel' (verkocht + programma-ontwerp = sterkste klant-signaal)."
         "Geef als kop de twee gaten: verkondigd-niet-verkocht en verkocht-niet-verkondigd."
     )
     t = threading.Thread(

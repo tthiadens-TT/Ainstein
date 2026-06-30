@@ -469,15 +469,6 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         except Exception:
             pass
 
-    outcomes_filled = False
-    if DRIVE_SNAPSHOT.exists():
-        try:
-            snapshot = json.loads(DRIVE_SNAPSHOT.read_text())
-            real = [k for k in snapshot if "08_Outcomes" in k and "TEMPLATE" not in k]
-            outcomes_filled = len(real) > 0
-        except Exception:
-            pass
-
     return {
         "generated_at": now.strftime("%d %b %Y, %H:%M UTC"),
         "last_activity": last_ts.strftime("%d %b %Y, %H:%M") if last_ts else None,
@@ -496,7 +487,6 @@ def compute_metrics(entries, vm, svc, svc_health, gcp, errors, now):
         "cost_month_label": now.strftime("%B %Y"),
         "last_kl": last_kl_ts.strftime("%d %b %Y") if last_kl_ts else None,
         "kl_age_days": kl_age_days,
-        "outcomes_filled": outcomes_filled,
         "total_entries": len(entries),
         "_entries": entries,
         "skills_30d": skills_30d,
@@ -903,15 +893,6 @@ def render_card_kennislaag(m):
         kl_note = "actueel"
         kl_tip = "De kennislaag is recent bijgewerkt. Ainstein heeft actuele kennis van Minkowski."
 
-    out_col = "#2A7A5A" if m["outcomes_filled"] else "#C0392B"
-    out_label = "Gevuld" if m["outcomes_filled"] else "Leeg — actie vereist"
-    out_note = "win/loss records beschikbaar" if m["outcomes_filled"] else "NN IC invullen (5 min)"
-    out_tip = (
-        "Win/loss-records beschikbaar. Ainstein kan hierop leunen bij het bouwen van voorstellen."
-        if m["outcomes_filled"] else
-        "Geen win/loss-records. Ainstein mist een belangrijk referentiepunt voor nieuwe voorstellen."
-    )
-
     card_tip = "Ainsteins geheugen van Minkowski — methodologie, positionering, en wat werkt in voorstellen."
 
     return f"""
@@ -919,10 +900,6 @@ def render_card_kennislaag(m):
     <div class="card-label">{_tip('Kennislaag', card_tip)}</div>
     <div class="big" style="color:{kl_col};font-size:18px;line-height:1.4">{_tip(kl_label, kl_tip)}</div>
     <div class="meta">{kl_note}</div>
-    <div class="divider"></div>
-    <div class="row-label" style="margin-bottom:6px">{_tip('08_Outcomes', 'Win/loss-records van eerdere voorstellen. Ainstein gebruikt dit om te leren wat werkt en wat niet.')}</div>
-    <div>{_dot(out_col)}<strong style="color:{out_col};font-size:14px">{_tip(out_label, out_tip)}</strong></div>
-    <div class="meta" style="margin-top:4px">{out_note}</div>
   </div>"""
 
 
@@ -1183,7 +1160,7 @@ def render_card_fouten(m):
 
 # ── Client card (pilot) ──────────────────────────────────────────────────────
 
-_CLIENT_FOLDERS = ("01_Proposals", "08_Outcomes", "04_Experts")
+_CLIENT_FOLDERS = ("01_Clients", "03_Experts")
 _SKIP_NAMES = {"", "TEMPLATE", "templates", "_Archive", "README"}
 
 
@@ -1249,7 +1226,7 @@ def render_card_klanten(m):
     now = m["now"]
 
     if not rows:
-        content = '<div class="no-errors muted">Nog geen klantinteracties herkend.<br>Wordt gevuld zodra Ainstein bestanden uit 01_Proposals leest of meetings verwerkt.</div>'
+        content = '<div class="no-errors muted">Nog geen klantinteracties herkend.<br>Wordt gevuld zodra Ainstein bestanden uit 01_Clients leest of meetings verwerkt.</div>'
     else:
         content = ""
         for r in rows:

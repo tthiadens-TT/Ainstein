@@ -1446,7 +1446,7 @@ footer a:hover {{ opacity: 1; }}
 
 
 def render_card_systeem(m):
-    """Card 1: Werkt het systeem? — overall health + compact service status."""
+    """Card 1: Werkt het systeem? — overall health + service dots + VM vitals."""
     h = m["svc_health"]
     vm = m["vm"]
     errors = m["errors"]
@@ -1503,6 +1503,25 @@ def render_card_systeem(m):
     else:
         sm_txt = f"SocketMode: {sm_age_h:.1f}u geleden"
 
+    # VM vitals: CPU, memory, deploy
+    load = vm.get("load_1m")
+    cpu_col = "#2A7A5A" if load is None or load < 0.8 else "#E67E22" if load < 1.5 else "#C0392B"
+    cpu_txt = f"{load:.2f}" if load is not None else "n.v.t."
+
+    mem_pct = vm.get("mem_pct")
+    mem_col = "#2A7A5A" if mem_pct is None or mem_pct < 70 else "#E67E22" if mem_pct < 85 else "#C0392B"
+    mem_txt = f"{mem_pct}%" if mem_pct is not None else "n.v.t."
+
+    deploy_txt = (vm.get("last_deploy") or "onbekend")[:10]
+
+    vitals_row = (
+        f'<div style="display:flex;gap:16px;padding-top:8px;flex-wrap:wrap">'
+        f'<span style="font-size:11px;color:#9AA5BE">CPU <span style="color:{cpu_col};font-weight:600">{cpu_txt}</span></span>'
+        f'<span style="font-size:11px;color:#9AA5BE">RAM <span style="color:{mem_col};font-weight:600">{mem_txt}</span></span>'
+        f'<span style="font-size:11px;color:#9AA5BE">Deploy <span style="color:#7A89A8">{deploy_txt}</span></span>'
+        f'</div>'
+    )
+
     return f"""
   <div class="card" style="border-top-color:{ov_col}">
     <div class="card-label">Werkt het systeem?</div>
@@ -1514,14 +1533,15 @@ def render_card_systeem(m):
     <div style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 0;border-top:1px solid #EEEAE2;border-bottom:1px solid #EEEAE2">
       {dot_row}
     </div>
-    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:{sm_col};margin-top:10px">
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:{sm_col};margin-top:8px">
       {_dot(sm_col, 7)}{sm_txt}
     </div>
+    {vitals_row}
   </div>"""
 
 
 def render_card_actief(m):
-    """Card 2: Is het actief? — usage KPIs + last Jamie meeting + cost."""
+    """Card 2: Is het actief? — usage KPIs + last Jamie meeting + skills + cost."""
     age_h = m["last_age_hours"]
     st_col, _ = _status_color(age_h)
 
@@ -1547,6 +1567,21 @@ def render_card_actief(m):
     jamie_age_txt = age_label(last_jts, m["now"]) if last_jts else "—"
     meetings_month = m.get("meetings_month", 0)
 
+    # Top skills
+    skills_html = ""
+    for skill, count in m["top_skills"][:4]:
+        tip = SKILL_TIPS.get(skill, "Een taak die Ainstein heeft uitgevoerd.")
+        skills_html += (
+            f'<div style="display:flex;justify-content:space-between;padding:3px 0;'
+            f'border-bottom:1px solid #F5F3EE;font-size:12px">'
+            f'<span style="color:#001C40">{_tip(skill, tip)}</span>'
+            f'<span style="font-weight:600;color:#287093">{count}×</span>'
+            f'</div>'
+        )
+    if not skills_html:
+        skills_html = '<div style="font-size:12px;color:#9AA5BE;font-style:italic;padding:4px 0">Geen activiteit</div>'
+
+    # Cost + Tavily
     cost_a = m["cost_anthropic_eur"]
     cost_a_str = f"≈ €{cost_a:.2f}" if cost_a >= 0.01 else "< €0.01"
     gcp_cost = m["gcp"].get("monthly_eur")
@@ -1554,7 +1589,12 @@ def render_card_actief(m):
         total_eur = cost_a + gcp_cost
         cost_line = f"Anthropic {cost_a_str} + GCP ≈ €{gcp_cost:.2f} = €{total_eur:.2f}/mnd"
     else:
-        cost_line = f"Anthropic {cost_a_str} · {m['total_entries']} API aanroepen"
+        cost_line = f"Anthropic {cost_a_str} · {m['total_entries']} aanroepen"
+
+    tavily_used = m["svc"].get("tavily_month", 0)
+    tavily_pct = int(tavily_used / 10)
+    tavily_col = "#2A7A5A" if tavily_pct < 70 else "#E67E22" if tavily_pct < 90 else "#C0392B"
+    tavily_line = f"Tavily: <span style='color:{tavily_col};font-weight:600'>{tavily_used}/1.000</span>"
 
     return f"""
   <div class="card" style="border-top-color:{st_col}">
@@ -1578,24 +1618,53 @@ def render_card_actief(m):
     <div style="font-size:13px;font-weight:600;color:#001C40">{last_jtitle}</div>
     <div style="font-size:11px;color:#7A89A8;margin-top:2px">{jamie_age_txt} · {meetings_month} deze maand</div>
     <div class="divider"></div>
+    <div style="font-size:10px;color:#9AA5BE;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Meest gebruikte skills (7d)</div>
+    {skills_html}
+    <div class="divider"></div>
     <div style="font-size:11px;color:#9AA5BE">{cost_line}</div>
+    <div style="font-size:11px;color:#9AA5BE;margin-top:3px">{tavily_line}</div>
   </div>"""
 
 
 def render_card_activiteit(m):
-    """Card 3: Wat gebeurt er? — Futures Ready + recent activity."""
+    """Card 3: Wat gebeurt er? — Futures Ready detail + recent activity."""
     kl_age = m.get("kl_age_days")
     n_bronnen = m.get("n_bronnen", 0)
     skills_30d = m.get("skills_30d", set())
     n_files = m.get("n_files_read", 0)
     meetings_month = m.get("meetings_month", 0)
+    last_jamie = m.get("last_jamie_title") or "—"
 
     user_skills = skills_30d - {"extract_knowledge_distilleer", "extract_knowledge_merge"}
     n_skills = len(user_skills)
+    skills_txt = ", ".join(sorted(user_skills)) if user_skills else "geen"
+    skills_note = (skills_txt[:60] + "...") if len(skills_txt) > 60 else skills_txt
 
-    ms_ok = True if (kl_age is not None and kl_age <= 30) else (None if kl_age is not None else False)
-    ss_ok = True if n_skills >= 4 else (None if n_skills >= 2 else False)
-    ts_ok = True if (n_files >= 20 or meetings_month >= 4) else (None if (n_files >= 6 or meetings_month >= 2) else False)
+    # Mindset: kennislaag
+    if kl_age is None:
+        ms_ok, ms_label, ms_note = False, "Kennislaag niet opgebouwd", "Draai run_kennisextractie.py"
+    elif kl_age > 30:
+        ms_ok, ms_label, ms_note = None, f"{n_bronnen} bronnen · {kl_age}d oud", "Vernieuwen aanbevolen"
+    else:
+        ms_ok, ms_label, ms_note = True, f"{n_bronnen} bronnen · {kl_age}d actueel", "LinkedIn, Medium, Substack, website, Slack"
+
+    # Skillset: breedte
+    if n_skills >= 4:
+        ss_ok, ss_label = True, f"{n_skills} skills actief (30d)"
+    elif n_skills >= 2:
+        ss_ok, ss_label = None, f"{n_skills} skills actief (30d)"
+    else:
+        ss_ok, ss_label = False, f"{n_skills} skill{'s' if n_skills != 1 else ''} actief (30d)"
+
+    # Toolset: kennisbreedte
+    if n_files >= 20 or meetings_month >= 4:
+        ts_ok = True
+    elif n_files >= 6 or meetings_month >= 2:
+        ts_ok = None
+    else:
+        ts_ok = False
+    ts_label = f"{n_files} docs gelezen · {meetings_month} meetings deze maand"
+    ts_note = f"Laatste: {last_jamie[:50]}{'...' if len(last_jamie) > 50 else ''}"
 
     dims = [ms_ok, ss_ok, ts_ok]
     n_green = dims.count(True)
@@ -1607,26 +1676,38 @@ def render_card_activiteit(m):
     else:
         ov_label, ov_col = "Groeiend", "#E67E22"
 
-    def mini_dot_row(label, ok):
+    def dim_row(label, ok, status_label, note):
         col = "#2A7A5A" if ok is True else "#C0392B" if ok is False else "#E67E22"
         return (
-            f'<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#7A89A8">'
-            f'{_dot(col, 8)}{label}</div>'
+            f'<div style="display:flex;align-items:flex-start;gap:10px;'
+            f'padding:8px 0;border-bottom:1px solid #EEEAE2">'
+            f'{_dot(col, 8)}'
+            f'<div style="flex:1;min-width:0">'
+            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;'
+            f'color:#8492A6;font-weight:700;margin-bottom:1px">{label}</div>'
+            f'<div style="font-size:12px;font-weight:600;color:#1B2E5E">{status_label}</div>'
+            f'<div style="font-size:11px;color:#8492A6;margin-top:1px;overflow:hidden;'
+            f'text-overflow:ellipsis;white-space:nowrap">{note}</div>'
+            f'</div></div>'
         )
 
-    kl_note = f"{n_bronnen} bronnen · {kl_age}d oud" if kl_age is not None else "kennislaag niet opgebouwd"
+    fr_rows = (
+        dim_row("Mindset", ms_ok, ms_label, ms_note)
+        + dim_row("Skillset", ss_ok, ss_label, skills_note)
+        + dim_row("Toolset", ts_ok, ts_label, ts_note)
+    )
 
+    # Recent activity
     rows = build_client_interactions(m["_entries"], m["now"])
     now = m["now"]
-
     activity_rows = ""
     if rows:
-        for r in rows[:4]:
+        for r in rows[:3]:
             age_txt = age_label(r["ts"], now) if r["ts"] else "?"
             skill_lbl = _skill_nl(r["skill"])
             label = r["client"]
-            if len(label) > 36:
-                label = label[:34] + "..."
+            if len(label) > 32:
+                label = label[:30] + "..."
             activity_rows += (
                 f'<div style="display:flex;justify-content:space-between;align-items:baseline;'
                 f'padding:5px 0;border-bottom:1px solid #F5F3EE;font-size:12px;">'
@@ -1638,33 +1719,50 @@ def render_card_activiteit(m):
                 f'</div>'
             )
     else:
-        activity_rows = (
-            '<div style="font-size:12px;color:#9AA5BE;padding:8px 0;font-style:italic">'
-            'Geen recente activiteit</div>'
-        )
+        activity_rows = '<div style="font-size:12px;color:#9AA5BE;padding:8px 0;font-style:italic">Geen recente activiteit</div>'
 
     return f"""
   <div class="card" style="border-top-color:{ov_col}">
     <div class="card-label">Wat gebeurt er?</div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       {_dot(ov_col, 12)}
       <span style="font-size:22px;font-weight:800;color:{ov_col};font-family:'Sen',Helvetica,sans-serif;letter-spacing:-0.02em">{ov_label}</span>
       <span style="font-size:11px;color:#9AA5BE;white-space:nowrap">Ainstein gereedheid</span>
     </div>
-    <div style="display:flex;gap:16px;margin-bottom:6px">
-      {mini_dot_row("Mindset", ms_ok)}
-      {mini_dot_row("Skillset", ss_ok)}
-      {mini_dot_row("Toolset", ts_ok)}
+    {fr_rows}
+    <div style="margin-top:12px">
+      <div style="font-size:10px;color:#9AA5BE;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Recente activiteit</div>
+      {activity_rows}
     </div>
-    <div style="font-size:11px;color:#9AA5BE;margin-bottom:12px">{kl_note} · {n_skills} skills actief</div>
-    <div class="divider"></div>
-    <div style="font-size:10px;color:#9AA5BE;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Recente activiteit</div>
-    {activity_rows}
   </div>"""
+
+
+def render_action_banner(m):
+    """Eén actionabele suggestie afgeleid van de zwakste signalen. Alleen tonen als relevant."""
+    kl_age = m.get("kl_age_days")
+    tavily_used = m["svc"].get("tavily_month", 0)
+
+    if kl_age is not None and kl_age > 14:
+        msg = f"Kennislaag {kl_age}d oud — draai <code>run_kennisextractie.py</code> op de VM"
+    elif tavily_used >= 800:
+        msg = f"Tavily bijna vol: {tavily_used}/1.000 zoekopdrachten gebruikt deze maand"
+    elif m["messages_7d"] == 0 and m["meetings_7d"] == 0:
+        msg = "Geen activiteit deze week — is de bot bereikbaar? Check <code>systemctl status ainstein</code>"
+    else:
+        return ""
+
+    return (
+        f'<div style="max-width:1060px;margin:0 auto 0;padding:10px 24px 0">'
+        f'<div style="background:#F0F4FF;border-left:3px solid #287093;border-radius:4px;'
+        f'padding:9px 14px;font-size:12px;color:#1B2E5E">'
+        f'<strong>Eén actie:</strong> {msg}'
+        f'</div></div>'
+    )
 
 
 def render(m, logo_uri, font_face):
     alert_bar = render_alert_bar(m)
+    action_banner = render_action_banner(m)
     c1 = render_card_systeem(m)
     c2 = render_card_actief(m)
     c3 = render_card_activiteit(m)
@@ -1685,6 +1783,7 @@ def render(m, logo_uri, font_face):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="300">
 <title>Ainstein Dashboard</title>
 <style>{css}</style>
 </head>
@@ -1703,6 +1802,7 @@ def render(m, logo_uri, font_face):
   </div>
 </header>
 {alert_bar}
+{action_banner}
 <main>
 {c1}
 {c2}

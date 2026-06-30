@@ -29,7 +29,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 22 juni 2026*
+*Bijgewerkt: 30 juni 2026*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
@@ -44,6 +44,8 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **Double Helix kennislaag** — elke entiteit in kennis_laag.md heeft twee labels: `Zekerheid` (ONBEVESTIGD/INFORMATIE/KENNIS) + `Type` (feit/overtuiging/afleiding). Skills: `extract_knowledge_distilleer.md` en `extract_knowledge_merge.md`.
 - **Entiteiten-register** — `06_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`): 21 experts (correcte naam: Jörgen van der Sloot), 8 klanten. Merge-skill checkt nieuwe namen hiertegen. `[NIET_GEVERIFIEERD]` voor onbekende entiteiten.
 - **update_drive_file.py** — `scripts/update_drive_file.py`: update bestaand Drive-bestand via service account. Gebruik: `python3 scripts/update_drive_file.py --file-id <ID> --local-path <pad>`
+- **Double Helix kennislaag herrun** — pipeline succesvol gedraaid 30 juni 2026 (stop_reason=end_turn, 111k chars). Type-labels actief in kennis_laag.md. REDUCE loopt via directe API-call, niet run_agent.
+- **kansen.md** — `06_Marketing/kansen.md` in Drive (ID: `1lcSCyA3QBMwLQTCFCKhIWC4MqHMGDDQN`): 4 say-vs-sell kansen geformuleerd als commercieel aandachtspunt. Aangemaakt 30 juni 2026.
 
 ### Wat pending is
 - Geen open PRs. Alles staat op main.

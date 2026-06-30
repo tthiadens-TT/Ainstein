@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 29 juni 2026 (sessie: Double Helix live, entiteiten-register, update_drive_file.py, Drive-blokkade root cause vastgesteld)*
+*Bijgewerkt: 30 juni 2026 (sessie: read_file_cached dead code gefixt — markdown cache nu actief; daily review 28 commits; memory geconsolideerd)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.

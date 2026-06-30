@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 30 juni 2026 (sessie: read_file_cached dead code gefixt — markdown cache nu actief; daily review 28 commits; memory geconsolideerd)*
+*Bijgewerkt: 30 juni 2026 (sessie: Double Helix herrun geslaagd — 111k chars, Type-labels live; kansen.md aangemaakt in 06_Marketing; Cathalijne-fabricatie verwijderd; memory geconsolideerd)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -56,11 +56,6 @@ Wat werkte: [3 bullets] | Propositie-kern: [1 zin]
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
-
-### Double Helix — herrun verificatie
-**Wat:** controleren of de pipeline die gestart is (screen -S kennis op VM, 29 juni) Type-labels heeft toegevoegd aan kennis_laag.md.
-**Actie:** check `#ainstein-status` in Slack of `screen -r kennis` op VM. Verwacht: elke entiteit heeft nu `Type: feit | overtuiging | afleiding`.
-**Effort:** 5 min controle.
 
 ### Retrieval-first in build_proposal (na folder-migratie + Outcomes gevuld)
 **Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt deterministisch ophalen uit `Clients/<naam>/Outcomes/` voor vergelijkbare cases. Genereer alleen wat niet op te halen is.
@@ -724,7 +719,8 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 | DM naar Jörgen: dashboard URL + uitleg van alle kaarten | via Slack MCP | 22 juni 2026 |
 | Dashboard: live health checks per dienst (groen/rood), GCP CPU/geheugen/kosten, klanten-pilot, token-logging exacte kosten | `b2bee86`–`2d9fd6d` | 22 juni 2026 |
 | Management dashboard (`dashboard/generate.py`) — 4 KPI-kaarten, Minkowski-stijl, nginx + cron via deploy.yml | `5c33ae9` | 22 juni 2026 |
-| Double Helix epistemologisch labelen: `extract_knowledge_distilleer.md` + `extract_knowledge_merge.md` bijgewerkt, context-injectie in `agent.py`, `run_kennisextractie.py` gestart op VM | `008937a` | 29 juni 2026 |
+| Double Helix epistemologisch labelen: skills bijgewerkt + pipeline herrun geslaagd (30 juni, stop_reason=end_turn, 111k chars, Type-labels live in Drive). REDUCE via directe API-call; Promotiebesluiten-fallback; graceful truncation. | `008937a` e.v. | 29-30 juni 2026 |
+| `kansen.md` aangemaakt in `06_Marketing/` (Drive ID `1lcSCyA3QBMwLQTCFCKhIWC4MqHMGDDQN`): 4 say-vs-sell kansen uit kennis-laag — NN Group zichtbaarheid, Wheel of Reasoning extern, Agentic AI positie, making-history-tagline drift. | Drive API | 30 juni 2026 |
 | Entiteiten-register aangemaakt: `06_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`), 21 experts (Jörgen van der Sloot gecorrigeerd), 8 klanten, merge-skill bijgewerkt | `008937a` | 29 juni 2026 |
 | `scripts/update_drive_file.py` gebouwd: update bestaand Drive-bestand via service account, lost MCP create-duplicaat probleem op | `8845648` | 29 juni 2026 |
 | CLAUDE.md bijgewerkt met Double Helix, entiteiten-register, update_drive_file.py | `d43f689` | 29 juni 2026 |

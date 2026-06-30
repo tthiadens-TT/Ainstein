@@ -197,17 +197,12 @@ def _build_drive_folder_ids() -> dict[str, str]:
             includeItemsFromAllDrives=True,
         ).execute()
 
-        folder_ids: dict[str, str] = {}
-        for f in results.get("files", []):
-            name = f["name"]
-            for known in _FOLDER_NAMES:
-                if name == known:
-                    folder_ids[known] = f["id"]
-                    break
+        folder_ids: dict[str, str] = {
+            f["name"]: f["id"] for f in results.get("files", [])
+        }
 
-        for known in _FOLDER_NAMES:
-            status = folder_ids.get(known, "NOT FOUND")
-            logger.info("Drive: %s → %s", known, status)
+        for name, fid in sorted(folder_ids.items()):
+            logger.info("Drive: discovered %s → %s", name, fid)
 
         return folder_ids
 
@@ -761,8 +756,7 @@ def _log_source_health() -> None:
         if service:
             folder_ids = _get_drive_folder_ids()
             found = len(folder_ids)
-            total = len(_FOLDER_NAMES)
-            logger.info("Drive API mode — %d/%d subfolders discovered", found, total)
+            logger.info("Drive API mode — %d subfolders discovered", found)
         else:
             logger.error("Drive API mode — service account init FAILED")
     else:

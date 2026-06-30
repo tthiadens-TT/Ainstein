@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 30 juni 2026 (sessie: Double Helix herrun geslaagd — 111k chars, Type-labels live; kansen.md aangemaakt in 06_Marketing; Cathalijne-fabricatie verwijderd; memory geconsolideerd)*
+*Bijgewerkt: 30 juni 2026 (sessie: Drive-herstructurering type→entiteit afgerond; alle code bijgewerkt; commit 015516a)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -33,17 +33,8 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-### Drive-structuur migratie: type-gebaseerd naar entiteit-gebaseerd
-**Wat:** Mappenstructuur omzetten van documenttype-gebaseerd (`01_Proposals`, `08_Outcomes`) naar klantentiteit-gebaseerd (`Clients/<naam>/Proposals/`, `Clients/<naam>/Outcomes/`).
-**Waarom:** Alles wat met een klant te maken heeft hoort bij de klant. Nu verspreid over meerdere mappen. Sluit aan op Aslander's unified identity principe.
-**Mappen die meeverhuizen naar `Clients/`:** 01_Proposals (klantspecifieke subfolders), 08_Outcomes (per klant)
-**Mappen die NIET meeverhuizen:** 02_Tools, 03_Pricing, 04_Experts, 06_Marketing (cross-client)
-**Code-impact:** tools.py folder-referenties, bronnen.json paden, gdoc_tools.py — aparte sessie
-**Geblokkeerd door:** niets. Blokkeert zelf: 08_Outcomes vullen (doe dat NA de migratie)
-**Effort:** 3-4 uur (Drive + code + testen)
-
-### 08_Outcomes vullen — actie Thomas/Jörgen (WACHT op folder-migratie)
-**Wat:** Concrete win/loss-records toevoegen — maar in de nieuwe `Clients/<naam>/Outcomes/` structuur na de migratie.
+### 08_Outcomes vullen — actie Thomas/Jörgen
+**Wat:** Concrete win/loss-records toevoegen in `01_Clients/<naam>/Outcomes/`.
 **Waarom:** Deterministisch ophalen uit bewezen cases is de basis voor retrieval-first proposals (Aslander: 98% data, 2% AI).
 **Concrete cases:**
 - NN IC — gewonnen (mei 2026): wat werkte, welke argumentatie, welk tarief
@@ -724,6 +715,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 | Entiteiten-register aangemaakt: `06_Marketing/_kennis/entiteiten.md` in Drive (ID: `1ZTRPn_hm_9T0OfUMCArYsUPU85zG_b3N`), 21 experts (Jörgen van der Sloot gecorrigeerd), 8 klanten, merge-skill bijgewerkt | `008937a` | 29 juni 2026 |
 | `scripts/update_drive_file.py` gebouwd: update bestaand Drive-bestand via service account, lost MCP create-duplicaat probleem op | `8845648` | 29 juni 2026 |
 | CLAUDE.md bijgewerkt met Double Helix, entiteiten-register, update_drive_file.py | `d43f689` | 29 juni 2026 |
+| Drive-herstructurering: type-gebaseerd (01_Proposals t/m 08_Outcomes) → entiteit-gebaseerd (01_Clients, 02_Frameworks & Tools, 03_Experts, 04_Marketing, 05_Ainstein Knowledge Base). Drive handmatig door Thomas, code-aanpassingen 25 bestanden. | `015516a` | 30 juni 2026 |
 | CLAUDE.md volledig bijgewerkt (Current State, skills, sessie-rituelen) | `1e3cd2e` | 22 juni 2026 |
 | Kennis-laag Jörgen/Charlotte validatie verstuurd naar #about-ainstein — 7 items ter bevestiging; dagelijkse monitoring via scheduled task 09:05 | Slack MCP | 22 juni 2026 |
 | Kennis-laag validatie: Charlotte bevestigt alle 7 items (100% klopt); 7 gecureerde .md documenten aangemaakt in Drive (4x 02_Tools, 3x 06_Marketing) | Ainstein scheduled task | 24 juni 2026 |

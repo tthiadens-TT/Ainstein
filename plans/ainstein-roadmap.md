@@ -33,28 +33,34 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-### 08_Outcomes vullen — actie Thomas/Jörgen
-**Wat:** Concrete win/loss-records toevoegen in `01_Clients/<naam>/Outcomes/`.
-**Waarom:** Deterministisch ophalen uit bewezen cases is de basis voor retrieval-first proposals (Aslander: 98% data, 2% AI).
-**Concrete cases:**
-- NN IC — gewonnen (mei 2026): wat werkte, welke argumentatie, welk tarief
-**Minimaal format per case:**
-```
-Klant: [naam] | Status: WON/LOST | Periode: [jaar] | Programmatype: [type]
-Wat werkte: [3 bullets] | Propositie-kern: [1 zin]
-```
+*(leeg — zie backlog hieronder)*
 
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
 
-### Retrieval-first in build_proposal (na folder-migratie + Outcomes gevuld)
+### Retrieval-first in build_proposal
 **Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt deterministisch ophalen uit `Clients/<naam>/Outcomes/` voor vergelijkbare cases. Genereer alleen wat niet op te halen is.
 **Geblokkeerd door:** folder-migratie + Outcomes vullen.
 
 ### Origin-gewicht in merge-skill (synaptic stratification licht)
 **Wat:** zekerheid niet meer als `count(distinct origins)` maar als `sum(weights)`. Klant-stem weegt zwaarder dan intern-Slack.
 **Wanneer:** na Double Helix stabiel in productie.
+
+### kennis-bestanden verplaatsen naar 05_Ainstein Knowledge Base (latere fase)
+**Wat:** `kennis_laag.md`, `entiteiten.md`, `minkowski_voice.md` verplaatsen van `04_Marketing/_kennis/` naar `05_Ainstein Knowledge Base/`. De kennis is ook marketingkennis — urgentie is laag, maar hoort architectureel bij Ainstein, niet bij Marketing.
+**Actie:** Drive + code (bronnen.json, tools.py kennis-pad, agent.py injectie-pad).
+**Prioriteit:** laag.
+
+### Markdown cache opnieuw genereren na Drive-rename (Thomas, VM)
+**Wat:** Na de Drive-herstructurering zijn de top-level mapnamen veranderd. De bestaande Markdown-cache heeft padverwijzingen met de oude namen. Cache opnieuw opbouwen zodat alles klopt.
+**Actie Thomas:** SSH naar VM, dan: `cd ~/Ainstein && python3 scripts/convert_to_markdown.py`
+**Prioriteit:** medium — cache werkt nog, maar klopt niet meer met nieuwe structuur.
+
+### 00_Roadmap Drive-docs verhuizen (Thomas, ~5 min)
+**Wat:** Twee docs in `00_Roadmap` Drive-folder ("OPTIE 2 — Claude Projects Tutorial", "OPTIE 3 — MCP Server Architecture") verplaatsen naar `05_Ainstein Knowledge Base/Roadmap/`. Daarna lege `00_Roadmap` verwijderen.
+**Actie Thomas:** review eerst of de docs nog actueel zijn, daarna verplaatsen in Drive.
+**Prioriteit:** laag.
 
 ### 44 `claude/*` branches opruimen
 **Wat:** 44 lokale `claude/*` branches accumuleren door worktree-gebruik. Groeien elke sessie.

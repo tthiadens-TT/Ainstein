@@ -1316,9 +1316,10 @@ def read_file(path: str) -> dict:
 
 
 def read_file_cached(path: str) -> dict:
-    """Lees bestand — check _cached/ eerst voor een Markdown-versie.
+    """Lees bestand — check cache eerst voor een Markdown-versie.
 
-    Aslander: cached .md is de voorkeur boven het propriëtaire origineel.
+    Cache-bestanden staan naast het origineel in dezelfde folder (stem.md).
+    Herkend via '**Bron:**' in de eerste 300 tekens van de cache-header.
     Valt terug op read_file() als geen cache bestaat of Drive niet beschikbaar is.
     """
     if not _is_drive_mode():
@@ -1349,10 +1350,10 @@ def read_file_cached(path: str) -> dict:
                     includeItemsFromAllDrives=True,
                 ).execute()
                 files = res.get("files", [])
-                # Zoek specifiek in _cached/ — filter op parent naam
+                # Valideer via cache-header — voorkomt false hits op niet-cache .md bestanden
                 for f in files:
                     content = _read_drive_file_content(service, f["id"], f["name"], "text/plain")
-                    if content and content.startswith("#"):
+                    if content and "**Bron:**" in content[:300]:
                         logger.debug("read_file_cached: cache hit voor %s", stem)
                         return {"content": content, "cached": True}
             except Exception as e:
@@ -2375,7 +2376,7 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
     if tool_name == "list_folder":
         result = list_folder(tool_input.get("folder"))
     elif tool_name == "read_file":
-        result = read_file(tool_input["path"])
+        result = read_file_cached(tool_input["path"])
     elif tool_name == "search_files":
         result = search_files(
             tool_input["query"],

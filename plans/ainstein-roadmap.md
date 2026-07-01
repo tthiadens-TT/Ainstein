@@ -62,10 +62,6 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Actie Thomas:** review eerst of de docs nog actueel zijn, daarna verplaatsen in Drive.
 **Prioriteit:** laag.
 
-### 44 `claude/*` branches opruimen
-**Wat:** 44 lokale `claude/*` branches accumuleren door worktree-gebruik. Groeien elke sessie.
-**Actie:** `git branch --list 'claude/*' | xargs git branch -d` (verwijdert alleen volledig gemerged). Check eerst: `git branch --list 'claude/*' --no-merged main`.
-**Prioriteit:** laag — rommelt, blokkeert niets.
 
 ### dev-branch cleanup
 **Wat:** `dev` staat 10 commits voor op `main` met deels verouderd werk. De skills-verbeteringen en de meeste Drive-fixes zijn al apart op main gecommit. Dev bevat mogelijk unieke commits (save_note refactor, folder hint depth, deploy.yml health check).
@@ -676,6 +672,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 | Item | Commit/PR | Datum |
 |---|---|---|
 | Bug gefixed: meeting-titel verdween uit Jamie-DM sinds commit 7c588d0 (26 juni) toen `_build_dm_blocks()` werd vervangen door platte `debrief_text`. Titel-regel (`:microphone: *titel*`) teruggezet in `_post_slack_notification()`. Gevonden n.a.v. melding Jörgen in Slack. Getest via `scripts/test_jamie_webhook.py` op live VM — bevestigd werkend. | `b589816` | 1 juli 2026 |
+| 41 `claude/*` branches + bijbehorende worktrees opgeruimd (elk gecontroleerd op ongecommit werk vóór verwijdering; 1 branch met verouderd font-work via `git branch -D`, inhoud stond al nieuwer op main) | lokaal, geen commit | 1 juli 2026 |
 | 7 skills verbeterd: DVV-toets in build_proposal, map_objections herschreven, create_content/adapt_messaging/sharpen_positioning/match_experts/debrief_to_messaging versterkt + detect-skill false positive "content" gefixed | `6fff459` | 22 juni 2026 |
 | dev-branch cleanup (10 commits, deels verouderd) gepland | backlog | 22 juni 2026 |
 | `.env` opruimen — dubbele AINSTEIN_STATUS_CHANNEL regels gefixed | handmatig op VM | 22 juni 2026 |

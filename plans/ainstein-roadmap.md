@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 30 juni 2026 (sessie: Drive-herstructurering type→entiteit afgerond; alle code bijgewerkt; commit 015516a)*
+*Bijgewerkt: 1 juli 2026 (sessie: meeting-titel-bug in Jamie-DM gefixed; commit b589816)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -675,6 +675,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Bug gefixed: meeting-titel verdween uit Jamie-DM sinds commit 7c588d0 (26 juni) toen `_build_dm_blocks()` werd vervangen door platte `debrief_text`. Titel-regel (`:microphone: *titel*`) teruggezet in `_post_slack_notification()`. Gevonden n.a.v. melding Jörgen in Slack. Getest via `scripts/test_jamie_webhook.py` op live VM — bevestigd werkend. | `b589816` | 1 juli 2026 |
 | 7 skills verbeterd: DVV-toets in build_proposal, map_objections herschreven, create_content/adapt_messaging/sharpen_positioning/match_experts/debrief_to_messaging versterkt + detect-skill false positive "content" gefixed | `6fff459` | 22 juni 2026 |
 | dev-branch cleanup (10 commits, deels verouderd) gepland | backlog | 22 juni 2026 |
 | `.env` opruimen — dubbele AINSTEIN_STATUS_CHANNEL regels gefixed | handmatig op VM | 22 juni 2026 |

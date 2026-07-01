@@ -29,11 +29,11 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 30 juni 2026*
+*Bijgewerkt: 1 juli 2026*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
-- **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, verwerkt ze via `meeting_reviewer` skill, post naar `#ainstein-status` (kanaalpost + volledige analyse in thread + DM-statusbevestiging) + DM naar Minkowski-deelnemers
+- **Jamie webhook pipeline** — `POST https://ainstein.duckdns.org/webhooks/jamie` ontvangt transcripten, verwerkt ze via `meeting_reviewer` skill, post naar `#ainstein-status` (kanaalpost + volledige analyse in thread + DM-statusbevestiging) + DM naar Minkowski-deelnemers. DM begint weer met meeting-titel (`:microphone: *titel*`) — bug gefixed `b589816`, was weggevallen sinds 26 juni.
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
 - **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM

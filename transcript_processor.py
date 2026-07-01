@@ -358,9 +358,10 @@ def _post_slack_notification(
     doc_url = meetingnote_result.get("url") if meetingnote_result else None
     doc_id = meetingnote_result.get("doc_id") if meetingnote_result else None
 
+    title_line = f":microphone: *{event.title}*\n\n"
     doc_link_line = f"\n\n:page_facing_up: <{doc_url}|Meetingnote openen>" if doc_url else ""
     insights_line = "\n_Voeg je Insights toe: reply met_ `Insights: [jouw tekst]`" if doc_url else ""
-    full_message = debrief_text + doc_link_line + insights_line
+    full_message = title_line + debrief_text + doc_link_line + insights_line
 
     sent_dms: list[tuple[str, str]] = []
     failed_dms: list[str] = []

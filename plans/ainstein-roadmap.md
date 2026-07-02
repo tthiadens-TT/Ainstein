@@ -56,13 +56,14 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-### Code-fix na Drive-hernoeming: scripts gebruiken nog oude mapnamen (actieve data-lek stoppen)
-**Wat:** de Drive-herstructurering van 30 juni (o.a. `06_Marketing` → `04_Marketing`) is in Drive doorgevoerd maar NIET in de code. Geverifieerd 2 juli: 13 verwijzingen naar oude mapnamen in 9 Python-bestanden (`tools.py`, `scrape_*.py`, `update_stijl.py`, `restore_voice.py`, `run_kennisextractie.py`) plus `.claude/projects.json`.
-**Gevolg (actief probleem):** scrapers/crons maken de oude map `06_Marketing` opnieuw aan in de Shared Drive en schrijven verse data (Slack-scrapes, LinkedIn, voice) naar die verweesde map — data die Ainstein niet leest. Elke nacht loopt de split verder op.
-**Aanpak (volgorde is belangrijk):** (1) code fixen: alle oude mapnamen → nieuwe namen; (2) orphaned data uit de stray `06_Marketing` naar `04_Marketing` migreren; (3) pas daarna opruimen: stray map, dubbele lege `_kennis` (30 juni-artefact), `.DS_Store`-bestanden.
-**Verificatie na afloop:** `scripts/verify_shared_drive.py` draaien en checken dat er geen `06_Marketing` meer op rootniveau staat.
-**Effort:** 1 sessie.
-**Bron:** afsluitingsdossier `plans/afsluiting_drive_connector_2026-07-02.md`, sectie 7.
+### Orphaned Slack-data migreren + spookmap opruimen (schrijfactie, mét Thomas evalueren)
+**Context:** stap 1 (code-fix) is gedaan en geverifieerd, zie ✅ Gedaan. Het datalek is gestopt: scrapers schrijven vanaf nu naar de échte `04_Marketing` (bewezen via `drive_structure`-zelftest op de VM). Wat nog rest is opruimen van wat vóór de fix is misgegaan.
+**Wat resteert:**
+1. **5 Slack-bestanden** staan verweesd in de spookmap `06_Marketing/_bronmateriaal/slack/` (ID `1rXsJbOlTw06F59OS4-kgongbHT64Hxnc`): `slack_about-ainstein_2026-07.md`, `slack_nn-ks-it_2026-06.md`, `slack_nn-lead3_2026-06.md`, `slack_nn-lead3_2026-07.md`, `slack_nnhrbp_2026-06.md`. De 2026-07-bestanden zijn uniek (staan alleen hier); de 2026-06-bestanden bestaan ook in de echte map maar met afwijkende grootte, dus inhoud vergelijken vóór overschrijven. **Oordeel nodig = met Thomas evalueren, geen blinde move.**
+2. Dubbele LEGE `_kennis`-map onder `04_Marketing` (30-juni-artefact, ID `1e8ZeptGvdAdDUu_7m15YxLyyZu_ibBTb`) verwijderen. De gevulde blijft (`1Hx82v...`).
+3. Lege spookmap `06_Marketing` verwijderen ná migratie. `.DS_Store`-bestanden weg.
+**Uitvoering:** schrijfactie op productie-Drive via serviceaccount (SSH is read-only, dus via een klein VM-script of `update_drive_file.py`-achtige stap). Eerst met Thomas de merge-aanpak vaststellen.
+**Verificatie:** `scripts/verify_shared_drive.py` — geen `06_Marketing` meer op rootniveau, 2026-07 Slack-bestanden in de echte map.
 
 ---
 
@@ -717,6 +718,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Dynamische Drive-mapresolutie: `drive_structure.py` toegevoegd (herkent top-level mappen aan nummer-voorvoegsel 00_ t/m 05_, niet aan naam; fail loud, nooit top-level spookmap, oudste-wint bij duplicaten). Alle scrapers (slack/linkedin/medium/substack/website), `update_stijl`, `restore_voice`, `run_kennisextractie` en `tools.save_text_bakje` omgebouwd van hardcoded `("06_Marketing", …)` naar `drive_structure`. `tools._build_drive_folder_ids` registreert rol-aliassen op voorvoegsel (folder_ids.get('04_Marketing') rename-proof). Dode code `scripts/setup_outcomes.py` verwijderd. Geverifieerd op VM: zelftest resolvet alle rollen correct naar de échte mappen (niet de spookmap), oudste-wint pikt gevulde `_kennis`. Datalek gestopt. | `bd836c6` | 2 juli 2026 |
 | Verkenning simulatielaag / General Intuition-mechaniek afgerond: fase 1-inventarisatie (businessmodel Minkowski eerst, dan Ainstein), 4 richtingen (beslis-ledger, adversariale simulatie, bewoonbare scenario's, expert-intuïtie vangen), DVV-toets + onderscheidendheidsonderzoek (6 zoekacties: Gong, Principle, synthetic personas, wargaming, GI-feitencheck: aankondiging 25 juni 2026, niet januari). Advies: D+A eerst. Document in `docs/` + Google Doc in `00_Werkdocumenten`. Beslispunt toegevoegd aan Beslissingen-sectie. | deze sessie | 2 juli 2026 |
 | Drive-connector-dossier fundamenteel uitgezocht (multi-agent onderzoek + serviceaccount-scan). Uitkomst: (1) connector-blokkade is een open Anthropic-bug (#53442), geen Workspace-instelling, geen fix in onze hand; (2) connector geeft valse negatieven bij zowel mappen als zoeken, enige betrouwbare lezer = serviceaccount; (3) migratie 21 mei was COMPLEET, `AInstein_OUD` was redundant en is door Thomas verwijderd; (4) drie eerdere "opgelost"-afsluitingen waren onjuist, nu gedocumenteerd tegen herhaling. `scripts/verify_shared_drive.py` toegevoegd als grondwaarheid-tool. | `c76d878`, `d1c33ad` e.v. | 2 juli 2026 |
 | Bug gefixed: meeting-titel verdween uit Jamie-DM sinds commit 7c588d0 (26 juni) toen `_build_dm_blocks()` werd vervangen door platte `debrief_text`. Titel-regel (`:microphone: *titel*`) teruggezet in `_post_slack_notification()`. Gevonden n.a.v. melding Jörgen in Slack. Getest via `scripts/test_jamie_webhook.py` op live VM — bevestigd werkend. | `b589816` | 1 juli 2026 |

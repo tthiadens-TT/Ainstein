@@ -1042,45 +1042,64 @@ def handle_dm(event, say, client):
     # Insights-reply handler: "Insights: [tekst]" in a DM updates the Meetingnote Google Doc
     if channel_type == "im" and caption and caption.lower().startswith("insights:"):
         from transcript_processor import pop_insights_pending
-        doc_id = pop_insights_pending(channel)
-        if doc_id:
-            insights_text = caption[len("insights:"):].strip()
-            lead_name = "onbekend"
-            try:
-                info = client.users_info(user=user_id)
-                lead_name = (
-                    info.get("user", {}).get("real_name")
-                    or info.get("user", {}).get("profile", {}).get("first_name")
-                    or "Lead"
-                )
-            except Exception:
-                pass
-            try:
-                from gdoc_tools import update_gdoc_section
-                update_gdoc_section(
-                    doc_id,
-                    "[INSIGHTS — vul hier in]",
-                    f"{insights_text}",
-                )
-                # Also update the section header to include the lead's name
-                update_gdoc_section(
-                    doc_id,
-                    "INSIGHTS — [NAAM MINKOWSKI-LEAD]",
-                    f"INSIGHTS — {lead_name.upper()}",
-                )
-                say(
-                    text=f"✅ Insights toegevoegd aan de Meetingnote.",
-                    channel=channel,
-                    mrkdwn=True,
-                )
-            except Exception as exc:
-                logger.error("Insights update mislukt voor doc %s: %s", doc_id, exc)
-                say(
-                    text=f"❌ Kon de Meetingnote niet bijwerken: `{exc}`",
-                    channel=channel,
-                    mrkdwn=True,
-                )
+        insights_text = caption[len("insights:"):].strip()
+        doc_id, pending_titles = pop_insights_pending(channel, hint=insights_text)
+        if pending_titles:
+            titles_list = "\n".join(f"- {t}" for t in pending_titles)
+            say(
+                text=(
+                    "Er staan meerdere Meetingnotes open in dit gesprek, ik weet niet welke je "
+                    f"bedoelt:\n{titles_list}\n\n"
+                    "Reply nogmaals met `Insights: ...` en noem (een deel van) de meeting-titel "
+                    "erin, dan weet ik welke je bedoelt."
+                ),
+                channel=channel,
+                mrkdwn=True,
+            )
             return
+        if not doc_id:
+            say(
+                text="Ik heb geen openstaande Meetingnote voor dit gesprek gevonden om Insights aan toe te voegen.",
+                channel=channel,
+                mrkdwn=True,
+            )
+            return
+        lead_name = "onbekend"
+        try:
+            info = client.users_info(user=user_id)
+            lead_name = (
+                info.get("user", {}).get("real_name")
+                or info.get("user", {}).get("profile", {}).get("first_name")
+                or "Lead"
+            )
+        except Exception:
+            pass
+        try:
+            from gdoc_tools import update_gdoc_section
+            update_gdoc_section(
+                doc_id,
+                "[INSIGHTS — vul hier in]",
+                f"{insights_text}",
+            )
+            # Also update the section header to include the lead's name
+            update_gdoc_section(
+                doc_id,
+                "INSIGHTS — [NAAM MINKOWSKI-LEAD]",
+                f"INSIGHTS — {lead_name.upper()}",
+            )
+            say(
+                text=f"✅ Insights toegevoegd aan de Meetingnote.",
+                channel=channel,
+                mrkdwn=True,
+            )
+        except Exception as exc:
+            logger.error("Insights update mislukt voor doc %s: %s", doc_id, exc)
+            say(
+                text=f"❌ Kon de Meetingnote niet bijwerken: `{exc}`",
+                channel=channel,
+                mrkdwn=True,
+            )
+        return
 
     # In channels (public/private), normal chat is NOT auto-dispatched to the
     # agent — users address Ainstein via @mention there. Only DMs get the

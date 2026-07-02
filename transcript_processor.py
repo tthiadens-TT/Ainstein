@@ -25,16 +25,53 @@ _TRANSCRIPT_CHANNEL = ""
 # Max characters of transcript to send to the agent (cost + token safety)
 _MAX_TRANSCRIPT_CHARS = 24_000  # ~6k tokens; head + tail strategy above this
 
-# DM channel → doc_id mapping for pending Insights additions
-_pending_insights: dict[str, str] = {}
+# DM channel → list of (meeting_title, doc_id) pending Insights additions.
+# A list, not a single value: two meetings processed shortly after each other
+# for the same person used to silently overwrite each other's mapping here,
+# so a reply meant for the first meeting could land in the second meeting's
+# Google Doc. Every open Meetingnote for a channel now stays tracked until
+# it's resolved.
+_pending_insights: dict[str, list[tuple[str, str]]] = {}
 
 
-def register_insights_pending(channel_id: str, doc_id: str) -> None:
-    _pending_insights[channel_id] = doc_id
+def register_insights_pending(channel_id: str, doc_id: str, meeting_title: str = "") -> None:
+    _pending_insights.setdefault(channel_id, []).append((meeting_title, doc_id))
 
 
-def pop_insights_pending(channel_id: str) -> str | None:
-    return _pending_insights.pop(channel_id, None)
+def pop_insights_pending(channel_id: str, hint: str = "") -> tuple[str | None, list[str]]:
+    """Resolve which pending Meetingnote an "Insights: ..." reply belongs to.
+
+    Returns (doc_id, remaining_titles):
+    - No pending item for this channel -> (None, []).
+    - Exactly one pending item -> popped and returned directly (the common case,
+      unchanged from before).
+    - Multiple pending items: if `hint` (typically the reply text itself)
+      contains one of the pending meeting titles, resolve to that one.
+      Otherwise nothing is popped — return the remaining titles so the caller
+      can ask which meeting is meant instead of guessing "the most recent."
+    """
+    pending = _pending_insights.get(channel_id) or []
+    if not pending:
+        return None, []
+    if len(pending) == 1:
+        _, doc_id = pending[0]
+        _pending_insights.pop(channel_id, None)
+        return doc_id, []
+    if hint:
+        hint_lower = hint.lower()
+        title_words = [set(re.findall(r"[a-zà-ÿ0-9]{4,}", (title or "").lower())) for title, _ in pending]
+        matches = []
+        for i, (title, doc_id) in enumerate(pending):
+            other_words = set().union(*(w for j, w in enumerate(title_words) if j != i)) if len(title_words) > 1 else set()
+            distinctive = title_words[i] - other_words
+            if any(w in hint_lower for w in distinctive):
+                matches.append((title, doc_id))
+        if len(matches) == 1:
+            pending.remove(matches[0])
+            if not pending:
+                _pending_insights.pop(channel_id, None)
+            return matches[0][1], []
+    return None, [title or "naamloze meeting" for title, _ in pending]
 
 
 def process_transcript(
@@ -398,7 +435,7 @@ def _post_slack_notification(
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
             sent_dms.append((name, slack_id))
             if doc_url and doc_id:
-                register_insights_pending(resp_dm["channel"], doc_id)
+                register_insights_pending(resp_dm["channel"], doc_id, event.title)
         except Exception as exc:
             logger.error("Failed to DM %s (%s): %s", name, slack_id, exc)
             failed_dms.append(name)

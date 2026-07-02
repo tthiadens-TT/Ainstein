@@ -404,6 +404,50 @@ def _extract_client_line(debrief_text: str) -> str | None:
     return value or None
 
 
+def _chunk_text(text: str, chunk_size: int = 2900) -> list[str]:
+    """Split text into pieces that fit within Slack's ~3000-character Block Kit
+    section-text limit (2900 leaves a safety margin). This is the same
+    length-safety concern the old flat-text chunking used to cover — needed
+    again now the DM is built from Block Kit sections instead of one long
+    plain-text message.
+    """
+    if not text:
+        return []
+    return [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+
+def _build_dm_blocks(event: TranscriptEvent, debrief_text: str, doc_url: str | None) -> list:
+    """Block Kit layout for the Slack DM — title, analyse, Meetingnote-knop en
+    Insights-instructie als losse, herkenbare blokken in plaats van één platte
+    tekst-blob. Stijl volgt verbal_identity.md: één heldere regel bovenaan,
+    geen hype-taal, secties duidelijk gescheiden in plaats van aaneengeplakt.
+    """
+    blocks: list = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": f":microphone: *{event.title}*"}},
+        {"type": "divider"},
+    ]
+    for chunk in _chunk_text(debrief_text):
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
+    if doc_url:
+        blocks.append({
+            "type": "actions",
+            "elements": [{
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Meetingnote openen", "emoji": True},
+                "url": doc_url,
+                "style": "primary",
+            }],
+        })
+        blocks.append({
+            "type": "context",
+            "elements": [{
+                "type": "mrkdwn",
+                "text": "Voeg je Insights toe: reply met `Insights: [jouw tekst]`",
+            }],
+        })
+    return blocks
+
+
 def _post_slack_notification(
     event: TranscriptEvent,
     debrief_text: str,
@@ -416,10 +460,9 @@ def _post_slack_notification(
     doc_url = meetingnote_result.get("url") if meetingnote_result else None
     doc_id = meetingnote_result.get("doc_id") if meetingnote_result else None
 
-    title_line = f":microphone: *{event.title}*\n\n"
-    doc_link_line = f"\n\n:page_facing_up: <{doc_url}|Meetingnote openen>" if doc_url else ""
-    insights_line = "\n_Voeg je Insights toe: reply met_ `Insights: [jouw tekst]`" if doc_url else ""
-    full_message = title_line + debrief_text + doc_link_line + insights_line
+    dm_blocks = _build_dm_blocks(event, debrief_text, doc_url)
+    # text= is Slack's plain-text fallback (push notifications, accessibility) — blocks= is what actually renders
+    fallback_text = f":microphone: {event.title}"
 
     sent_dms: list[tuple[str, str]] = []
     failed_dms: list[str] = []
@@ -429,8 +472,8 @@ def _post_slack_notification(
         try:
             resp_dm = slack_client.chat_postMessage(
                 channel=slack_id,
-                text=full_message,
-                mrkdwn=True,
+                text=fallback_text,
+                blocks=dm_blocks,
             )
             logger.info("DM verstuurd aan %s (%s) voor '%s'", name, slack_id, event.title)
             sent_dms.append((name, slack_id))
@@ -447,8 +490,8 @@ def _post_slack_notification(
             try:
                 slack_client.chat_postMessage(
                     channel=client_channel,
-                    text=full_message,
-                    mrkdwn=True,
+                    text=fallback_text,
+                    blocks=dm_blocks,
                 )
                 logger.info("Fallback: bericht verstuurd naar klantkanaal %s voor '%s'", client_channel, event.title)
             except Exception as exc:
@@ -461,32 +504,10 @@ def _post_slack_notification(
         logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — CC overgeslagen")
     else:
         try:
-            # Toon Ainstein's eigen, transcript-onderbouwde "Klant/traject:"-regel
-            # (skill Stap 0) — nooit de ruwe jamie.py-gok. Die gok is alleen nog
-            # een interne pre-fill voor routing, niet voor wat hier zichtbaar wordt.
-            client_name = _extract_client_line(debrief_text)
-            date_str = (event.started_at or "")[:10]
-            cc_text = f":white_check_mark: *{event.title}*"
-            if client_name and client_name != event.title:
-                cc_text += f"  ·  {client_name}"
-            if date_str:
-                cc_text += f"  ·  {date_str}"
-            blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": cc_text}}]
-            if doc_url:
-                blocks.append({"type": "actions", "elements": [{
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Meetingnote", "emoji": True},
-                    "url": doc_url,
-                }]})
-            if sent_dms:
-                names = ", ".join(f"<@{sid}>" for _, sid in sent_dms)
-                blocks.append({"type": "context", "elements": [
-                    {"type": "mrkdwn", "text": f"DM verstuurd aan {names}"}
-                ]})
             slack_client.chat_postMessage(
                 channel=transcript_channel,
                 text=f"Verwerkt: {event.title}",
-                blocks=blocks,
+                blocks=_build_channel_blocks(event, debrief_text, doc_url, sent_dms),
             )
             logger.info("CC naar ainstein-status geslaagd voor '%s'", event.title)
         except Exception as exc:
@@ -529,11 +550,24 @@ def _find_client_channel(event: TranscriptEvent, slack_client) -> str | None:
     return None
 
 
-def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: bool, doc_url: str | None) -> list:
-    """Block Kit layout for the #ainstein-status channel post — minimal notification."""
-    client_name = infer_client_name(event)
+def _build_channel_blocks(
+    event: TranscriptEvent,
+    debrief_text: str,
+    doc_url: str | None,
+    sent_dms: list[tuple[str, str]],
+) -> list:
+    """Block Kit layout for the #ainstein-status channel post — minimal notification.
+
+    Was eerder gedupliceerd als losse regels code in _post_slack_notification;
+    die roept nu deze functie aan in plaats van dezelfde blokken-opbouw twee keer
+    te onderhouden.
+    """
+    # Toon Ainstein's eigen, transcript-onderbouwde "Klant/traject:"-regel
+    # (skill Stap 0) — nooit de ruwe jamie.py-gok. Die gok is alleen nog een
+    # interne pre-fill voor routing, niet voor wat hier zichtbaar wordt.
+    client_name = _extract_client_line(debrief_text)
     date_str = (event.started_at or "")[:10]
-    header_text = f":microphone: *{event.title}*"
+    header_text = f":white_check_mark: *{event.title}*"
     if client_name and client_name != event.title:
         header_text += f"  ·  {client_name}"
     if date_str:
@@ -548,57 +582,18 @@ def _build_channel_blocks(event: TranscriptEvent, actions: str, has_actions: boo
             "type": "actions",
             "elements": [{
                 "type": "button",
-                "text": {"type": "plain_text", "text": "Meetingnote openen", "emoji": True},
+                "text": {"type": "plain_text", "text": "Meetingnote", "emoji": True},
                 "url": doc_url,
-                "style": "primary",
             }],
         })
 
+    if sent_dms:
+        names = ", ".join(f"<@{sid}>" for _, sid in sent_dms)
+        blocks.append({"type": "context", "elements": [
+            {"type": "mrkdwn", "text": f"DM verstuurd aan {names}"}
+        ]})
+
     return blocks
-
-
-
-def _post_dm_status(
-    slack_client,
-    channel: str,
-    thread_ts: str,
-    sent_dms: list[tuple[str, str]],
-    failed_dms: list[str],
-) -> None:
-    """Post a thread reply confirming which DMs were actually delivered."""
-    if not sent_dms and not failed_dms:
-        text = ":bust_in_silhouette: *DM-status:* geen Minkowski-deelnemers herkend in deze meeting — geen DM verstuurd."
-    else:
-        lines = [":bust_in_silhouette: *DM-status:*"]
-        for name, slack_id in sent_dms:
-            lines.append(f"  ✅ DM verstuurd aan <@{slack_id}> ({name})")
-        for name in failed_dms:
-            lines.append(f"  ❌ DM mislukt voor {name}")
-        text = "\n".join(lines)
-    try:
-        slack_client.chat_postMessage(
-            channel=channel,
-            thread_ts=thread_ts,
-            text=text,
-            mrkdwn=True,
-        )
-    except Exception as exc:
-        logger.error("Failed to post DM status to thread: %s", exc)
-
-
-def _post_chunked(slack_client, channel: str, thread_ts: str, text: str, chunk_size: int = 3800) -> None:
-    """Post long text as multiple threaded replies to stay within Slack's per-message limit."""
-    for i in range(0, len(text), chunk_size):
-        try:
-            slack_client.chat_postMessage(
-                channel=channel,
-                thread_ts=thread_ts,
-                text=text[i : i + chunk_size],
-                mrkdwn=True,
-            )
-        except Exception as exc:
-            logger.error("Failed to post chunk %d to thread: %s", i // chunk_size, exc)
-            break
 
 
 

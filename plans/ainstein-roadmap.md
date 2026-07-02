@@ -56,7 +56,7 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-### Code-migratie mapnamen afmaken (actieve data-split stoppen)
+### Code-fix na Drive-hernoeming: scripts gebruiken nog oude mapnamen (actieve data-lek stoppen)
 **Wat:** de Drive-herstructurering van 30 juni (o.a. `06_Marketing` → `04_Marketing`) is in Drive doorgevoerd maar NIET in de code. Geverifieerd 2 juli: 13 verwijzingen naar oude mapnamen in 9 Python-bestanden (`tools.py`, `scrape_*.py`, `update_stijl.py`, `restore_voice.py`, `run_kennisextractie.py`) plus `.claude/projects.json`.
 **Gevolg (actief probleem):** scrapers/crons maken de oude map `06_Marketing` opnieuw aan in de Shared Drive en schrijven verse data (Slack-scrapes, LinkedIn, voice) naar die verweesde map — data die Ainstein niet leest. Elke nacht loopt de split verder op.
 **Aanpak (volgorde is belangrijk):** (1) code fixen: alle oude mapnamen → nieuwe namen; (2) orphaned data uit de stray `06_Marketing` naar `04_Marketing` migreren; (3) pas daarna opruimen: stray map, dubbele lege `_kennis` (30 juni-artefact), `.DS_Store`-bestanden.

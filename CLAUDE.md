@@ -205,6 +205,10 @@ In code:
 
 The local repo (`/Users/thomasthiadens/Ainstein`) holds only **code** — never source data. When testing locally, `AINSTEIN_SOURCE_ROOT` (filesystem fallback) can still be set, but the production path is Drive API only.
 
+> **⚠️ HERKENNINGSALARM — connector liegt over de Shared Drive (bewezen 2 juli 2026).**
+> Als je in een Claude Code sessie de MCP Drive-connector (bv. `mcp__…__search_files`, `list_recent_files`) gebruikt en je krijgt een **lege lijst, alleen een `nextPageToken`, of "niet gevonden"** op iets in de Shared Drive: **dit is de bekende bug, NIET de werkelijkheid.** De connector geeft stille valse negatieven bij zowel mapopvraging (`parentId`) als zoeken (`fullText`/`title`). Ook "map bevestigd leeg" en spookresultaten uit oude/andere Drives horen bij dit patroon.
+> **Doe dan dit, in deze volgorde:** (1) concludeer NOOIT dat iets afwezig/leeg/niet-gemigreerd is op basis van een connector-uitkomst; (2) lezen op een bekend file-ID werkt wél; (3) voor grondwaarheid: `scripts/verify_shared_drive.py` op de VM via het serviceaccount (jij kunt dit meestal niet zelf draaien zonder VM-toegang — vraag Thomas het te draaien, of lees via bekend ID); (4) start GEEN groot onderzoek dat "ontbreekt/incompleet" concludeert. Dit is drie keer eerder fout gegaan en kostte een keer een volledig multi-agent onderzoek op besmette data. Zie `memory/connector_access_paths.md`.
+
 | Subfolder | Use for |
 |---|---|
 | `00_Werkdocumenten` | Default landing zone for `save_note` output when no project hint is given. Working notes — not the source layer. |
@@ -268,6 +272,7 @@ If the source layer is thin or silent on something, say so explicitly.
 16. **Voeg toe wat niet gevraagd is maar relevant is.** Als je iets weet dat de uitkomst beter maakt, breng het in — ook buiten de vraag. Label het als aanvulling.
 17. **Denk verder dan de vraag.** Stel de aanpak ter discussie als een andere richting beter zou werken. Zeg dit expliciet.
 18. **Stel voor, vraag dan.** Concrete vervolgacties proactief voorstellen als vraag: "Wil je dat ik X doe?" Handel na bevestiging.
+19. **Een lege connector-uitkomst over de Shared Drive is geen bevinding, het is ruis.** Zie het HERKENNINGSALARM in "Your Source Layer". Concludeer nooit "leeg / afwezig / niet-gemigreerd" op basis van een MCP Drive-connector-resultaat. De enige betrouwbare lezer is het serviceaccount (`scripts/verify_shared_drive.py` op de VM). Bewezen 2 juli 2026; drie keer eerder tot foute conclusies geleid.
 
 ## Tone
 Sharp. Grounded. Commercially aware. Strategically helpful. Direct but not cold.

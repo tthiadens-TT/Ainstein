@@ -235,22 +235,23 @@ FUTURESREADY_URLS = [
 
 # Elk job: (key, beschrijving, url-provider, drive-subpad, bestandsnaam)
 JOBS = {
+    # drive-subpad = subpad ONDER de marketing-rolmap (prefix 04_), opgelost via drive_structure
     "minkowski": (
         "minkowski.org — artikelen",
         _minkowski_article_urls,
-        ("06_Marketing", "_bronmateriaal", "website", "minkowski"),
+        ("_bronmateriaal", "website", "minkowski"),
         "minkowski_org_artikelen",
     ),
     "team": (
         "minkowski.org — team & experts",
         _minkowski_team_urls,
-        ("06_Marketing", "_bronmateriaal", "website", "team"),
+        ("_bronmateriaal", "website", "team"),
         "minkowski_org_team",
     ),
     "futuresready": (
         "futuresready.com — 7 practices",
         lambda: list(FUTURESREADY_URLS),
-        ("06_Marketing", "_bronmateriaal", "website", "futuresready"),
+        ("_bronmateriaal", "website", "futuresready"),
         "futuresready_7practices",
     ),
 }
@@ -313,7 +314,8 @@ def _run_job(key: str, dry_run: bool, service) -> None:
         print(doc[:3000], "\n...[ingekort voor dry-run]")
         return
 
-    folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *drive_path)
+    import drive_structure as ds
+    folder_id = ds.resolve_path(service, "marketing", drive_path, create=True)
     # Ruim oude versie op
     existing = service.files().list(
         q=f"'{folder_id}' in parents and trashed=false",

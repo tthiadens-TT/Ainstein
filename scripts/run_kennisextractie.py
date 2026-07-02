@@ -55,7 +55,7 @@ from scrape_slack import _get_drive_service, _resolve_folder_chain, _upload_mark
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
 BRONNEN_FILE = Path(__file__).resolve().parent / "bronnen.json"
 LAAG_NAAM = "kennis_laag"  # _upload_markdown voegt .md toe
-KENNIS_PAD = ("06_Marketing", "_kennis")
+KENNIS_PAD = ("_kennis",)  # onder marketing-rolmap (drive_structure)
 
 SLACK_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 SLACK_CHANNEL = (
@@ -202,8 +202,9 @@ def main() -> int:
     log.info("Bronnen: %s", [b["bron"] for b in bronnen])
 
     service = _get_drive_service()
-    kennis_folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *KENNIS_PAD)
-    log.info("Doelmap gereed: %s", "/".join(KENNIS_PAD))
+    import drive_structure as ds
+    kennis_folder_id = ds.resolve_path(service, "marketing", KENNIS_PAD, create=True)
+    log.info("Doelmap gereed: marketing/%s (%s)", "/".join(KENNIS_PAD), kennis_folder_id)
 
     current_laag = _download_existing_laag(service, kennis_folder_id, f"{LAAG_NAAM}.md")
     had_promotiebesluiten = "## Promotiebesluiten" in current_laag

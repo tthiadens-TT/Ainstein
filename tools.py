@@ -91,6 +91,18 @@ _FOLDER_NAMES = [
     "05_Ainstein Knowledge Base",
 ]
 
+# Rol → canonieke mapnaam waarmee de rest van de code de mappen opzoekt.
+# Gebruikt om folder_ids rename-proof te maken: de discovery registreert deze
+# canonieke naam op basis van het nummer-voorvoegsel, niet de letterlijke naam.
+_ROLE_CANONICAL = {
+    "werkdocumenten": "00_Werkdocumenten",
+    "clients": "01_Clients",
+    "frameworks": "02_Frameworks & Tools",
+    "experts": "03_Experts",
+    "marketing": "04_Marketing",
+    "knowledge_base": "05_Ainstein Knowledge Base",
+}
+
 SOURCE_FOLDERS = {name: SOURCE_ROOT / name for name in _FOLDER_NAMES}
 
 TEXT_EXTENSIONS = {
@@ -193,15 +205,27 @@ def _build_drive_folder_ids() -> dict[str, str]:
                 "and mimeType='application/vnd.google-apps.folder' "
                 "and trashed=false"
             ),
-            fields="files(id, name)",
-            pageSize=20,
+            fields="files(id, name, createdTime)",
+            pageSize=100,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
         ).execute()
 
-        folder_ids: dict[str, str] = {
-            f["name"]: f["id"] for f in results.get("files", [])
-        }
+        discovered = results.get("files", [])
+        folder_ids: dict[str, str] = {f["name"]: f["id"] for f in discovered}
+
+        # Rename-proof: registreer ook de canonieke naam per rol op basis van
+        # het nummer-voorvoegsel (00_ t/m 05_). Zo blijft folder_ids.get(
+        # "04_Marketing") werken ook als de map in Drive hernoemd is (bv. "04_GTM").
+        try:
+            import drive_structure as ds
+            for role, canonical in _ROLE_CANONICAL.items():
+                matches = ds.match_role_folder(discovered, ds.ROLE_PREFIXES[role])
+                if matches:
+                    chosen = ds._pick_oldest(matches, f"rol {role}")
+                    folder_ids.setdefault(canonical, chosen["id"])
+        except Exception as e:
+            logger.warning("Drive: rol-alias-opbouw overgeslagen: %s", e)
 
         for name, fid in sorted(folder_ids.items()):
             logger.info("Drive: discovered %s → %s", name, fid)
@@ -474,7 +498,7 @@ def save_text_bakje(path_parts: list[str], title: str, content: str) -> dict:
     AI-samenvatting of Google Doc. Maakt de mapketen aan als die ontbreekt en overschrijft
     een bestaand bestand met dezelfde naam (idempotent per titel).
 
-    path_parts bijv. ["06_Marketing", "_bronmateriaal", "jamie"]. Geeft {id,url,name} of {error}.
+    path_parts bijv. ["04_Marketing", "_bronmateriaal", "jamie"]. Geeft {id,url,name} of {error}.
     """
     import io
     from googleapiclient.http import MediaIoBaseUpload
@@ -484,25 +508,17 @@ def save_text_bakje(path_parts: list[str], title: str, content: str) -> dict:
         logger.warning("save_text_bakje: Drive niet beschikbaar — bakje %r niet opgeslagen", title)
         return {"error": "Drive API not available"}
 
-    root_id = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", _DEFAULT_DRIVE_ROOT_ID)
-
-    # Resolveer/creëer de mapketen onder de root
-    parent_id = root_id
-    for name in path_parts:
-        safe = name.replace("'", "")
-        res = drive.files().list(
-            q=(f"name='{safe}' and mimeType='application/vnd.google-apps.folder' "
-               f"and '{parent_id}' in parents and trashed=false"),
-            fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True,
-        ).execute()
-        files = res.get("files", [])
-        if files:
-            parent_id = files[0]["id"]
-        else:
-            meta = {"name": name, "mimeType": "application/vnd.google-apps.folder", "parents": [parent_id]}
-            folder = drive.files().create(body=meta, fields="id", supportsAllDrives=True).execute()
-            parent_id = folder["id"]
-            logger.info("save_text_bakje: map aangemaakt %s", name)
+    # Resolveer de mapketen via drive_structure: het eerste segment (bv.
+    # "04_Marketing") wordt op nummer-voorvoegsel gematcht en NOOIT als spookmap
+    # op de root aangemaakt; submappen eronder worden wel aangemaakt als ze
+    # ontbreken. Rename-proof en geen data-lek meer.
+    try:
+        import drive_structure as ds
+        location = "/".join(path_parts)
+        parent_id = ds.parse_location(drive, location, create=True)
+    except Exception as e:
+        logger.error("save_text_bakje: kon doelmap %s niet oplossen: %s", path_parts, e)
+        return {"error": f"kon doelmap niet oplossen: {e}"}
 
     md_name = title if title.endswith(".md") else f"{title}.md"
     media = MediaIoBaseUpload(io.BytesIO(content.encode("utf-8")), mimetype="text/plain", resumable=False)
@@ -662,7 +678,7 @@ _KENNIS_TTL = 300  # seconds
 
 
 def drive_read_kennis_laag(max_chars: int = 8000) -> str | None:
-    """Read kennis_laag.md from Drive (06_Marketing/_kennis/). Returns content or None on error."""
+    """Read kennis_laag.md from Drive (04_Marketing/_kennis/). Returns content or None on error."""
     from googleapiclient.http import MediaIoBaseDownload
 
     service = _get_drive_service()

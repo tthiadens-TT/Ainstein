@@ -341,13 +341,13 @@ def main():
     client = _slack_client()
     drive = None if args.dry_run else _get_drive_service()
 
-    # Bepaal doelmap in Drive: 06_Marketing/_bronmateriaal/slack
+    # Bepaal doelmap in Drive via drive_structure: marketing-rolmap (prefix 04_),
+    # dan _bronmateriaal/slack eronder. Nooit een top-level spookmap.
     slack_folder_id = None
     if drive:
-        marketing_folder = _resolve_folder_chain(drive, SHARED_DRIVE_ID, "06_Marketing")
-        bronmateriaal_folder = _resolve_folder_chain(drive, marketing_folder, "_bronmateriaal")
-        slack_folder_id = _resolve_folder_chain(drive, bronmateriaal_folder, "slack")
-        log.info("Doelmap in Drive gereed: 06_Marketing/_bronmateriaal/slack")
+        import drive_structure as ds
+        slack_folder_id = ds.resolve_path(drive, "marketing", ("_bronmateriaal", "slack"), create=True)
+        log.info("Doelmap in Drive gereed: <marketing>/_bronmateriaal/slack (%s)", slack_folder_id)
 
     # Bepaal kanalen
     if args.channels:

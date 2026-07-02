@@ -52,8 +52,10 @@ from scrape_slack import _get_drive_service, _upload_markdown, _resolve_folder_c
 
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
 
-JORGEN_PATH    = ("06_Marketing", "_bronmateriaal", "linkedin", "jorgen")
-MINKOWSKI_PATH = ("06_Marketing", "_bronmateriaal", "linkedin", "minkowski")
+# Subpaden ONDER de marketing-rolmap (prefix 04_). Rolmap wordt dynamisch
+# opgelost via drive_structure, dus hernoemen breekt niets.
+JORGEN_PATH    = ("_bronmateriaal", "linkedin", "jorgen")
+MINKOWSKI_PATH = ("_bronmateriaal", "linkedin", "minkowski")
 
 # Google Search queries for LinkedIn posts
 QUERIES = {
@@ -342,8 +344,9 @@ def main() -> int:
         if not posts:
             log.warning("Geen posts voor %s — map wordt niet aangemaakt.", origin)
             continue
+        import drive_structure as ds
         path = JORGEN_PATH if origin == "jorgen" else MINKOWSKI_PATH
-        folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *path)
+        folder_id = ds.resolve_path(service, "marketing", path, create=True)
         doc = _build_doc(origin, posts, today)
         filename = f"linkedin_{origin}_{today}"
         link = _upload_markdown(service, filename, doc, folder_id)

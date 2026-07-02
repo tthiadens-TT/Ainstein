@@ -29,19 +29,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(me
 log = logging.getLogger("restore_voice")
 
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
-VOICE_DRIVE_PAD = ("06_Marketing", "_kennis")
+VOICE_DRIVE_PAD = ("_kennis",)  # onder marketing-rolmap (drive_structure)
 VOICE_DRIVE_NAAM = "minkowski_voice.md"
 VOICE_LOCAL = _REPO_ROOT / "skills" / "minkowski_voice.md"
 
 
 def main() -> int:
     try:
-        from scrape_slack import _get_drive_service, _resolve_folder_chain
+        from scrape_slack import _get_drive_service
+        import drive_structure as ds
         import io
         from googleapiclient.http import MediaIoBaseDownload
 
         service = _get_drive_service()
-        folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *VOICE_DRIVE_PAD)
+        folder_id = ds.resolve_path(service, "marketing", VOICE_DRIVE_PAD)
 
         res = service.files().list(
             q=f"'{folder_id}' in parents and name='{VOICE_DRIVE_NAAM}' and trashed=false",

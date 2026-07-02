@@ -64,9 +64,10 @@ STEM_START, STEM_END = "<<<STEM_START>>>", "<<<STEM_END>>>"
 STIJL_BRONNEN = {"linkedin-jorgen", "linkedin-minkowski", "substack", "website-minkowski"}
 
 VOICE_FILE = _REPO_ROOT / "skills" / "minkowski_voice.md"
-VERBAL_IDENTITY_PAD = ("06_Marketing",)
+# Subpaden ONDER de marketing-rolmap (prefix 04_), opgelost via drive_structure.
+VERBAL_IDENTITY_PAD = ()            # de marketing-rolmap zelf
 VERBAL_IDENTITY_NAAM = "verbal_identity"
-VOICE_KENNIS_PAD = ("06_Marketing", "_kennis")
+VOICE_KENNIS_PAD = ("_kennis",)
 VOICE_KENNIS_NAAM = "minkowski_voice"
 
 # Max tekens bronmateriaal per bron — stijl heeft geen volledigheid nodig, wel variatie
@@ -111,10 +112,11 @@ def _download_file(service, file_id: str) -> str:
 
 
 def _resolve_bron_folder(service, locatie: str) -> str | None:
-    """Los 'pad/naar/map' op naar een folder-ID via BFS."""
-    parts = [p for p in locatie.strip("/").split("/") if p]
+    """Los een bronnen.json-locatie ('04_Marketing/...') op via drive_structure
+    (prefix-matching, read-only). Hernoemen van de rolmap breekt dit niet."""
+    import drive_structure as ds
     try:
-        return _resolve_folder_chain(service, SHARED_DRIVE_ID, *parts)
+        return ds.parse_location(service, locatie, create=False)
     except Exception as e:
         log.warning("Map niet gevonden '%s': %s", locatie, e)
         return None
@@ -145,7 +147,8 @@ def _lees_bron(service, bron: dict) -> str:
 def _download_verbal_identity(service) -> tuple[str, str | None]:
     """Download verbal_identity.md uit 06_Marketing. Geeft (inhoud, file_id)."""
     try:
-        folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *VERBAL_IDENTITY_PAD)
+        import drive_structure as ds
+        folder_id = ds.resolve_path(service, "marketing", VERBAL_IDENTITY_PAD)
         res = service.files().list(
             q=f"'{folder_id}' in parents and name='verbal_identity.md' and trashed=false",
             fields="files(id,name)",
@@ -170,7 +173,8 @@ def _save_voice_to_drive_kennis(service, inhoud: str) -> None:
     """Sla minkowski_voice.md op als dedicated bestand in 06_Marketing/_kennis/
     zodat restore_voice.py de verrijking kan herstellen na een git reset --hard."""
     try:
-        folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *VOICE_KENNIS_PAD)
+        import drive_structure as ds
+        folder_id = ds.resolve_path(service, "marketing", VOICE_KENNIS_PAD, create=True)
         _upload_markdown(service, VOICE_KENNIS_NAAM, inhoud, folder_id)
         log.info("minkowski_voice.md opgeslagen in Drive (_kennis/).")
     except Exception as e:
@@ -385,7 +389,8 @@ def _update_verbal_identity_in_drive(service, nieuwe_stem: str, today: str) -> N
         nieuwe_inhoud = inhoud + f"\n\n{extractie}"
 
     try:
-        folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *VERBAL_IDENTITY_PAD)
+        import drive_structure as ds
+        folder_id = ds.resolve_path(service, "marketing", VERBAL_IDENTITY_PAD)
         _upload_markdown(service, VERBAL_IDENTITY_NAAM, nieuwe_inhoud, folder_id)
         log.info("verbal_identity.md bijgewerkt in Drive.")
     except Exception as e:

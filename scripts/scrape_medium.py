@@ -48,7 +48,7 @@ from scrape_slack import _get_drive_service, _upload_markdown, _resolve_folder_c
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
 DEFAULT_FEED_URL = "https://medium.com/feed/@minkowskispectacles"
 
-MEDIUM_PATH = ("06_Marketing", "_bronmateriaal", "medium")
+MEDIUM_PATH = ("_bronmateriaal", "medium")  # onder marketing-rolmap (drive_structure)
 
 _NS = {
     "content": "http://purl.org/rss/1.0/modules/content/",
@@ -226,8 +226,9 @@ def main() -> int:
         return 0
 
     service = _get_drive_service()
-    folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *MEDIUM_PATH)
-    log.info("Doelmap: %s", "/".join(MEDIUM_PATH))
+    import drive_structure as ds
+    folder_id = ds.resolve_path(service, "marketing", MEDIUM_PATH, create=True)
+    log.info("Doelmap: marketing/%s (%s)", "/".join(MEDIUM_PATH), folder_id)
 
     uploaded = 0
     for year, arts in sorted(groups.items()):

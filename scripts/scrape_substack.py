@@ -50,7 +50,7 @@ from scrape_slack import _get_drive_service, _get_or_create_folder, _upload_mark
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
 DEFAULT_FEED_URL = "https://futuresready.substack.com/feed"
 
-SUBSTACK_PATH = ("06_Marketing", "_bronmateriaal", "substack")
+SUBSTACK_PATH = ("_bronmateriaal", "substack")  # onder marketing-rolmap (drive_structure)
 
 
 # ---------------------------------------------------------------------------
@@ -250,8 +250,9 @@ def main() -> int:
 
     # Drive upload
     service = _get_drive_service()
-    folder_id = _resolve_folder_chain(service, SHARED_DRIVE_ID, *SUBSTACK_PATH)
-    log.info("Doelmap: %s", "/".join(SUBSTACK_PATH))
+    import drive_structure as ds
+    folder_id = ds.resolve_path(service, "marketing", SUBSTACK_PATH, create=True)
+    log.info("Doelmap: marketing/%s (%s)", "/".join(SUBSTACK_PATH), folder_id)
 
     uploaded = 0
     for year, arts in sorted(groups.items()):

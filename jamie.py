@@ -183,15 +183,23 @@ def lookup_participant_slack_ids(
     return result
 
 
-def infer_client_name(event: TranscriptEvent) -> str:
-    """Guess the client name from participants or meeting title."""
+def infer_client_name(event: TranscriptEvent) -> str | None:
+    """Cheap, internal pre-fill guess for the client — used only for routing
+    (fallback Slack channel lookup, Drive folder-hint search). NOT authoritative:
+    the meeting_reviewer skill determines the client/traject actually shown to
+    users by reading title, summary and transcript itself (skill Stap 0).
+
+    Returns None when no participant's email domain gives a usable signal.
+    Deliberately does NOT fall back to guessing from title words — that produced
+    visibly broken labels (e.g. "McKinsey Benchmark en" from a longer title)
+    when shown to users. A missing signal should surface as "no candidate",
+    never as a mangled guess.
+    """
     for p in event.participants:
         email = p.get("email", "")
         domain = email.split("@")[-1] if "@" in email else ""
         if domain and domain not in _MINKOWSKI_DOMAINS:
             return p.get("name") or domain
-    # Fall back to first 3 words of title
-    words = event.title.split()
-    return " ".join(words[:3]) if words else "Onbekende klant"
+    return None
 
 

@@ -8,6 +8,26 @@ meerdere onafhankelijke bronnen die overlappen, bevestigen wat echt belangrijk i
 
 ## Werkwijze
 
+**Stap 0 — Klant/traject vaststellen**
+Bepaal de klantnaam (en, indien van toepassing, het specifieke traject binnen die klant)
+uit de titel, Jamie's samenvatting én het transcript zelf — niet uit een aanname.
+
+- **Wordt een naam ergens genoemd** (titel, samenvatting, transcript, of het e-maildomein
+  van een deelnemer)? Gebruik die met vertrouwen. Geen zware verificatie nodig.
+- **Wordt nergens een naam genoemd?** Doe dan onderzoek (vergelijkbare eerdere programma's,
+  ingezette facilitators) en formuleer het resultaat ALTIJD als vraag, nooit als bewering:
+  "Geen klantnaam genoemd. Op basis van [signaal] zou dit [naam] kunnen zijn — klopt dat?"
+
+**Sub-dossier-regel** — geldt zodra een klant meerdere, losstaande trajecten heeft binnen
+dezelfde Drive-klantmap (bv. NN Group heeft zowel LEAD3 als Inkomen Collectief — verschillende
+trajecten, vaak vergelijkbare taal zoals "leiderschapsontwikkeling" of "intervisie"):
+- Het bedrijfsniveau (bv. "NN Group") mag je aannemen zodra het genoemd is.
+- Een SPECIFIEK traject daarbinnen (bv. "LEAD3") mag je alleen noemen als dat traject
+  zélf met naam voorkomt in titel, transcript of samenvatting.
+- Wordt het bedrijf genoemd maar niet welk traject, en zijn er meerdere mogelijke trajecten?
+  Kies er nooit stilzwijgend één. Benoem het als vraag: "Dit gaat over [bedrijf], mogelijk
+  traject [X] of [Y] — welke is het?"
+
 **Stap 1 — Lees het transcript zelf**
 Lees het volledige transcript. Stel jezelf de vraag: wat zijn de werkelijke acties,
 besluiten en open vragen die uit dit gesprek voortkomen?
@@ -47,6 +67,8 @@ Formuleer wat JIJ direct kunt oppakken vanuit de takenlijst:
 ## Outputformaat
 
 ```
+**Klant/traject:** [naam, of "geen klantnaam genoemd" + eventueel de gelabelde vraag uit Stap 0]
+
 **Taken — Ainstein's analyse:**
 - [taak] ✅ / ➕ / ⚠️ [toelichting indien nodig]
 
@@ -68,3 +90,5 @@ Geen tekst als Ainstein en Jamie volledig overeenkomen.]
 - Max 400 woorden totaal
 - Taal volgt het gesprek (NL of EN)
 - Alleen voorstellen die je echt kunt uitvoeren als Ainstein
+- Noem een klantnaam of traject NOOIT als vaststaand tenzij die letterlijk genoemd is —
+  bij twijfel: gelabelde vraag (zie Stap 0), nooit een aanname presenteren als feit

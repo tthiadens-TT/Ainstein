@@ -101,7 +101,7 @@ def _save_transcript_bakje(event: TranscriptEvent) -> None:
         from tools import save_text_bakje
 
         meeting_type = _detect_meeting_type(event)
-        context = infer_client_name(event) if meeting_type != "internal" else "intern Minkowski-overleg"
+        context = (infer_client_name(event) or "onbekend") if meeting_type != "internal" else "intern Minkowski-overleg"
         participants_str = ", ".join(p.get("name", p.get("email", "?")) for p in event.participants)
         date_str = (event.started_at or "")[:10] or "onbekend"
         safe_title = re.sub(r"[^a-zA-Z0-9_\- ]", "_", event.title or "meeting").strip()[:60]
@@ -177,7 +177,10 @@ def _generate_meetingnote_content(event: TranscriptEvent, anthropic_client) -> s
     )
 
     participants_str = ", ".join(p.get("name", p.get("email", "?")) for p in event.participants)
-    client_name = infer_client_name(event)
+    # Pre-fill uit e-maildomein, alleen een hint — geen vaststaand feit. Als er geen
+    # domein-match is, laat de skill zelf op zoek gaan in titel/samenvatting/transcript
+    # (zie briefing_writer.md: "Niet besproken"/"Onbekend" i.p.v. speculeren).
+    client_name = infer_client_name(event) or "(niet automatisch herkend — bepaal dit zelf uit onderstaande context, of schrijf 'Onbekend')"
     tasks_text = _format_tasks(event)
     summary_text = event.summary or "Geen samenvatting beschikbaar."
     transcript_text = _truncate_transcript(event.transcript or "")
@@ -187,7 +190,7 @@ def _generate_meetingnote_content(event: TranscriptEvent, anthropic_client) -> s
         f"Meeting: {event.title}\n"
         f"Datum: {event.started_at}\n"
         f"Deelnemers: {participants_str}\n"
-        f"Klant/organisatie: {client_name}\n\n"
+        f"Klant/organisatie (pre-fill, ongeverifieerd): {client_name}\n\n"
         f"--- Jamie's samenvatting ---\n{summary_text}\n\n"
         f"--- Jamie's taken ---\n{tasks_text or 'Geen taken gelogd.'}\n\n"
         f"--- Transcript ---\n{transcript_text}\n\n"
@@ -288,7 +291,9 @@ def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
             + "sla een notitie op via save_note."
         )
 
-    client_name = infer_client_name(event)
+    # Pre-fill uit e-maildomein, alleen een hint voor de skill — geen vaststaand feit.
+    # De skill bepaalt de echte "Klant/traject:" zelf in Stap 0 (titel/samenvatting/transcript).
+    client_name_hint = infer_client_name(event) or "geen automatische match — bepaal dit zelf in Stap 0"
     type_hints = {
         "check_in": "check-in / voortgangsgesprek (mid-programma of mid-traject)",
         "follow_up": "follow-up op offerte of voorstel",
@@ -298,7 +303,7 @@ def _build_agent_prompt(event: TranscriptEvent, meeting_type: str) -> str:
 
     return (
         header
-        + f"**Klant:** {client_name} | **Type:** {type_hint}\n"
+        + f"**Klant (pre-fill, ongeverifieerd — bepaal dit zelf in Stap 0):** {client_name_hint} | **Type:** {type_hint}\n"
         + transcript_block
         + "\n\n---\n"
         + jamie_block
@@ -345,6 +350,22 @@ def _truncate_transcript(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Slack communication
 # ---------------------------------------------------------------------------
+
+def _extract_client_line(debrief_text: str) -> str | None:
+    """Pull the '**Klant/traject:**' line the meeting_reviewer skill emits (Stap 0).
+
+    This is Ainstein's own, transcript-grounded determination — never the raw
+    jamie.py pre-fill guess (that guess is only for internal routing, see
+    infer_client_name()). Returns None if the skill didn't emit the line
+    (e.g. internal meetings skip Stap 0 entirely) — showing nothing is safer
+    than falling back to an unverified guess in a shared channel.
+    """
+    match = re.search(r"\*\*Klant/traject:\*\*\s*(.+)", debrief_text or "")
+    if not match:
+        return None
+    value = match.group(1).strip()
+    return value or None
+
 
 def _post_slack_notification(
     event: TranscriptEvent,
@@ -403,7 +424,10 @@ def _post_slack_notification(
         logger.warning("AINSTEIN_TRANSCRIPT_CHANNEL niet ingesteld — CC overgeslagen")
     else:
         try:
-            client_name = infer_client_name(event)
+            # Toon Ainstein's eigen, transcript-onderbouwde "Klant/traject:"-regel
+            # (skill Stap 0) — nooit de ruwe jamie.py-gok. Die gok is alleen nog
+            # een interne pre-fill voor routing, niet voor wat hier zichtbaar wordt.
+            client_name = _extract_client_line(debrief_text)
             date_str = (event.started_at or "")[:10]
             cc_text = f":white_check_mark: *{event.title}*"
             if client_name and client_name != event.title:

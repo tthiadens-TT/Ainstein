@@ -94,6 +94,8 @@ def _move(svc, fid, new_parent, old_parent):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="Voer de veilige acties uit (default: dry-run)")
+    ap.add_argument("--show-divergent", action="store_true",
+                    help="Print per divergent bestand de stray-regels die NIET in real staan (read-only)")
     args = ap.parse_args()
     mode = "APPLY" if args.apply else "DRY-RUN"
 
@@ -152,6 +154,12 @@ def main() -> int:
             else:
                 print(f"  DIVERGENT    {n} (stray {len(sc)}c ≠ real {len(rc)}c) -> OVERGESLAGEN, handmatig oordeel")
                 divergent.append(n)
+                if args.show_divergent:
+                    real_lines = set(l.strip() for l in rc.splitlines() if l.strip())
+                    uniek = [l for l in sc.splitlines() if l.strip() and l.strip() not in real_lines]
+                    print(f"      stray-regels NIET in real ({len(uniek)}):")
+                    for l in uniek[:15]:
+                        print(f"        + {l[:100]}")
 
     # Opruimen (alleen lege mappen), na de bestand-migratie
     print("-" * 64)

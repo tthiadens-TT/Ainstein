@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 2 juli 2026 (sessie: Drive-connector-dossier fundamenteel uitgezocht; migratie compleet bevonden; AInstein_OUD verwijderd; verify_shared_drive.py toegevoegd)*
+*Bijgewerkt: 2 juli 2026 (sessie: verkenning simulatielaag / General Intuition-mechaniek afgerond — `docs/verkenning-simulatielaag-general-intuition.md` + Google Doc in 00_Werkdocumenten)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -219,6 +219,15 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 ---
 
 ## 📋 Backlog — Beslissingen (Thomas/Jörgen)
+
+### Richtingkeuze simulatielaag: oordeel- en uitkomstenregister starten? (verkenning 2 juli 2026)
+**Wat:** de verkenning `docs/verkenning-simulatielaag-general-intuition.md` (ook als Google Doc in `00_Werkdocumenten`) concludeert: de sterkste vertaling van de General Intuition-mechaniek is richting D+A, een oordeel- en uitkomstenregister (beslissingen + verwachtingen + latere uitkomsten vastleggen als cumulatieve asset). Bewoonbare scenario's (C) zijn de commerciële horizon maar horen ná de datafundering.
+**Voorgestelde kleinste eerste stap (uit het document):**
+1. Twee bekende uitkomsten handmatig registreren in de bestaande `08_Outcomes`-template (NN IC gewonnen mei 2026; expert-match verloren op tarief). Half uur werk, test het format.
+2. `meeting_reviewer` uitbreiden met sectie "Oordelen en verwachtingen" → append-only register in Drive (skill-tekstwijziging, geen nieuwe architectuur).
+3. Maandelijks terugkijk-moment in `#ainstein-status`: welke open voorspellingen hebben een uitkomst?
+**Open vraag [aanname in doc]:** willen Jörgen en de experts dat hun oordeel vastgelegd en herbruikbaar wordt? Nooit expliciet besproken.
+**Beslissing Thomas/Jörgen:** akkoord op deze richting en eerste stap, of andere prioritering.
 
 ### Optie 2 (Claude Projects): connector eerst testen, niet aannemen — gecorrigeerd 2 juli 2026
 **Correctie:** de connector-blokkade was nooit een gemeld Optie 2-probleem; dat was een inferentie van Claude, geen waargenomen feit. Of de Projects-connector dezelfde file-hiding bug heeft als de Claude Code-connector is ONBEKEND (zelfde connector-familie, dus plausibel, maar niet getest sinds de herstructurering van 30 juni).
@@ -708,6 +717,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Verkenning simulatielaag / General Intuition-mechaniek afgerond: fase 1-inventarisatie (businessmodel Minkowski eerst, dan Ainstein), 4 richtingen (beslis-ledger, adversariale simulatie, bewoonbare scenario's, expert-intuïtie vangen), DVV-toets + onderscheidendheidsonderzoek (6 zoekacties: Gong, Principle, synthetic personas, wargaming, GI-feitencheck: aankondiging 25 juni 2026, niet januari). Advies: D+A eerst. Document in `docs/` + Google Doc in `00_Werkdocumenten`. Beslispunt toegevoegd aan Beslissingen-sectie. | deze sessie | 2 juli 2026 |
 | Drive-connector-dossier fundamenteel uitgezocht (multi-agent onderzoek + serviceaccount-scan). Uitkomst: (1) connector-blokkade is een open Anthropic-bug (#53442), geen Workspace-instelling, geen fix in onze hand; (2) connector geeft valse negatieven bij zowel mappen als zoeken, enige betrouwbare lezer = serviceaccount; (3) migratie 21 mei was COMPLEET, `AInstein_OUD` was redundant en is door Thomas verwijderd; (4) drie eerdere "opgelost"-afsluitingen waren onjuist, nu gedocumenteerd tegen herhaling. `scripts/verify_shared_drive.py` toegevoegd als grondwaarheid-tool. | `c76d878`, `d1c33ad` e.v. | 2 juli 2026 |
 | Bug gefixed: meeting-titel verdween uit Jamie-DM sinds commit 7c588d0 (26 juni) toen `_build_dm_blocks()` werd vervangen door platte `debrief_text`. Titel-regel (`:microphone: *titel*`) teruggezet in `_post_slack_notification()`. Gevonden n.a.v. melding Jörgen in Slack. Getest via `scripts/test_jamie_webhook.py` op live VM — bevestigd werkend. | `b589816` | 1 juli 2026 |
 | 41 `claude/*` branches + bijbehorende worktrees opgeruimd (elk gecontroleerd op ongecommit werk vóór verwijdering; 1 branch met verouderd font-work via `git branch -D`, inhoud stond al nieuwer op main) | lokaal, geen commit | 1 juli 2026 |

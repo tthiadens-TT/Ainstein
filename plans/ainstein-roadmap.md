@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 1 juli 2026 (sessie: meeting-titel-bug in Jamie-DM gefixed; commit b589816)*
+*Bijgewerkt: 2 juli 2026 (sessie: Drive-connector-dossier fundamenteel uitgezocht; migratie compleet bevonden; AInstein_OUD verwijderd; verify_shared_drive.py toegevoegd)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -30,6 +30,25 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 2. **Binnen een sessie, als VM-route niet beschikbaar is:** breed zoeken (`title`/`fullText`, zonder `parentId`), daarna **verplicht** elk resultaat met `get_file_metadata` terugcontroleren tegen de verwachte parent. Zonder die stap onveilig: leverde bij test 24 overtuigende spookresultaten op uit een oude, gearchiveerde map (`AInstein_OUD`, ander account). Volledig doorpagineren — een lege `files`-array met `nextPageToken` betekent niet "klaar."
 
 **Niet doen:** dit item afsluiten als "opgelost" zonder verse, onafhankelijke test. Niet opnieuw een Google Workspace-instelling voorstellen als oorzaak.
+
+**Uitbreiding 2 juli 2026 (belangrijk):** de connector geeft óók valse negatieven bij ZOEKEN (`fullText`/`title`), niet alleen bij mapopvraging. Bewezen: een serviceaccount-scan toonde dat de hele bronnenlaag compleet in de Shared Drive staat, terwijl connector-zoekopdrachten kernbestanden "niet vonden". **Conclusie: geen enkele connector-uitkomst over de Shared Drive is betrouwbaar, positief noch negatief.** Enige betrouwbare lezer = serviceaccount op de VM. Gereedschap hiervoor: `scripts/verify_shared_drive.py` (read-only, draait op de VM). Gebruik dit voor grondwaarheid bij elke vraag "staat X wel/niet in de Drive".
+
+---
+
+## 📋 Backlog — Drive opruiming (na serviceaccount-scan 2 juli 2026)
+
+Gevonden via de betrouwbare serviceaccount-scan, dus echte bevindingen (geen connector-artefact). Niet urgent.
+
+### Dubbele en overbodige bestanden in de Shared Drive opruimen
+- `00_Werkdocumenten`: 3x identieke `LEAD3_NN_Group_Opzet_updated.pptx`, dubbele `260601_Opzet NN LEAD3 revised ... June 2026` docs.
+- `01_Clients/.../Test/Meetingnotes`: 4x identieke `Meetingnote 2026-06-26 — Test kennismaking`.
+- `04_Marketing`: een dubbele LEGE `_kennis`-map naast de gevulde (met kennis_laag.md + entiteiten.md).
+- Stray `06_Marketing`-map in Shared Drive root (ID `1rXsJbOlTw06F59OS4-kgongbHT64Hxnc`, aangemaakt 30 juni) met alleen lege/kleine submappen — vermoedelijk per ongeluk aangemaakt tijdens de herstructurering. Samenvoegen met `04_Marketing` of verwijderen.
+- Losse `.DS_Store`-bestanden (macOS-rommel) in enkele mappen.
+**Prioriteit:** laag. Doen in één opruimsessie, via VM/serviceaccount of handmatig in Drive-UI.
+
+### entiteiten.md technische noot corrigeren
+De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Drive" is achterhaald: de profielen staan wél in `03_Experts`. Corrigeren bij eerstvolgende bewerking van `entiteiten.md`.
 
 ---
 
@@ -673,6 +692,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Drive-connector-dossier fundamenteel uitgezocht (multi-agent onderzoek + serviceaccount-scan). Uitkomst: (1) connector-blokkade is een open Anthropic-bug (#53442), geen Workspace-instelling, geen fix in onze hand; (2) connector geeft valse negatieven bij zowel mappen als zoeken, enige betrouwbare lezer = serviceaccount; (3) migratie 21 mei was COMPLEET, `AInstein_OUD` was redundant en is door Thomas verwijderd; (4) drie eerdere "opgelost"-afsluitingen waren onjuist, nu gedocumenteerd tegen herhaling. `scripts/verify_shared_drive.py` toegevoegd als grondwaarheid-tool. | `c76d878`, `d1c33ad` e.v. | 2 juli 2026 |
 | Bug gefixed: meeting-titel verdween uit Jamie-DM sinds commit 7c588d0 (26 juni) toen `_build_dm_blocks()` werd vervangen door platte `debrief_text`. Titel-regel (`:microphone: *titel*`) teruggezet in `_post_slack_notification()`. Gevonden n.a.v. melding Jörgen in Slack. Getest via `scripts/test_jamie_webhook.py` op live VM — bevestigd werkend. | `b589816` | 1 juli 2026 |
 | 41 `claude/*` branches + bijbehorende worktrees opgeruimd (elk gecontroleerd op ongecommit werk vóór verwijdering; 1 branch met verouderd font-work via `git branch -D`, inhoud stond al nieuwer op main) | lokaal, geen commit | 1 juli 2026 |
 | 7 skills verbeterd: DVV-toets in build_proposal, map_objections herschreven, create_content/adapt_messaging/sharpen_positioning/match_experts/debrief_to_messaging versterkt + detect-skill false positive "content" gefixed | `6fff459` | 22 juni 2026 |

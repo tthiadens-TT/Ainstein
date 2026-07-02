@@ -12,22 +12,24 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 ---
 
-## 🔴 Actief probleem
+## 🟠 Bekende, blijvende beperking (niet "actief probleem" — zie geschiedenis-waarschuwing)
 
-### Drive-connector blokkade: MCP connector kan Shared Drive niet lezen
-**Symptoom:** `mcp__4e943b1e` connector retourneert nul bestanden bij parentId-query op Shared Drive, zelfs met geldige bestanden erin. `04_Experts` map is NIET leeg.
-**Root cause:** Google Workspace AI-beleid markeert de Shared Drive "Minkowski AInstein" als "ineligible for generative AI contexts." Actief seit 21 mei 2026 (migratie van persoonlijke Drive naar Shared Drive).
-**Impact voor Claude Code sessies:** Ainstein kan in sessies de bronnenlaag niet direct lezen via de MCP connector. Productie-bot op VM werkt wel (service account).
+### Drive MCP-connector: child-listing op specifieke Shared Drive-submappen werkt niet
+**Dit item is op 22 juni 2026 ten onrechte als "opgelost" afgesloten (commit `a18fe6e`) en op 29 juni ten onrechte toegeschreven aan een Google Workspace AI-beleidsinstelling. Beide bleken bij grondig, multi-agent onderzoek op 1 juli 2026 onjuist. Sluit dit item niet af zonder een nieuwe, onafhankelijk geverifieerde test — zie `memory/connector_access_paths.md` voor de volledige geschiedenis van foutieve afsluitingen.**
 
-**Fix — actie Thomas (Workspace-admin, ~10 min):**
-1. Ga naar `admin.google.com` (thomas@minkowski.org of Jörgen als admin)
-2. Apps > Google Workspace > Drive & Docs
-3. Zoek naar AI/Gemini-beleidsinstelling die Shared Drive-inhoud als "niet-bruikbaar voor AI" markeert
-4. Schakel restrictie uit voor "Minkowski AInstein" Shared Drive, of voor de hele org
-5. Test daarna: open Claude Code, vraag `parentId = '1ml1O6XS766fbS3bfejqlh14qNvyI-nbB'` via MCP connector — moeten nu bestanden terugkomen
+**Symptoom (bevestigd, herhaald getest 1 juli 2026):**
+- `search_files` met `parentId` op minstens `03_Experts` en `02_Frameworks & Tools` (Shared Drive "Minkowski AInstein") geeft structureel geen bestanden terug — stil, geen foutmelding, soms een `nextPageToken` zonder inhoud.
+- **Niet universeel:** een zustermap op gelijke diepte (`04_Marketing`) werkt via dezelfde query wél. Dus geen generieke "Shared Drive-blokkade", iets specifieks aan (in elk geval) deze twee mappen.
+- `list_recent_files` toont op geen getest niveau losse Shared Drive-bestanden, alleen mappen.
+- Los probleem, andere tool: `mcp__gdrive__search` is volledig disfunctioneel (7/7 pogingen, ook triviale input, geven `MCP error -32603: invalid_request`).
 
-**Workaround tot fix:** SSH naar VM + service account voor Shared Drive-toegang.
-**Verwachte moeite:** 10 min voor Thomas. 0 code nodig.
+**Root cause:** NIET bevestigd. Geen Google Workspace-instelling (die hypothese is expliciet verworpen, niet ondersteund door onderzoek). Extern GitHub-issue `anthropics/claude-code#53442` beschrijft een gelijkend patroon, staat nog open (laatste activiteit 26 juni 2026), geen reactie van een Anthropic-medewerker, geen fix aangekondigd.
+
+**Wat wél werkt, getest en kruisgeverifieerd:**
+1. **Buiten een Claude Code sessie (productiepad, altijd betrouwbaar):** VM + service account. Nooit geraakt door dit probleem.
+2. **Binnen een sessie, als VM-route niet beschikbaar is:** breed zoeken (`title`/`fullText`, zonder `parentId`), daarna **verplicht** elk resultaat met `get_file_metadata` terugcontroleren tegen de verwachte parent. Zonder die stap onveilig: leverde bij test 24 overtuigende spookresultaten op uit een oude, gearchiveerde map (`AInstein_OUD`, ander account). Volledig doorpagineren — een lege `files`-array met `nextPageToken` betekent niet "klaar."
+
+**Niet doen:** dit item afsluiten als "opgelost" zonder verse, onafhankelijke test. Niet opnieuw een Google Workspace-instelling voorstellen als oorzaak.
 
 ---
 

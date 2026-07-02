@@ -30,10 +30,13 @@ listing (parentId) but also content search (fullText / title).
   which is how we know the connector's empty results are false.
 
 ## Observed behavior
-1. `search_files` with `parentId = '<subfolder>'` on certain Shared Drive
-   subfolders returns an empty list (sometimes only a `nextPageToken`, sometimes
-   `{}`), no error. A sibling subfolder at the same depth returns files
-   correctly, so it is inconsistent per folder.
+1. `search_files` with `parentId = '<subfolder>'` on a Shared Drive folder
+   returns **subfolders but silently hides files** (verified against a service
+   account listing of the same folders). A folder containing only files appears
+   completely empty (e.g. a folder with 54 files returns `{}` or a bare
+   `nextPageToken`); a folder that contains subfolders appears to work while all
+   of its files stay hidden. No error is returned in either case. This makes the
+   bug look folder-specific when it is in fact universal.
 2. `list_recent_files` never returns individual Shared Drive files, only folders.
 3. `fullText` / `title` search returns **false negatives** on Shared Drive
    content. Example: a 41 KB markdown file that provably exists in the Shared

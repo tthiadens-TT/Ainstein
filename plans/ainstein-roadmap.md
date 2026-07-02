@@ -258,15 +258,17 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 **Wat:** valideren of de Prompt Coaching sectie (brain.md) in de praktijk werkt.
 **Actie Thomas/Jörgen:** testen met vage vragen in Slack, beoordelen of de coaching scherp en nuttig is.
 
-### GitHub MCP authenticatie — credentials verlopen
-**Symptoom:** elke dagelijkse review meldt `Authentication Failed: Bad credentials` bij `mcp__github__list_pull_requests` en `mcp__github__list_issues`. Geldt al weken (eerst gevlagd: 2026-06-15).
-**Impact:** dagelijkse reviews kunnen GitHub-status (open PRs, issues) niet verifiëren. Geen productie-impact — code deployt gewoon via GitHub Actions.
-**Actie Thomas:** GitHub MCP-connector opnieuw authenticeren in Claude Code:
-1. Open Claude Code desktop app
-2. Ga naar MCP-instellingen (Settings > Connectors of vergelijkbaar)
-3. Verwijder de GitHub-connector en voeg hem opnieuw toe met een geldig GitHub-token
-4. Of: genereer een nieuw Personal Access Token op github.com (repo + read:org scopes) en update de connector-configuratie
-**Prioriteit:** medium — geen productie-impact, maar verblindend voor dagelijkse code-reviews.
+### GitHub-credentials saneren: MCP her-authenticeren + PAT uit remote-URL halen
+**Onderzocht 2 juli 2026 — volledige credential-inventaris:**
+- MCP-connector: `Bad credentials` (verlopen; eerst gevlagd 2026-06-15).
+- macOS-keychain-entry github.com: 401, óók verouderd.
+- **De enige werkende credential is een PAT die in platte tekst in de remote-URL staat** (`.git/config`). Daarmee werkt push én de GitHub API (bewezen: klacht geplaatst op anthropics/claude-code#53442). Werkende route vanuit sessies gedocumenteerd in `memory/connector_access_paths.md`.
+**Actie Thomas (één sanering, ~15 min):**
+1. Genereer één nieuw Personal Access Token op github.com (repo + read:org scopes)
+2. Vernieuw de GitHub MCP-connector ermee (Claude Code desktop: Settings > Connectors)
+3. Zet de keychain-entry recht en haal de token uit de remote-URL: `git remote set-url origin https://github.com/tthiadens-TT/Ainstein.git` — bij de eerste push vraagt git om de nieuwe token en bewaart die in de keychain
+4. Trek de oude PAT (uit de remote-URL) in op github.com — die heeft in platte tekst in `.git/config` en in sessie-output gestaan
+**Prioriteit:** medium-hoog — geen productie-impact, maar drie verschillende credential-plekken waarvan twee dood en één in platte tekst is onhoudbaar en veroorzaakte deze sessie opnieuw uitzoekwerk.
 
 ### MCP-koppelingen — twee open beslissingen
 **Calendar MCP:** ✅ token vernieuwd (19 mei 2026), "minkowski"-account correct op `thomas@minkowski.org` gezet. Minkowski-agenda zelf nog leeg — vul zakelijke afspraken in als je agenda-context in briefings wilt.

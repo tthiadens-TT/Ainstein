@@ -18,8 +18,8 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 **Dit item is op 22 juni 2026 ten onrechte als "opgelost" afgesloten (commit `a18fe6e`) en op 29 juni ten onrechte toegeschreven aan een Google Workspace AI-beleidsinstelling. Beide bleken bij grondig, multi-agent onderzoek op 1 juli 2026 onjuist. Sluit dit item niet af zonder een nieuwe, onafhankelijk geverifieerde test — zie `memory/connector_access_paths.md` voor de volledige geschiedenis van foutieve afsluitingen.**
 
 **Symptoom (bevestigd, herhaald getest 1 juli 2026):**
-- `search_files` met `parentId` op minstens `03_Experts` en `02_Frameworks & Tools` (Shared Drive "Minkowski AInstein") geeft structureel geen bestanden terug — stil, geen foutmelding, soms een `nextPageToken` zonder inhoud.
-- **Niet universeel:** een zustermap op gelijke diepte (`04_Marketing`) werkt via dezelfde query wél. Dus geen generieke "Shared Drive-blokkade", iets specifieks aan (in elk geval) deze twee mappen.
+- `search_files` met `parentId` op een Shared Drive-map geeft structureel geen bestanden terug — stil, geen foutmelding, soms een `nextPageToken` zonder inhoud.
+- **Mechanisme (geverifieerd 2 juli):** de connector toont wél submappen, maar verbergt bestanden. Een map mét submappen lijkt daardoor te "werken" (`04_Marketing` toonde submappen maar verborg 15 losse bestanden), een map met alléén bestanden lijkt "leeg" (`03_Experts`: 54 bestanden → lege respons). Alle mappen hebben het probleem; de eerdere conclusie "niet universeel, 04_Marketing werkt wél" was een illusie.
 - `list_recent_files` toont op geen getest niveau losse Shared Drive-bestanden, alleen mappen.
 - Los probleem, andere tool: `mcp__gdrive__search` is volledig disfunctioneel (7/7 pogingen, ook triviale input, geven `MCP error -32603: invalid_request`).
 
@@ -41,25 +41,28 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 Gevonden via de betrouwbare serviceaccount-scan, dus echte bevindingen (geen connector-artefact). Niet urgent.
 
-### Dubbele en overbodige bestanden in de Shared Drive opruimen
+### Dubbele en overbodige bestanden in de Shared Drive opruimen (NA de code-migratie, zie prioriteit 1)
 - `00_Werkdocumenten`: 3x identieke `LEAD3_NN_Group_Opzet_updated.pptx`, dubbele `260601_Opzet NN LEAD3 revised ... June 2026` docs.
 - `01_Clients/.../Test/Meetingnotes`: 4x identieke `Meetingnote 2026-06-26 — Test kennismaking`.
-- `04_Marketing`: een dubbele LEGE `_kennis`-map naast de gevulde (met kennis_laag.md + entiteiten.md).
-- Stray `06_Marketing`-map in Shared Drive root (ID `1rXsJbOlTw06F59OS4-kgongbHT64Hxnc`, aangemaakt 30 juni) met alleen lege/kleine submappen — vermoedelijk per ongeluk aangemaakt tijdens de herstructurering. Samenvoegen met `04_Marketing` of verwijderen.
+- `04_Marketing`: een dubbele LEGE `_kennis`-map naast de gevulde (met kennis_laag.md + entiteiten.md). 30 juni-artefact.
+- Stray `06_Marketing`-map in Shared Drive root (ID `1rXsJbOlTw06F59OS4-kgongbHT64Hxnc`): GEEN toevalsrommel — wordt actief opnieuw aangemaakt door code met oude mapnamen en bevat verse scraperdata. **Pas opruimen ná de code-migratie (prioriteit 1), anders komt hij terug en verlies je data.**
 - Losse `.DS_Store`-bestanden (macOS-rommel) in enkele mappen.
-**Prioriteit:** laag. Doen in één opruimsessie, via VM/serviceaccount of handmatig in Drive-UI.
+**Prioriteit:** volgt op prioriteit 1.
 
-### Zwervend OAuth client-secret in repo-werkmap verwijderen (security-hygiëne)
-`client_secret_1002147104838-...apps.googleusercontent.com.json` staat in de lokale repo-werkmap. FEIT: gitignored (nooit gecommit) en nergens in code gerefereerd (productie gebruikt serviceaccount, niet OAuth). Laag risico, maar een ongebruikt credential hoort niet rond te slingeren. Actie: lokaal verwijderen, of bewaren in een wachtwoordkluis als de OAuth-fallback voor lokale dev ooit nog nodig is. **Prioriteit:** laag.
-
-### entiteiten.md technische noot corrigeren
-De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Drive" is achterhaald: de profielen staan wél in `03_Experts`. Corrigeren bij eerstvolgende bewerking van `entiteiten.md`.
+### entiteiten.md foute noot verwijderen
+De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Drive" (29 juni) is aantoonbaar FOUT — een bug-artefact: de connector-blokkade schreef een verkeerde conclusie de kennislaag in. Geverifieerd 2 juli: de 54 expertbestanden staan wél in `03_Experts`. Verwijderen bij eerstvolgende bewerking van `entiteiten.md` (schrijfpad: `update_drive_file.py` via reguliere werkstroom, niet via SSH — die is read-only).
 
 ---
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-*(leeg — zie backlog hieronder)*
+### Code-migratie mapnamen afmaken (actieve data-split stoppen)
+**Wat:** de Drive-herstructurering van 30 juni (o.a. `06_Marketing` → `04_Marketing`) is in Drive doorgevoerd maar NIET in de code. Geverifieerd 2 juli: 13 verwijzingen naar oude mapnamen in 9 Python-bestanden (`tools.py`, `scrape_*.py`, `update_stijl.py`, `restore_voice.py`, `run_kennisextractie.py`) plus `.claude/projects.json`.
+**Gevolg (actief probleem):** scrapers/crons maken de oude map `06_Marketing` opnieuw aan in de Shared Drive en schrijven verse data (Slack-scrapes, LinkedIn, voice) naar die verweesde map — data die Ainstein niet leest. Elke nacht loopt de split verder op.
+**Aanpak (volgorde is belangrijk):** (1) code fixen: alle oude mapnamen → nieuwe namen; (2) orphaned data uit de stray `06_Marketing` naar `04_Marketing` migreren; (3) pas daarna opruimen: stray map, dubbele lege `_kennis` (30 juni-artefact), `.DS_Store`-bestanden.
+**Verificatie na afloop:** `scripts/verify_shared_drive.py` draaien en checken dat er geen `06_Marketing` meer op rootniveau staat.
+**Effort:** 1 sessie.
+**Bron:** afsluitingsdossier `plans/afsluiting_drive_connector_2026-07-02.md`, sectie 7.
 
 ---
 
@@ -217,10 +220,11 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 
 ## 📋 Backlog — Beslissingen (Thomas/Jörgen)
 
-### Gevolg connector-onbetrouwbaarheid voor Optie 2 (Claude Projects) — herzien 2 juli 2026
-**Inzicht dat niet verloren mag gaan:** Optie 2 gaat ervan uit dat Jörgen/Charlotte via de Google Drive-connector in Claude Projects bij de bronnenlaag komen. We hebben nu bewezen dat die connector de Shared Drive in BEIDE richtingen onbetrouwbaar leest (stil lege lijsten én valse negatieven bij zoeken, plus soms spookdata uit oude mappen). Voor een niet-technische gebruiker als Jörgen is dat de gevaarlijkste situatie: hij krijgt stil een onvolledig of fout antwoord en kan het niet diagnosticeren, dus valt terug op Thomas. Dat is precies de afhankelijkheid-van-één-persoon die Ainstein moet opheffen.
-**Consequentie:** de connector mag in Optie 2 NIET dragend zijn. Twee opties: (a) Optie 2 Files-first inrichten met de connector als niet-dragende bonus, en het team expliciet vertellen dat de connector kan liegen; of (b) doorschuiven naar de service-account-route (Optie 3, MCP-server op het serviceaccount) als het echte team-toegangspad, want dat is het enige dat betrouwbaar leest. 
-**Beslissing Thomas/Jörgen:** welke van de twee, en wanneer. Zolang dit niet beslist is: Optie 2 niet met Jörgen lanceren op de connector-route.
+### Optie 2 (Claude Projects): connector eerst testen, niet aannemen — gecorrigeerd 2 juli 2026
+**Correctie:** de connector-blokkade was nooit een gemeld Optie 2-probleem; dat was een inferentie van Claude, geen waargenomen feit. Of de Projects-connector dezelfde file-hiding bug heeft als de Claude Code-connector is ONBEKEND (zelfde connector-familie, dus plausibel, maar niet getest sinds de herstructurering van 30 juni).
+**Wel bewezen (Claude Code-kant):** de sessie-connector leest de Shared Drive in beide richtingen onbetrouwbaar (stil lege lijsten, valse negatieven bij zoeken, spookdata uit oude mappen). Voor een niet-technische gebruiker als Jörgen zou dat de gevaarlijkste situatie zijn: stil een fout antwoord dat hij niet kan diagnosticeren.
+**Actie vóór lancering Optie 2:** test één keer in een echt Claude Project of browse en file-lezen op de Shared Drive betrouwbaar werken (bv. "wat staat er in 03_Experts?" en een Drive-link laten lezen, resultaat vergelijken met `verify_shared_drive.py`-output). Werkt het: connector mag dragend zijn. Faalt het: Files-first inrichten of doorschuiven naar de service-account-route (Optie 3).
+**Beslissing Thomas/Jörgen:** wanneer deze test te doen, en bij falen welke route.
 
 ### Beslissing evidence-bar kennis-laag: wanneer automatiseren?
 **Wat:** de trigger voor automatisering (`run_kennisextractie.py` via GitHub Actions) is gekoppeld aan een evidence-bar. Die heeft nog geen concrete deadline.

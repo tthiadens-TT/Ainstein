@@ -7,8 +7,8 @@ Google Search indexeert LinkedIn posts — wij halen de URL-lijst op via Google
 en lezen dan elk post direct van LinkedIn (meta/OG-tags + page text via Playwright-achtige fetch).
 
 Output:
-  06_Marketing/_bronmateriaal/linkedin/jorgen/linkedin_jorgen_YYYY.md
-  06_Marketing/_bronmateriaal/linkedin/minkowski/linkedin_minkowski_YYYY.md
+  04_Marketing/_bronmateriaal/linkedin/jorgen/linkedin_jorgen_YYYY.md
+  04_Marketing/_bronmateriaal/linkedin/minkowski/linkedin_minkowski_YYYY.md
 
 Gebruik:
     python3 scripts/scrape_linkedin.py [--dry-run] [--max-posts N]

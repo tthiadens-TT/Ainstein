@@ -40,13 +40,13 @@
       "sourceLayer": {
         "location": "Google Workspace Shared Drive 'Minkowski AInstein'",
         "folders": {
-          "01_Proposals": "Past proposals, wording, module combos",
-          "02_Tools": "Frameworks, methodologies, workshop formats",
-          "03_Pricing": "Fee structures, day rates, modular pricing",
-          "04_Experts": "Expert profiles, team capacity, decision matrix",
-          "05_Venues": "Venue recommendations, experience design",
-          "06_Marketing": "Positioning, message pillars, brand voice",
-          "07_Feedback": "User critiques, gaps.md (auto-appended)"
+          "01_Clients": "All client work: proposals, outcomes, meeting notes, briefs per client",
+          "02_Frameworks & Tools": "Frameworks, methodologies, workshop formats",
+          "04_Marketing/Pricing": "Fee structures, day rates, modular pricing",
+          "03_Experts": "Expert profiles, team capacity, decision matrix",
+          "04_Marketing/Venues": "Venue recommendations, experience design",
+          "04_Marketing": "Positioning, verbal identity, ICP, GTM",
+          "05_Ainstein Knowledge Base": "gaps.md (feedback loop), Roadmap/"
         }
       },
       "wayOfWorking": {

@@ -121,7 +121,7 @@ def infer_client_name(meeting: JamieMeeting) -> str: ...
 
 ```python
 def match_project_folder(client_name, meeting_title, participants) -> tuple[str|None, str]:
-    # 1. tools.search_files(client_name, folders=["01_Proposals"])
+    # 1. tools.search_files(client_name, folders=["01_Clients"])
     # 2. Fallback: eerste 3-4 woorden van meeting-titel
     # 3. Geen match: retourneer (None, "00_Werkdocumenten")
     # folder_hint gaat direct naar _save_note_via_drive_api(folder_hint=...)

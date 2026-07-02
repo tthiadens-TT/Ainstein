@@ -4,7 +4,7 @@ restore_voice.py — Herstel skills/minkowski_voice.md vanuit Drive na een deplo
 
 deploy.yml doet git reset --hard origin/main, wat de verrijkte voice overschrijft
 met de GitHub-baseline. Dit script haalt de meest recente versie op uit Drive
-(06_Marketing/_kennis/minkowski_voice.md) zodat de verrijking niet verloren gaat.
+(04_Marketing/_kennis/minkowski_voice.md) zodat de verrijking niet verloren gaat.
 
 Gebruik: python3 scripts/restore_voice.py
 Aangeroepen vanuit deploy.yml, direct na git reset --hard.

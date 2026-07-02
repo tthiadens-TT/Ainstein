@@ -76,13 +76,13 @@ Dit zijn alle schrijfpaden. Alles buiten deze lijst kan de agent niet wijzigen.
 
 | Actie | Locatie | Reversibel? | Trigger | Bevestiging? |
 |---|---|---|---|---|
-| Feedback loggen (👎) | `07_Feedback/gaps.md` op Drive | ✅ Drive versiegeschiedenis | Slack 👎-reactie | Nee — auto |
-| Inline correctie loggen | `07_Feedback/gaps.md` op Drive | ✅ Drive versiegeschiedenis | Gebruikersverzoek in chat | **Ja — altijd** |
+| Feedback loggen (👎) | `05_Ainstein Knowledge Base/gaps.md` op Drive | ✅ Drive versiegeschiedenis | Slack 👎-reactie | Nee — auto |
+| Inline correctie loggen | `05_Ainstein Knowledge Base/gaps.md` op Drive | ✅ Drive versiegeschiedenis | Gebruikersverzoek in chat | **Ja — altijd** |
 | Conversatie opslaan | `conversations.db` (SQLite, op VM) | ✅ Bestand kopieerbaar | Elke beurt | Nee — auto |
 | Beslissing loggen | `logs/decisions.jsonl` (op VM) | ✅ Append-only | Elke beurt | Nee — auto |
 | Application log | `logs/ainstein.log` (op VM) | ✅ Roterend, 30 dagen | Continu | Nee — auto |
 
-**De bronnenlaag (01_Proposals t/m 06_Marketing) is volledig read-only.**
+**De bronnenlaag (01_Clients t/m 05_Ainstein Knowledge Base) is volledig read-only.**
 De agent heeft geen enkel tool om Drive-bestanden te verwijderen, hernoemen of overschrijven.
 
 ### Bekende beperking: channel-scoped geheugen
@@ -128,7 +128,7 @@ Controleer dat `DEPLOY_HOST`, `DEPLOY_SSH_KEY` aanwezig zijn en niet verlopen.
 4. Fix de oorzaak, dan: `sudo systemctl start ainstein`
 
 ### Feedback in gaps.md is incorrect
-1. Ga naar Google Drive → `07_Feedback/gaps.md`
+1. Ga naar Google Drive → `05_Ainstein Knowledge Base/gaps.md`
 2. Open versiegeschiedenis (rechtermuisknop → Versiegeschiedenis beheren)
 3. Herstel naar de gewenste versie
 
@@ -159,5 +159,5 @@ Ainstein slaat gespreksgeheugen op per `thread_ts`. Slash-commands die buiten ee
 grep '"drive_write": true' /home/thomas/Ainstein/logs/decisions.jsonl
 
 # Voorbeeld output:
-# {"timestamp": "2026-05-12T10:30:00", "event": "drive_write", "drive_write": true, "target": "07_Feedback/gaps.md", "action": "updated"}
+# {"timestamp": "2026-05-12T10:30:00", "event": "drive_write", "drive_write": true, "target": "05_Ainstein Knowledge Base/gaps.md", "action": "updated"}
 ```

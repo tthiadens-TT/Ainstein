@@ -31,15 +31,18 @@ Default `SOURCE_ROOT`:
 Override by setting `AINSTEIN_SOURCE_ROOT` in `.env` (useful for CI, server
 deploys, or pointing at a different Drive mount). See `tools.SOURCE_ROOT`.
 
+Structuur hernoemd op 30 juni 2026 (type-gebaseerd → entiteit-gebaseerd). Code
+zoekt mappen op hun nummer-voorvoegsel (`00_`–`05_`) via `drive_structure.py`,
+niet op naam — hernoemen breekt niets.
+
 | Folder | Content |
 |---|---|
-| `01_Proposals` | Past proposals — reused for wording, module combos, pricing |
-| `02_Tools` | Canonical frameworks + facilitation formats (`02_Tools_Agent_README.md`) |
-| `03_Pricing` | Decision matrix, worked examples, discount/escalation rules |
-| `04_Experts` | Expert profiles (docx), decision layer JSON, structured index |
-| `05_Venues` | Venue profiles + comparison matrix |
-| `06_Marketing` | Positioning, message pillars, LinkedIn themes, one-pager template |
-| `07_Feedback` | `gaps.md` — auto-appended by the 👎 feedback loop |
+| `00_Werkdocumenten` | Werknotities, `save_note`-landingszone (geen bronnenlaag) |
+| `01_Clients` | Alle klantwerk: proposals, outcomes, meeting notes, briefs per klant |
+| `02_Frameworks & Tools` | Frameworks + facilitatieformats (`02_Tools_Agent_README.md`) |
+| `03_Experts` | Expertprofielen (docx), decision layer JSON, index |
+| `04_Marketing` | Positionering, verbal identity, ICP, GTM; subfolders `Pricing/`, `Venues/`, `_bronmateriaal/`, `_kennis/` |
+| `05_Ainstein Knowledge Base` | `gaps.md` (👎-feedbacklus), `Roadmap/` |
 
 ## Local setup
 
@@ -130,7 +133,7 @@ the 2026-04-18 `TextBlock is not JSON serializable` outage lived in that gap.
 | `tools.py` | `list_folder`, `read_file`, `search_files`, `web_search` + schemas |
 | `prompts.py` | `SYSTEM_PROMPT` + per-skill prompts |
 | `memory.py` | SQLite persistence with SDK-block serialization + schema versioning |
-| `feedback.py` | 👎 reaction → "what could be better?" → `07_Feedback/gaps.md` |
+| `feedback.py` | 👎 reaction → "what could be better?" → `05_Ainstein Knowledge Base/gaps.md` |
 | `CLAUDE.md` | Product and tone guidance (read by the agent at runtime) |
 | `reviews/` | Daily commit review reports |
 
@@ -138,7 +141,7 @@ the 2026-04-18 `TextBlock is not JSON serializable` outage lived in that gap.
 
 Users react 👎 on any bot answer in DM. The bot replies in-thread asking what
 could be better. The user's next message in that thread is captured and
-appended to `07_Feedback/gaps.md`. That folder is part of the source layer,
+appended to `05_Ainstein Knowledge Base/gaps.md`. That folder is part of the source layer,
 so future retrievals surface past gaps automatically.
 
 Pending-feedback state is in-memory only — on bot restart it's lost. That's

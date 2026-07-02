@@ -3,7 +3,7 @@
 scrape_substack.py — Haal Substack-artikelen op via RSS en sla op als Markdown-bakjes in Drive.
 
 Aslander IA-principe: plain text (.md) per jaar, directe URL-fetch voor volledige inhoud.
-Output: substack_futuresready_YYYY.md in 06_Marketing/_bronmateriaal/substack/
+Output: substack_futuresready_YYYY.md in 04_Marketing/_bronmateriaal/substack/
 
 Gebruik:
     python3 scripts/scrape_substack.py [--url URL] [--dry-run]

@@ -5,7 +5,7 @@ run_kennisextractie.py — Bron-agnostische kennis-laag: verrijken + bevestigen.
 Bewijs-fase (handmatig draaien, mens kijkt mee). Leest de databronnen uit
 `scripts/bronnen.json`, kruist ze (verrijken = alle bronnen; bevestigen = alleen
 over onafhankelijke oorsprongen), en werkt de meegroeiende kennis-laag bij:
-`06_Marketing/_kennis/kennis_laag.md` (plain-text .md).
+`04_Marketing/_kennis/kennis_laag.md` (plain-text .md).
 
 Architectuur: dit SCRIPT bezit de laag-I/O (download → prompt → schrijf); de
 agent doet alleen het redeneren. De bot-tools kunnen geen .md op een gekozen pad

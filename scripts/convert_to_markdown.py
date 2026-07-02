@@ -9,7 +9,7 @@ origineel. Schatting: 60-80% minder tokens per raadpleging.
 
 Gebruik (op de VM):
     python3 scripts/convert_to_markdown.py
-    python3 scripts/convert_to_markdown.py --folder 01_Proposals
+    python3 scripts/convert_to_markdown.py --folder 01_Clients
     python3 scripts/convert_to_markdown.py --dry-run
     python3 scripts/convert_to_markdown.py --force --limit 5
 
@@ -253,7 +253,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Converteer Drive-bronbestanden naar Markdown cache naast het origineel."
     )
-    parser.add_argument("--folder", help="Scan alleen deze folder (bijv. 01_Proposals)")
+    parser.add_argument("--folder", help="Scan alleen deze folder (bijv. 01_Clients)")
     parser.add_argument("--dry-run", action="store_true", help="Toon wat er zou gebeuren, schrijf niets")
     parser.add_argument("--force", action="store_true", help="Herschrijf ook al gecachede bestanden")
     parser.add_argument("--limit", type=int, default=None, help="Max N bestanden per folder (voor testing)")

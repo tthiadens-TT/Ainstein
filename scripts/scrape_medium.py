@@ -3,7 +3,7 @@
 scrape_medium.py — Haal Medium-artikelen op via RSS en sla op als Markdown-bakjes in Drive.
 
 Aslander IA-principe: plain text (.md) per jaar, directe RSS-fetch voor volledige inhoud.
-Output: medium_minkowski_YYYY.md in 06_Marketing/_bronmateriaal/medium/
+Output: medium_minkowski_YYYY.md in 04_Marketing/_bronmateriaal/medium/
 
 Gebruik:
     python3 scripts/scrape_medium.py [--url URL] [--dry-run]

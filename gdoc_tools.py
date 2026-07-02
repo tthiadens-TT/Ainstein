@@ -350,7 +350,7 @@ def create_gdoc(title: str, content: str, parent_folder_id: str | None = "werkdo
     """Create a new Google Doc and write initial content.
 
     By default saves to the '00_Werkdocumenten' working folder (separate from the
-    curated source layer 01_Proposals…07_Feedback). Pass parent_folder_id=None to
+    curated source layer 01_Clients…05_Ainstein Knowledge Base). Pass parent_folder_id=None to
     keep the doc in Drive root, or pass an explicit folder ID.
 
     Returns {"doc_id": str, "url": str, "title": str}.

@@ -7,7 +7,7 @@ Architectuur:
 - Leest bronmateriaal (LinkedIn, Substack, website) uit Drive via service account
 - Laat een agent nieuwe stijlpatronen extraheren (skill=extract_style_patterns)
 - Schrijft de bijgewerkte minkowski_voice.md lokaal weg
-- Slaat de verrijkte voice op als 06_Marketing/_kennis/minkowski_voice.md in Drive
+- Slaat de verrijkte voice op als 04_Marketing/_kennis/minkowski_voice.md in Drive
   (zodat restore_voice.py de verrijking kan herstellen na een git reset --hard)
 - Schrijft de bijgewerkte verbal_identity.md terug naar Drive (sectie 4+5)
 - Herstart ainstein.service zodat de nieuwe stem direct actief is
@@ -145,7 +145,7 @@ def _lees_bron(service, bron: dict) -> str:
 
 
 def _download_verbal_identity(service) -> tuple[str, str | None]:
-    """Download verbal_identity.md uit 06_Marketing. Geeft (inhoud, file_id)."""
+    """Download verbal_identity.md uit 04_Marketing. Geeft (inhoud, file_id)."""
     try:
         import drive_structure as ds
         folder_id = ds.resolve_path(service, "marketing", VERBAL_IDENTITY_PAD)
@@ -170,7 +170,7 @@ def _download_verbal_identity(service) -> tuple[str, str | None]:
 # ---------------------------------------------------------------------------
 
 def _save_voice_to_drive_kennis(service, inhoud: str) -> None:
-    """Sla minkowski_voice.md op als dedicated bestand in 06_Marketing/_kennis/
+    """Sla minkowski_voice.md op als dedicated bestand in 04_Marketing/_kennis/
     zodat restore_voice.py de verrijking kan herstellen na een git reset --hard."""
     try:
         import drive_structure as ds

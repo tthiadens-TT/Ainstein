@@ -561,7 +561,7 @@ def drive_append_feedback(entry: str, header: str = "") -> None:
         logger.error("Drive: 05_Ainstein Knowledge Base folder ID not found — cannot write feedback")
         return
 
-    # Find gaps.md in 07_Feedback
+    # Find gaps.md in 05_Ainstein Knowledge Base
     try:
         results = service.files().list(
             q=(
@@ -1702,14 +1702,14 @@ def record_correction(
     skill: str | None = None,
     thread_id: str | None = None,
 ) -> dict:
-    """Log an inline mid-conversation correction to 07_Feedback/gaps.md.
+    """Log an inline mid-conversation correction to 05_Ainstein Knowledge Base/gaps.md.
 
     Use when the user explicitly corrects something Ainstein just said
     ("nee, dat klopt niet", "je vergeet X"). The agent must propose a
     type+category and confirm with the user BEFORE calling this tool.
 
     feedback_type: "technical" | "qualitative"
-    category:      one of the fixed sub-labels (see 07_Feedback/README.md)
+    category:      one of the fixed sub-labels (see 05_Ainstein Knowledge Base/README.md)
     """
     from feedback import capture_feedback
 
@@ -1729,7 +1729,7 @@ def record_correction(
         "type": feedback_type,
         "category": category,
         "skill": skill,
-        "note": "Saved to 07_Feedback/gaps.md. Will surface in future answers + /feedback-review.",
+        "note": "Saved to 05_Ainstein Knowledge Base/gaps.md. Will surface in future answers + /feedback-review.",
     }
 
 
@@ -2040,7 +2040,7 @@ TOOL_SCHEMAS = [
                 "folder": {
                     "type": "string",
                     "description": (
-                        "Optional. Name of a specific folder to list, e.g. '04_Experts' or 'Proposals'. "
+                        "Optional. Name of a specific folder to list, e.g. '03_Experts' or 'Proposals'. "
                         "Omit to list all folders."
                     ),
                 }
@@ -2088,7 +2088,7 @@ TOOL_SCHEMAS = [
                     "items": {"type": "string"},
                     "description": (
                         "Optional. Restrict search to specific folders, "
-                        "e.g. ['01_Proposals', '04_Experts']. Omit to search all."
+                        "e.g. ['01_Clients', '03_Experts']. Omit to search all."
                     ),
                 },
             },
@@ -2098,7 +2098,7 @@ TOOL_SCHEMAS = [
     {
         "name": "record_correction",
         "description": (
-            "Log an inline mid-conversation correction to 07_Feedback/gaps.md. "
+            "Log an inline mid-conversation correction to 05_Ainstein Knowledge Base/gaps.md. "
             "Call this ONLY after the user has confirmed the proposed type+category. "
             "Use when the user explicitly says you got something wrong "
             "('nee dat klopt niet', 'je vergeet X', 'dit moet anders'). "

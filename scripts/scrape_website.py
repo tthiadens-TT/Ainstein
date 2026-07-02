@@ -10,9 +10,9 @@ Bronnen worden dynamisch uit de WordPress-sitemap gelezen, zodat nieuwe artikele
 automatisch meekomen zonder code-aanpassing (schaalbaar, geen onderhoud).
 
 Output (per job één bestand):
-  06_Marketing/_bronmateriaal/website/minkowski/minkowski_org_artikelen.md
-  06_Marketing/_bronmateriaal/website/team/minkowski_org_team.md
-  06_Marketing/_bronmateriaal/website/futuresready/futuresready_7practices.md
+  04_Marketing/_bronmateriaal/website/minkowski/minkowski_org_artikelen.md
+  04_Marketing/_bronmateriaal/website/team/minkowski_org_team.md
+  04_Marketing/_bronmateriaal/website/futuresready/futuresready_7practices.md
 
 Gebruik:
     python3 scripts/scrape_website.py [--dry-run] [--only minkowski|team|futuresready]

@@ -3,7 +3,7 @@
 scrape_slack.py — Exporteer Slack-kanaalgeschiedenis naar Markdown-bestanden in Drive.
 
 Aslander IA-principe: platte tekst (Markdown) per onafhankelijke bron (bakje).
-Output: één Google Doc per kanaal per maand in 06_Marketing/_bronmateriaal/slack/
+Output: één Google Doc per kanaal per maand in 04_Marketing/_bronmateriaal/slack/
 
 Gebruik:
     python3 scripts/scrape_slack.py [--channels C1 C2] [--since YYYY-MM-DD] [--jorgen-only]

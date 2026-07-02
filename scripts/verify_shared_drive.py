@@ -36,6 +36,12 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
+
+# Zorg dat modules uit de repo-root (gdoc_tools.py) importeerbaar zijn, ook als
+# het script als `python3 scripts/verify_shared_drive.py` wordt gedraaid.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT))
 
 # Shared Drive "Minkowski AInstein"
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")

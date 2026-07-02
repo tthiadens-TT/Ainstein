@@ -33,6 +33,8 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 
 **Uitbreiding 2 juli 2026 (belangrijk):** de connector geeft óók valse negatieven bij ZOEKEN (`fullText`/`title`), niet alleen bij mapopvraging. Bewezen: een serviceaccount-scan toonde dat de hele bronnenlaag compleet in de Shared Drive staat, terwijl connector-zoekopdrachten kernbestanden "niet vonden". **Conclusie: geen enkele connector-uitkomst over de Shared Drive is betrouwbaar, positief noch negatief.** Enige betrouwbare lezer = serviceaccount op de VM. Gereedschap hiervoor: `scripts/verify_shared_drive.py` (read-only, draait op de VM). Gebruik dit voor grondwaarheid bij elke vraag "staat X wel/niet in de Drive".
 
+**Adopteer de Anthropic-fix zodra die er is (afspraak Thomas):** monitor GitHub-issue `#53442` en de Claude Code changelog. Zodra het issue sluit of de changelog een Shared Drive / `supportsAllDrives`-fix noemt: hertest de connector met dezelfde parentId- en fullText-checks tegen `03_Experts` (`1ml1O6XS766fbS3bfejqlh14qNvyI-nbB`). Werkt het dan betrouwbaar, dan mag de connector weer een dragend pad worden (en herleeft de connector-route van Optie 2). Tot die tijd: serviceaccount is leidend.
+
 ---
 
 ## 📋 Backlog — Drive opruiming (na serviceaccount-scan 2 juli 2026)
@@ -46,6 +48,9 @@ Gevonden via de betrouwbare serviceaccount-scan, dus echte bevindingen (geen con
 - Stray `06_Marketing`-map in Shared Drive root (ID `1rXsJbOlTw06F59OS4-kgongbHT64Hxnc`, aangemaakt 30 juni) met alleen lege/kleine submappen — vermoedelijk per ongeluk aangemaakt tijdens de herstructurering. Samenvoegen met `04_Marketing` of verwijderen.
 - Losse `.DS_Store`-bestanden (macOS-rommel) in enkele mappen.
 **Prioriteit:** laag. Doen in één opruimsessie, via VM/serviceaccount of handmatig in Drive-UI.
+
+### Zwervend OAuth client-secret in repo-werkmap verwijderen (security-hygiëne)
+`client_secret_1002147104838-...apps.googleusercontent.com.json` staat in de lokale repo-werkmap. FEIT: gitignored (nooit gecommit) en nergens in code gerefereerd (productie gebruikt serviceaccount, niet OAuth). Laag risico, maar een ongebruikt credential hoort niet rond te slingeren. Actie: lokaal verwijderen, of bewaren in een wachtwoordkluis als de OAuth-fallback voor lokale dev ooit nog nodig is. **Prioriteit:** laag.
 
 ### entiteiten.md technische noot corrigeren
 De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Drive" is achterhaald: de profielen staan wél in `03_Experts`. Corrigeren bij eerstvolgende bewerking van `entiteiten.md`.
@@ -211,6 +216,11 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 ---
 
 ## 📋 Backlog — Beslissingen (Thomas/Jörgen)
+
+### Gevolg connector-onbetrouwbaarheid voor Optie 2 (Claude Projects) — herzien 2 juli 2026
+**Inzicht dat niet verloren mag gaan:** Optie 2 gaat ervan uit dat Jörgen/Charlotte via de Google Drive-connector in Claude Projects bij de bronnenlaag komen. We hebben nu bewezen dat die connector de Shared Drive in BEIDE richtingen onbetrouwbaar leest (stil lege lijsten én valse negatieven bij zoeken, plus soms spookdata uit oude mappen). Voor een niet-technische gebruiker als Jörgen is dat de gevaarlijkste situatie: hij krijgt stil een onvolledig of fout antwoord en kan het niet diagnosticeren, dus valt terug op Thomas. Dat is precies de afhankelijkheid-van-één-persoon die Ainstein moet opheffen.
+**Consequentie:** de connector mag in Optie 2 NIET dragend zijn. Twee opties: (a) Optie 2 Files-first inrichten met de connector als niet-dragende bonus, en het team expliciet vertellen dat de connector kan liegen; of (b) doorschuiven naar de service-account-route (Optie 3, MCP-server op het serviceaccount) als het echte team-toegangspad, want dat is het enige dat betrouwbaar leest. 
+**Beslissing Thomas/Jörgen:** welke van de twee, en wanneer. Zolang dit niet beslist is: Optie 2 niet met Jörgen lanceren op de connector-route.
 
 ### Beslissing evidence-bar kennis-laag: wanneer automatiseren?
 **Wat:** de trigger voor automatisering (`run_kennisextractie.py` via GitHub Actions) is gekoppeld aan een evidence-bar. Die heeft nog geen concrete deadline.

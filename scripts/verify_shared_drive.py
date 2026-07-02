@@ -43,6 +43,14 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
+# Laad .env (serviceaccount-sleutel e.d.) bij een handmatige run. De bot doet dit
+# via systemd; een los script niet. Zelfde patroon als de andere scripts.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(_REPO_ROOT / ".env")
+except Exception:
+    pass  # dotenv optioneel — env vars kunnen al gezet zijn
+
 # Shared Drive "Minkowski AInstein"
 SHARED_DRIVE_ID = os.environ.get("AINSTEIN_DRIVE_ROOT_ID", "0AFvBEDYKrnHbUk9PVA")
 

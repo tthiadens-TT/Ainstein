@@ -221,6 +221,13 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 
 ## 📋 Backlog — Beslissingen (Thomas/Jörgen)
 
+### Loop Charter: bouwen of laten vallen? (verkend 30 juni, nooit geïmplementeerd)
+**Wat:** de sessie "Loop Charter application" (30 juni) verkende een werkwijze uit een Notion-artikel: een Claude die zelfstandig doorloopt tot een klus af is (vindt werk, doet het stuk voor stuk, checkt met bewijs, onthoudt de staat in een `LOOP-STATE.md`, stopt als klaar). De sessie pivotte volledig naar de Drive-fix; de Loop Charter zelf is nooit gebouwd. Er zijn charter-kandidaten geschetst met labels [BOUWBAAR]/[STRATEGISCH], maar geen loop, geen state-bestand, geen schedule.
+**Optie A (bouwen):** een afgebakende autonome loop voor Ainstein, bijvoorbeeld een terugkerende zelf-verbetertaak (kennislaag verrijken, gaps opvolgen) die doorloopt tot klaar. Vereist harde guardrails: read-only tenzij expliciet, geen productie-schrijfacties zonder verificatie, één-sessie-tegelijk (de parallel-drift van deze week laat zien waarom).
+**Optie B (laten vallen):** de bestaande scheduled tasks (daily-code-review, kennis-bevestiging) dekken het meeste al af; een generieke autonome loop voegt risico toe zonder bewezen behoefte.
+**Aanbeveling (Claude):** niet nu bouwen. Eerst de guardrails-vraag beantwoorden en één concrete, waardevolle loop-usecase kiezen. Zonder duidelijke usecase is dit een oplossing die een probleem zoekt.
+**Beslissing Thomas:** A (welke usecase?) of B (idee sluiten).
+
 ### Richtingkeuze simulatielaag: oordeel- en uitkomstenregister starten? (verkenning 2 juli 2026)
 **Wat:** de verkenning `docs/verkenning-simulatielaag-general-intuition.md` (ook als Google Doc in `00_Werkdocumenten`) concludeert: de sterkste vertaling van de General Intuition-mechaniek is richting D+A, een oordeel- en uitkomstenregister (beslissingen + verwachtingen + latere uitkomsten vastleggen als cumulatieve asset). Bewoonbare scenario's (C) zijn de commerciële horizon maar horen ná de datafundering.
 **Voorgestelde kleinste eerste stap (uit het document):**

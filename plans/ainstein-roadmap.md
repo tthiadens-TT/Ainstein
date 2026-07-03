@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 3 juli 2026 (sessie: dynamische mapresolutie + verweesde data gemigreerd + spookmap opgeruimd + kraan-dicht bewezen)*
+*Bijgewerkt: 3 juli 2026 (sessie: audit laatste 4 werksessies + daily-code-review; testlek naar productie-Drive gedicht + live gaps.md opgeschoond; Jamie-fixes gereconcilieerd in administratie)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -55,7 +55,10 @@ De noot "expertprofielen staan alleen in persoonlijke Drive, niet in Shared Driv
 
 ## 🟡 Volgende stap (prioriteit 1)
 
-*(leeg — Drive-connector/mapnaam-dossier volledig afgehandeld 2-3 juli, zie ✅ Gedaan)*
+### Jamie-fix live valideren bij eerstvolgende echte meeting
+**Waarom:** de klant/traject-fix (`762447b`, meeting_reviewer Stap 0) is een gedragsverandering in Ainstein's redeneren, geen deterministische bug-fix. Unit-tests slagen, maar dat Ainstein nooit meer het verkeerde NN-sub-dossier (LEAD3 vs. Inkomen Collectief) koppelt is nog niet bewezen op een echte meeting.
+**Actie (bij eerstvolgende Jamie-meeting):** controleer in `#ainstein-status` of (a) de 'Klant/traject:'-regel klopt met wat het gesprek echt was, en (b) de DM er opgeruimd uitziet (Block Kit, titel bovenaan). Klopt het niet: log in gaps.md + heropenen.
+**Prioriteit:** doen zodra er een meeting via Jamie binnenkomt. Dit is de enige echte proef op de Jørgen-fix.
 
 ### [optioneel, laag] Bestanden ook rename-proof maken
 **Nu:** mappen zijn rename-proof via `drive_structure.py`, maar bestanden worden nog op naam opgezocht (`kennis_laag.md`, `verbal_identity.md`, `gaps.md`, `entiteiten.md`, expertprofielen).
@@ -715,6 +718,8 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Testsuite-isolatie + productie-data hersteld (gevonden door daily-code-review 3 juli). `tests/conftest.py` toegevoegd: autouse-fixture haalt `GOOGLE_SERVICE_ACCOUNT_FILE`/`_JSON` weg vóór elke test, zodat `pytest` nooit meer naar de live Drive schrijft. Was een stil lek: `_is_drive_mode()` sprong in de productie-tak zodra `.env` geladen was, waardoor elke volledige testrun testfixture-feedback toevoegde aan het live `05_Ainstein Knowledge Base/gaps.md` (dat in elke conversatie in de systeemprompt komt). Suite nu 40 groen, 0 Drive-writes (was 33 groen/7 rood). Live `gaps.md` opgeschoond via serviceaccount: 49 fixture-entries (`U1`/`U2`, threads `1700.123`/`1800.456`/`1`) verwijderd, 4 echte feedback-entries behouden, byte-identiek geverifieerd na upload (backup bewaard). | `47ffdc5` + Drive | 3 juli 2026 |
+| Jamie-pijplijn scherper na melding Jörgen (klant/traject-verwarring: NN-debrief werd op verkeerd dossier geanalyseerd, kanaalpost noemde 'LEAD3' bij een Inkomen-Collectief-gesprek). (1) `infer_client_name()` in `jamie.py` verzint geen klantnamen meer (fallback 'eerste 3 woorden van de titel' verwijderd, gaf labels als "McKinsey Benchmark en"); `skills/meeting_reviewer.md` krijgt Stap 0 (klant/traject zelf vaststellen uit titel/samenvatting/transcript, sub-dossier-regel NN Group/LEAD3, vraag bij twijfel i.p.v. gok); `transcript_processor.py` toont eigen 'Klant/traject:'-regel via `_extract_client_line`. (2) Insights-koppeling race condition: `_pending_insights` hield maar 1 koppeling per kanaal → tweede meeting overschreef stil de eerste; nu lijst per kanaal met titel-matching + expliciete vraag bij ambiguïteit. (3) DM omgebouwd naar Block Kit (`_build_dm_blocks`, `_chunk_text`), dode `_post_dm_status` verwijderd. 4 nieuwe testbestanden (19 tests). Live op VM (service herstart ná commit). Let op: gedragsfix in LLM-redeneerstap, nog niet bewezen op een echte meeting (zie open verificatie-item). | `762447b`, `59db17f`, `7cded90` | 2 juli 2026 |
 | Verweesde data gemigreerd + spookmap opgeruimd + kraan-dicht bewezen. `scripts/migrate_stray_marketing.py` (dry-run/apply, prullenbak-veilig): 2 unieke juli-Slack-bestanden verplaatst naar echte `04_Marketing`, 2 juni-bestanden gemergd (30-juni-berichten die de echte map miste alsnog bewaard, `nn-ks-it` 5→6KB, `nn-lead3` 4,5→9KB), 1 identiek bestand + dubbele lege `_kennis` naar prullenbak, stray `06_Marketing` volledig weg. Bewijs kraan dicht: live Slack-scraper resolvet naar echte `04_Marketing`-slackmap en maakt géén nieuwe `06_Marketing` aan. Root heeft weer precies 6 mappen (00–05). | `5cd2bec` e.v. | 3 juli 2026 |
 | Alle oude mapnamen uit huidige-systeem-docs verwijderd (scraper-docstrings, tools.py tool-descriptions/comments, gdoc_tools, convert_to_markdown, README-tabel, DEPLOYMENT, HANDOFF, `.claude/projects.json`). Gedateerde meirapporten in `reports/` bewust ongemoeid (historisch). | `a519900` | 3 juli 2026 |
 | Dynamische Drive-mapresolutie: `drive_structure.py` toegevoegd (herkent top-level mappen aan nummer-voorvoegsel 00_ t/m 05_, niet aan naam; fail loud, nooit top-level spookmap, oudste-wint bij duplicaten). Alle scrapers (slack/linkedin/medium/substack/website), `update_stijl`, `restore_voice`, `run_kennisextractie` en `tools.save_text_bakje` omgebouwd van hardcoded `("06_Marketing", …)` naar `drive_structure`. `tools._build_drive_folder_ids` registreert rol-aliassen op voorvoegsel (folder_ids.get('04_Marketing') rename-proof). Dode code `scripts/setup_outcomes.py` verwijderd. Geverifieerd op VM: zelftest resolvet alle rollen correct naar de échte mappen (niet de spookmap), oudste-wint pikt gevulde `_kennis`. Datalek gestopt. | `bd836c6` | 2 juli 2026 |

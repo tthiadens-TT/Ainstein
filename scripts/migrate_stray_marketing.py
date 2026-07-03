@@ -49,7 +49,7 @@ except Exception:
 import drive_structure as ds
 from gdoc_tools import _get_service_account_creds
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 
 ROOT_ID = "0AFvBEDYKrnHbUk9PVA"
 DUP_EMPTY_KENNIS_ID = "1e8ZeptGvdAdDUu_7m15YxLyyZu_ibBTb"  # lege 30-juni-duplicaat
@@ -91,11 +91,19 @@ def _move(svc, fid, new_parent, old_parent):
                        supportsAllDrives=True, fields="id").execute()
 
 
+def _update_content(svc, fid, text):
+    media = MediaIoBaseUpload(io.BytesIO(text.encode("utf-8")), mimetype="text/plain", resumable=False)
+    svc.files().update(fileId=fid, media_body=media, supportsAllDrives=True, fields="id").execute()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="Voer de veilige acties uit (default: dry-run)")
     ap.add_argument("--show-divergent", action="store_true",
                     help="Print per divergent bestand de stray-regels die NIET in real staan (read-only)")
+    ap.add_argument("--merge-divergent", action="store_true",
+                    help="Divergente bestanden mergen: unieke late-juni-staart uit stray achter real aanvullen "
+                         "(bestanden waar alleen de header-datum verschilt: stray naar prullenbak)")
     args = ap.parse_args()
     mode = "APPLY" if args.apply else "DRY-RUN"
 
@@ -152,14 +160,34 @@ def main() -> int:
                     _trash(svc, real_files[n]["id"])
                     _move(svc, f["id"], real_slack, stray_slack)
             else:
-                print(f"  DIVERGENT    {n} (stray {len(sc)}c ≠ real {len(rc)}c) -> OVERGESLAGEN, handmatig oordeel")
-                divergent.append(n)
-                if args.show_divergent:
-                    real_lines = set(l.strip() for l in rc.splitlines() if l.strip())
-                    uniek = [l for l in sc.splitlines() if l.strip() and l.strip() not in real_lines]
-                    print(f"      stray-regels NIET in real ({len(uniek)}):")
-                    for l in uniek[:15]:
-                        print(f"        + {l[:100]}")
+                real_lines = set(l.strip() for l in rc.splitlines() if l.strip())
+                uniek = [l for l in sc.splitlines()
+                         if l.strip() and l.strip() not in real_lines
+                         and not l.strip().startswith("_Bron:")]
+                if args.merge_divergent:
+                    if not uniek:
+                        print(f"  MERGE {n}: alleen header-datum verschilt -> stray naar prullenbak")
+                        if args.apply:
+                            _trash(svc, f["id"])
+                    else:
+                        print(f"  MERGE {n}: {len(uniek)} unieke regels -> aanvullen achter real, dan stray weg")
+                        if args.apply:
+                            merged = (
+                                rc.rstrip()
+                                + "\n\n---\n\n## [Aangevuld 2026-07-02] Late-juni berichten uit de verweesde 06_Marketing\n"
+                                + "_De echte maand-file stopte met bijwerken bij de map-hernoeming op 30 juni; "
+                                + "dit blok is de 30-juni-staart die de scraper toen naar de verweesde map schreef._\n\n"
+                                + sc.strip() + "\n"
+                            )
+                            _update_content(svc, real_files[n]["id"], merged)
+                            _trash(svc, f["id"])
+                else:
+                    print(f"  DIVERGENT    {n} (stray {len(sc)}c ≠ real {len(rc)}c) -> OVERGESLAGEN, handmatig oordeel")
+                    divergent.append(n)
+                    if args.show_divergent:
+                        print(f"      stray-regels NIET in real ({len(uniek)}):")
+                        for l in uniek[:15]:
+                            print(f"        + {l[:100]}")
 
     # Opruimen (alleen lege mappen), na de bestand-migratie
     print("-" * 64)

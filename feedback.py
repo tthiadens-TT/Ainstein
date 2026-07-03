@@ -62,9 +62,39 @@ _gaps_cache_lock = Lock()
 _gaps_cache: dict = {"content": None, "loaded_at": 0.0}
 _GAPS_TTL = 300  # seconds
 
-# In-memory counter for auto-review trigger. Resets on restart and after each trigger.
+# Counter for auto-review trigger. Persisted to disk so it survives bot
+# restarts (elke deploy herstart de bot; een pure in-memory teller haalde de
+# drempel daardoor mogelijk nooit). `_open_count` blijft als in-memory spiegel
+# en fallback wanneer het bestand niet leesbaar/schrijfbaar is.
 _open_count_lock = Lock()
 _open_count: int = 0
+_OPEN_COUNT_FILE = Path(__file__).parent / "logs" / "open_count.txt"
+
+
+def _read_open_count() -> int | None:
+    """Lees de persistente teller. 0 bij eerste run, None als het bestand
+    onleesbaar is (caller valt dan terug op de in-memory teller)."""
+    try:
+        return int(_OPEN_COUNT_FILE.read_text().strip())
+    except FileNotFoundError:
+        return 0
+    except Exception:
+        return None
+
+
+def _write_open_count(n: int) -> None:
+    """Best-effort persisteren. Faalt stil zodat de feedback-flow nooit breekt."""
+    try:
+        _OPEN_COUNT_FILE.parent.mkdir(exist_ok=True)
+        _OPEN_COUNT_FILE.write_text(str(n))
+    except Exception:
+        pass
+
+
+# Laad de laatste stand bij import, zodat een botherstart de teller niet nult.
+_persisted_open_count = _read_open_count()
+if _persisted_open_count is not None:
+    _open_count = _persisted_open_count
 
 
 def register_pending(
@@ -229,13 +259,18 @@ def invalidate_gaps_cache() -> None:
 
 
 def increment_and_check(threshold: int = 10) -> bool:
-    """Increment the open-entry counter. Returns True (and resets) when threshold is reached."""
+    """Increment the open-entry counter. Returns True (and resets) when threshold is reached.
+
+    De teller wordt op schijf bewaard zodat hij een botherstart overleeft. Bij
+    een bestandsfout valt hij terug op de in-memory teller (oude gedrag)."""
     global _open_count
     with _open_count_lock:
         _open_count += 1
         if _open_count >= threshold:
             _open_count = 0
+            _write_open_count(0)
             return True
+        _write_open_count(_open_count)
     return False
 
 

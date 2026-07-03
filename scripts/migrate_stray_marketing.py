@@ -201,13 +201,16 @@ def main() -> int:
             _trash(svc, fid)
         return True
 
+    def _trash_empty_tree(fid, label):
+        """Trash lege submappen bottom-up, daarna fid zelf als die leeg is geworden.
+        Raakt nooit een map met bestanden aan."""
+        for c in _children(svc, fid):
+            if c["mimeType"].endswith("folder"):
+                _trash_empty_tree(c["id"], f"{label}/{c['name']}")
+        _maybe_trash_folder(fid, label)
+
     if not divergent:
-        # stray slack -> _bronmateriaal -> 06_Marketing, van binnen naar buiten
-        if stray_slack:
-            _maybe_trash_folder(stray_slack, "stray .../slack")
-        if bm:
-            _maybe_trash_folder(bm[0]["id"], "stray .../_bronmateriaal")
-        _maybe_trash_folder(stray_id, "stray 06_Marketing")
+        _trash_empty_tree(stray_id, "stray 06_Marketing")
     else:
         print(f"  STRAY BLIJFT staan: {len(divergent)} divergente bestanden eerst oplossen: {divergent}")
 

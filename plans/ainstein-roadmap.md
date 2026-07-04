@@ -78,10 +78,11 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** Drive + code (bronnen.json, tools.py kennis-pad, agent.py injectie-pad).
 **Prioriteit:** laag.
 
-### Markdown cache opnieuw genereren na Drive-rename (Thomas, VM)
-**Wat:** Na de Drive-herstructurering zijn de top-level mapnamen veranderd. De bestaande Markdown-cache heeft padverwijzingen met de oude namen. Cache opnieuw opbouwen zodat alles klopt.
-**Actie Thomas:** SSH naar VM, dan: `cd ~/Ainstein && python3 scripts/convert_to_markdown.py`
-**Prioriteit:** medium — cache werkt nog, maar klopt niet meer met nieuwe structuur.
+### Markdown cache: platte plaatsing fixen in convert_to_markdown.py (laag)
+**Status:** de cache-regen is inmiddels gedraaid (een sessie, 3 juli). Daarbij kwam een pre-existente bug boven: `convert_to_markdown.py` lijst bestanden recursief maar schrijft élke cache-`.md` naar `cache_folder_id = folder_id` (top-niveau van de bronmap), niet naast het origineel zoals de docstring belooft. Gevolg: ~43 cache-bestanden (slack-scrapes, LinkedIn, Substack, README's) staan nu plat in de root van `04_Marketing`, gemengd met de 15 curated docs.
+**Ernst: laag — GEEN breuk.** `read_file_cached` zoekt de cache Drive-breed op naam (+ `**Bron:**`-header-validatie), dus de cache wérkt ondanks de verkeerde plek. Puur cosmetische rommel + klein naam-collisierisico (zie idee "naam-collision voorkomen" verderop).
+**Fix (als opgepakt):** in `convert_folder` de `.md` naast het echte origineel schrijven (parent van het bronbestand) i.p.v. het top-folder-id; daarna de 43 losse bestanden uit `04_Marketing`-root opruimen/verplaatsen. Verifieer met `scripts/verify_shared_drive.py`.
+**Geverifieerd:** 3 juli 2026, na de Drive-connector-sessie. Niet blokkerend.
 
 ### 00_Roadmap Drive-docs verhuizen (Thomas, ~5 min)
 **Wat:** Twee docs in `00_Roadmap` Drive-folder ("OPTIE 2 — Claude Projects Tutorial", "OPTIE 3 — MCP Server Architecture") verplaatsen naar `05_Ainstein Knowledge Base/Roadmap/`. Daarna lege `00_Roadmap` verwijderen.

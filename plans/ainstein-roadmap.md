@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 5 juli 2026, 14:45 (cache-architecture finalized: code-fix live, verification tooling deployed, design principles locked in CACHE_DESIGN.md; stale file-IDs from legacy runs = accepted as Google Drive API lag, not a code regression)*
+*Bijgewerkt: 5 juli 2026, 10:20 (GitHub deploy-workflow hersteld: VM credentials opgelost, beide failure-runs nu groen)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.

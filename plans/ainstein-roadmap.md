@@ -49,7 +49,30 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 
 ---
 
-## 🟡 Volgende stap (prioriteit 1)
+## 🔴 URGENT — Cache-rommel opruimen (prioriteit 1, blokkeert afsluiting)
+
+**Probleem:** 157 cache-bestanden staan nog in folder-roots (04_Marketing, 03_Experts, 01_Clients, 02_Frameworks & Tools, 05_Ainstein Knowledge Base). Automatische API-deletie faalde (Google Drive file-ID sync-lag). 
+
+**Actie:** handmatige Drive UI opruiming:
+1. Open Google Drive (Minkowski AInstein Shared Drive)
+2. Per root-folder: selecteer alle .md-bestanden met `**Gecachet:**` header
+3. Delete
+
+**Bestandenlijst voor opruiming:**
+- `04_Marketing/slack_C0*.md` (50+ bestanden)
+- `04_Marketing/README_*.md`, `LinkedIn Posts — *.md`, `Substack Artikelen — *.md`, `Minkowski_*.md`, `MK-new-brandbook.md`
+- `03_Experts/*_Profile.md` (21 bestanden) + `README_04_Experts.md`, decision/selection logic docs
+- `02_Frameworks & Tools/README_02_Tools.md`, `Ppt Template`, `Minkowski Tools & Models`
+- `01_Clients/Meetingnote_*.md`, `*Fwd_*.md`, `LEAD 3 — *.md`, `LEAD 4 — *.md`, `NN Group_*.md`, `NN Retail_*.md`, `*Slides*.md`, projectplan docs
+
+**Criteria voor verwijdering:** bestand eindigt op `.md` EN bevat `**Gecachet:**` in eerste 400 chars.
+
+**Status:** Thomas handelt uit zodra hij in Drive kan.
+**Prioriteit:** blokkeert afsluiting van cache-fix — pas dan gesloten.
+
+---
+
+## 🟡 Volgende stap (prioriteit 2)
 
 ### Jamie-fix live valideren bij eerstvolgende echte meeting
 **Waarom:** de klant/traject-fix (`762447b`, meeting_reviewer Stap 0) is een gedragsverandering in Ainstein's redeneren, geen deterministische bug-fix. Unit-tests slagen, maar dat Ainstein nooit meer het verkeerde NN-sub-dossier (LEAD3 vs. Inkomen Collectief) koppelt is nog niet bewezen op een echte meeting.

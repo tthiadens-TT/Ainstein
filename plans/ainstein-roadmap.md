@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 5 juli 2026 (sessie Loop Charter: beslispunt verrijkt met loop-mechanismen + tegenspraak op eerste-usecase; stale mapnaam-verwijzingen in roadmap-tekst als opruim-item toegevoegd; Drive-06→04-fix onafhankelijk geverifieerd, 6/6 groen incl. kraan-dicht na cron-nacht)*
+*Bijgewerkt: 5 juli 2026, 14:45 (cache-architecture finalized: code-fix live, verification tooling deployed, design principles locked in CACHE_DESIGN.md; stale file-IDs from legacy runs = accepted as Google Drive API lag, not a code regression)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.

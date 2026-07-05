@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 5 juli 2026 (sessie: daily-code-review + skill zelf bijgewerkt (gh-fallback, connector-fallback, actuele mapstructuur) + 2 urgente dev-bugs uit 4-juli-review geverifieerd (niet achterhaald) en opgelost — `_detect_meeting_type()` + Insights-status-check, commit `92f20ba`, live via auto-deploy. Cadans daily-code-review bevestigd: blijft dagelijks.)*
+*Bijgewerkt: 5 juli 2026 (sessie Loop Charter: beslispunt verrijkt met loop-mechanismen + tegenspraak op eerste-usecase; stale mapnaam-verwijzingen in roadmap-tekst als opruim-item toegevoegd; Drive-06→04-fix onafhankelijk geverifieerd, 6/6 groen incl. kraan-dicht na cron-nacht)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -82,6 +82,13 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Wat:** `studio-delivery-mobile.png` en `studio-editor.png` (aangemaakt 4 juli, untracked) staan in de root van `/Users/thomasthiadens/Ainstein`. Op basis van de bestandsnamen horen ze bij het Minkowski Studio-prototype (`~/minkowski-studio`), niet bij Ainstein — vermoedelijk per ongeluk in de verkeerde working directory opgeslagen. Gevonden door daily-code-review 5 juli.
 **Actie Thomas:** verplaats ze naar `~/minkowski-studio` (of verwijder als niet meer nodig) en verwijder uit `~/Ainstein`.
 **Prioriteit:** laag, cosmetisch — geen functioneel risico (niet gecommit).
+
+### Stale mapnaam-verwijzingen in deze roadmap zelf opschonen
+**Wat:** de 30-juni-hernoeming (`06_Marketing` naar `04_Marketing`, `04_Experts` naar `03_Experts`) is in code en Drive volledig afgehandeld, maar de roadmap-tekst zelf verwijst nog naar de oude namen in de Claude Projects-tutorial (de "Files vullen"-tabel, de connector-troubleshooting en de referentie-sectie onderaan). Geverifieerd 5 juli: meerdere `06_Marketing`- en `04_Experts`-vermeldingen in die secties.
+**Waarom het telt:** die tutorial stuurt teamleden naar mappen die niet meer bestaan. Actueel misleidend, geen cosmetiek.
+**Let op:** de historische entries in het ✅-archief die `06_Marketing`/`04_Experts` noemen NIET wijzigen; dat is correcte geschiedenis van wat toen gebeurde.
+**Actie:** de niet-historische verwijzingen bijwerken naar de huidige namen, of de sinds 30 juni sowieso deels verouderde Claude Projects-tutorial in één keer herzien.
+**Prioriteit:** laag, maar doen vóór de tutorial weer voor onboarding gebruikt wordt.
 
 ### ✅ Markdown cache: platte plaatsing fixen in convert_to_markdown.py
 **OPGELOST 4 juli 2026 (commit 709b9d7).**
@@ -236,6 +243,11 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Optie B (laten vallen):** de bestaande scheduled tasks (daily-code-review, kennis-bevestiging) dekken het meeste al af; een generieke autonome loop voegt risico toe zonder bewezen behoefte.
 **Aanbeveling (Claude):** niet nu bouwen. Eerst de guardrails-vraag beantwoorden en één concrete, waardevolle loop-usecase kiezen. Zonder duidelijke usecase is dit een oplossing die een probleem zoekt.
 **Beslissing Thomas:** A (welke usecase?) of B (idee sluiten).
+**Aanvulling (sessie 5 juli, Loop Charter opnieuw bekeken als Claude Code-expert):**
+- **Drie loop-mechanismen, kies bewust:** in-sessie `/loop` (herhaalt in het huidige gesprek), geplande cloud-agent via `/schedule` (nieuwe sessie op tijdstip, met Slack-notificatie), of headless `claude -p "$(cat charter.md)"` + cron op de VM. Optie A vraagt dus geen nieuwe infrastructuur; `/schedule` of een cron-regel volstaat.
+- **Tegenspraak bij de voorbeeld-usecase:** "kennislaag verrijken" (genoemd bij Optie A) is juist een zwakke eerste loop. `run_kennisextractie.py` verwerkt elke bron al deterministisch; er is geen beslisser per stap, dus het is cron-werk (goedkoper zónder loop) en het is duur (map-reduce, circa 64k tokens). Het artikel waarschuwt zelf: kies je eerste loop niet op het duurste werk.
+- **Sterkere eerste usecase:** laag-risico werk met veel kleine stukjes waar wél een beslisser nodig is en flag-only volstaat (bijvoorbeeld een Drive- of documentatie-consistentiecheck die afwijkingen op een "voor mij"-lijst zet, nooit zelf verwijdert). Precies het type dat de teruggekomen `06_Marketing` deze week had gevangen.
+- **Randvoorwaarde nu vervuld:** Drive-toegang werkt weer en `drive_structure.py` maakt paden rename-proof, dus een Drive-lezende charter is nu technisch mogelijk. Op 30 juni was dat nog geblokkeerd.
 
 ### Richtingkeuze simulatielaag: oordeel- en uitkomstenregister starten? (verkenning 2 juli 2026)
 **Wat:** de verkenning `docs/verkenning-simulatielaag-general-intuition.md` (ook als Google Doc in `00_Werkdocumenten`) concludeert: de sterkste vertaling van de General Intuition-mechaniek is richting D+A, een oordeel- en uitkomstenregister (beslissingen + verwachtingen + latere uitkomsten vastleggen als cumulatieve asset). Bewoonbare scenario's (C) zijn de commerciële horizon maar horen ná de datafundering.

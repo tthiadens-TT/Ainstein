@@ -29,7 +29,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 5 juli 2026*
+*Bijgewerkt: 5 juli 2026, 10:14 UTC (GitHub credentials op VM hersteld; deploy-workflow nu werkend)*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel

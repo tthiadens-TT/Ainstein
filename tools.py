@@ -357,7 +357,7 @@ def _drive_list_files_in_folder(service, folder_id: str) -> list[dict]:
         while True:
             kwargs: dict = dict(
                 q=f"'{current_id}' in parents and trashed=false",
-                fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime, size)",
+                fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime, size, parents)",
                 pageSize=100,
                 supportsAllDrives=True,
                 includeItemsFromAllDrives=True,

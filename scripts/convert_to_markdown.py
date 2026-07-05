@@ -152,9 +152,6 @@ def convert_folder(
     files = _drive_list_files_in_folder(service, folder_id)
     log.info("  %d bestanden gevonden", len(files))
 
-    # Schrijf .md naast het origineel in de root van de source-folder
-    cache_folder_id = folder_id if not dry_run else None
-
     converted = skipped = errors = 0
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     seen_file_ids: set[str] = set()
@@ -204,9 +201,17 @@ def convert_folder(
 
         source_path = f"{folder_name}/{name}"
 
+        # Cache-doel: schrijf .md NAAST het origineel (in de parent-folder van het bestand)
+        parent_ids = f.get("parents", [])
+        if not parent_ids:
+            log.warning("  Skip (geen parent): %s", name)
+            skipped += 1
+            continue
+        cache_folder_id = parent_ids[0]
+
         # Freshness check — sla over als .md al recenter is dan bron
         if not force and not dry_run:
-            cached_modtime = _get_cached_modtime(service, folder_id, stem)
+            cached_modtime = _get_cached_modtime(service, cache_folder_id, stem)
             if cached_modtime and cached_modtime >= source_modified:
                 log.info("  Actueel (skip): %s", name)
                 skipped += 1

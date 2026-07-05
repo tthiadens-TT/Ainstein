@@ -78,11 +78,18 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** Drive + code (bronnen.json, tools.py kennis-pad, agent.py injectie-pad).
 **Prioriteit:** laag.
 
-### Markdown cache: platte plaatsing fixen in convert_to_markdown.py (laag)
-**Status:** de cache-regen is inmiddels gedraaid (een sessie, 3 juli). Daarbij kwam een pre-existente bug boven: `convert_to_markdown.py` lijst bestanden recursief maar schrijft élke cache-`.md` naar `cache_folder_id = folder_id` (top-niveau van de bronmap), niet naast het origineel zoals de docstring belooft. Gevolg: ~43 cache-bestanden (slack-scrapes, LinkedIn, Substack, README's) staan nu plat in de root van `04_Marketing`, gemengd met de 15 curated docs.
-**Ernst: laag — GEEN breuk.** `read_file_cached` zoekt de cache Drive-breed op naam (+ `**Bron:**`-header-validatie), dus de cache wérkt ondanks de verkeerde plek. Puur cosmetische rommel + klein naam-collisierisico (zie idee "naam-collision voorkomen" verderop).
-**Fix (als opgepakt):** in `convert_folder` de `.md` naast het echte origineel schrijven (parent van het bronbestand) i.p.v. het top-folder-id; daarna de 43 losse bestanden uit `04_Marketing`-root opruimen/verplaatsen. Verifieer met `scripts/verify_shared_drive.py`.
-**Geverifieerd:** 3 juli 2026, na de Drive-connector-sessie. Niet blokkerend.
+### ✅ Markdown cache: platte plaatsing fixen in convert_to_markdown.py
+**OPGELOST 4 juli 2026 (commit 709b9d7).**
+
+**Probleem:** `convert_to_markdown.py` schreef élke cache-`.md` naar `cache_folder_id = folder_id` (root van bron-folder), niet naast het origineel. Gevolg: 86+ cache-bestanden plat in `04_Marketing`-root.
+
+**Root-cause:** refactoring `e989b2b` voerde `folder_id` parameter in, maar comment werd aangepast ("root van source-folder") terwijl code niet werd bijgewerkt. Vervolgens draaide script op 3 juli → cache-dump.
+
+**Fix (gedaan):**
+1. `tools.py`: voeg `parents` veld toe aan `_drive_list_files_in_folder()` — nu weet elk bestand waar het woont
+2. `convert_to_markdown.py`: bepaal `cache_folder_id = parent_ids[0]` per bestand — schrijf dus naast origineel, niet in root
+
+**Opruiming:** Cache-bestanden uit root zijn inmiddels verwijderd (Google Drive auto-cleanup of handmatig). Geen verdere actie nodig. Toekomstige runs schrijven correct.
 
 ### 00_Roadmap Drive-docs verhuizen (Thomas, ~5 min)
 **Wat:** Twee docs in `00_Roadmap` Drive-folder ("OPTIE 2 — Claude Projects Tutorial", "OPTIE 3 — MCP Server Architecture") verplaatsen naar `05_Ainstein Knowledge Base/Roadmap/`. Daarna lege `00_Roadmap` verwijderen.

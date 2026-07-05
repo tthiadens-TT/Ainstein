@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 5 juli 2026 (daily-code-review: 2 losse bevindingen naar backlog verplaatst — GitHub-CLI-gat toegevoegd aan bestaand credential-item, screenshot-opruiming toegevoegd als nieuw item)*
+*Bijgewerkt: 5 juli 2026 (sessie: daily-code-review + skill zelf bijgewerkt (gh-fallback, connector-fallback, actuele mapstructuur) + 2 urgente dev-bugs uit 4-juli-review geverifieerd (niet achterhaald) en opgelost — `_detect_meeting_type()` + Insights-status-check, commit `92f20ba`, live via auto-deploy. Cadans daily-code-review bevestigd: blijft dagelijks.)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.

@@ -25,6 +25,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
@@ -123,7 +124,7 @@ def _discover_source_folders(service) -> list[tuple[str, str]]:
         return []
 
 
-def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> str | None:
+def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> Optional[str]:
     """Geef modifiedTime van gecachet bestand, of None als het niet bestaat."""
     md_name = f"{stem}.md"
     try:
@@ -144,8 +145,8 @@ def _get_cached_modtime(service, cache_folder_id: str, stem: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 def convert_folder(
-    service, folder_name: str, folder_id: str, dry_run: bool, force: bool, limit: int | None
-) -> tuple[int, int, int]:
+    service, folder_name: str, folder_id: str, dry_run: bool, force: bool, limit: Optional[int]
+) -> Tuple[int, int, int]:
     """Converteer één bron-folder (inclusief subfolders). Retourneert (converted, skipped, errors)."""
     log.info("=== Folder: %s ===", folder_name)
 

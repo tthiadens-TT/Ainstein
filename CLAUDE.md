@@ -29,7 +29,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 3 juli 2026*
+*Bijgewerkt: 5 juli 2026*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel

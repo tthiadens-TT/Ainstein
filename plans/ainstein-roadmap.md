@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 3 juli 2026 (sessie: audit laatste 4 werksessies + daily-code-review; testlek naar productie-Drive gedicht + live gaps.md opgeschoond; Jamie-fixes gereconcilieerd in administratie)*
+*Bijgewerkt: 5 juli 2026 (daily-code-review: 2 losse bevindingen naar backlog verplaatst — GitHub-CLI-gat toegevoegd aan bestaand credential-item, screenshot-opruiming toegevoegd als nieuw item)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -77,6 +77,11 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Wat:** `kennis_laag.md`, `entiteiten.md`, `minkowski_voice.md` verplaatsen van `04_Marketing/_kennis/` naar `05_Ainstein Knowledge Base/`. De kennis is ook marketingkennis — urgentie is laag, maar hoort architectureel bij Ainstein, niet bij Marketing.
 **Actie:** Drive + code (bronnen.json, tools.py kennis-pad, agent.py injectie-pad).
 **Prioriteit:** laag.
+
+### Losse screenshots in repo-root opruimen
+**Wat:** `studio-delivery-mobile.png` en `studio-editor.png` (aangemaakt 4 juli, untracked) staan in de root van `/Users/thomasthiadens/Ainstein`. Op basis van de bestandsnamen horen ze bij het Minkowski Studio-prototype (`~/minkowski-studio`), niet bij Ainstein — vermoedelijk per ongeluk in de verkeerde working directory opgeslagen. Gevonden door daily-code-review 5 juli.
+**Actie Thomas:** verplaats ze naar `~/minkowski-studio` (of verwijder als niet meer nodig) en verwijder uit `~/Ainstein`.
+**Prioriteit:** laag, cosmetisch — geen functioneel risico (niet gecommit).
 
 ### ✅ Markdown cache: platte plaatsing fixen in convert_to_markdown.py
 **OPGELOST 4 juli 2026 (commit 709b9d7).**
@@ -290,6 +295,13 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 3. Zet de keychain-entry recht en haal de token uit de remote-URL: `git remote set-url origin https://github.com/tthiadens-TT/Ainstein.git` — bij de eerste push vraagt git om de nieuwe token en bewaart die in de keychain
 4. Trek de oude PAT (uit de remote-URL) in op github.com — die heeft in platte tekst in `.git/config` en in sessie-output gestaan
 **Prioriteit:** medium-hoog — geen productie-impact, maar drie verschillende credential-plekken waarvan twee dood en één in platte tekst is onhoudbaar en veroorzaakte deze sessie opnieuw uitzoekwerk.
+**Update 5 juli 2026:** ook de `gh` CLI is niet geïnstalleerd in de lokale/daily-review-omgeving — dit is nu 3 dagen op rij (3, 4, 5 juli) een blinde vlek voor PR/issue-status in elke daily-code-review. `daily-code-review`-skill is vandaag aangepast om automatisch op de GitHub MCP-tools terug te vallen zodra `gh` ontbreekt, maar zolang de MCP-auth ook stuk is (zie hierboven) blijft PR/issue-status structureel onbekend. Deze sanering lost dus twee losse problemen in één keer op.
+
+### ✅ `_detect_meeting_type()` misclassificatie-risico
+**OPGELOST 5 juli 2026.** Eerst gevlagd 2026-07-04, herbevestigd nog open op 2026-07-05, daarna direct gefixt. Meeting werd als `internal` geclassificeerd zodra geen deelnemer een niet-Minkowski e-maildomein had — ook als dat kwam doordat Jamie simpelweg geen e-mailveld aan een deelnemer had gekoppeld (bv. "Speaker 1"). Fix: deelnemers zonder e-mailveld blokkeren nu de interne classificatie (ze zijn geen bewijs van "geen externen", ze zijn onbekend). 5 nieuwe tests in `tests/test_detect_meeting_type.py`, inclusief het exacte Lead3-scenario van 3 juli als regressietest. Volledige suite (51/51) groen.
+
+### ✅ Insights-update toont onterecht altijd "✅" bij mislukte placeholder-vervanging
+**OPGELOST 5 juli 2026.** Eerst gevlagd 2026-07-04, herbevestigd nog open op 2026-07-05, daarna direct gefixt. `update_gdoc_section()` geeft bij een ontbrekende placeholder `status: "not_found"` terug zonder te raisen — `slack_app.py` controleerde die status niet en toonde altijd "✅ Insights toegevoegd". Fix: nieuwe helper `_insights_update_message()` in `slack_app.py` checkt de status van beide vervangingen en toont een eerlijke ⚠️-melding als een placeholder niet is gevonden. 4 nieuwe tests in `tests/test_insights_update_message.py`.
 
 ### MCP-koppelingen — twee open beslissingen
 **Calendar MCP:** ✅ token vernieuwd (19 mei 2026), "minkowski"-account correct op `thomas@minkowski.org` gezet. Minkowski-agenda zelf nog leeg — vul zakelijke afspraken in als je agenda-context in briefings wilt.

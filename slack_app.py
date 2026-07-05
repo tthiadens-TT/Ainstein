@@ -941,6 +941,30 @@ def _download_files(files: list) -> list[dict]:
     return blocks
 
 
+def _insights_update_message(result_text: dict, result_header: dict) -> str:
+    """Build the Slack reply for an Insights update, honestly reflecting whether
+    the two placeholder replacements in the Meetingnote actually landed.
+
+    update_gdoc_section() never raises on a missing placeholder — it returns
+    status "not_found" instead (e.g. Haiku already filled in the lead's name
+    itself, as happened on the RS&Z Meetingnote on 3 July 2026). Without this
+    check, the handler showed an unconditional "✅ Insights toegevoegd" even
+    when a replacement silently failed.
+    """
+    missing = []
+    if result_text.get("status") != "ok":
+        missing.append("de Insights-tekst")
+    if result_header.get("status") != "ok":
+        missing.append("de Insights-header (naam Minkowski-lead)")
+    if missing:
+        return (
+            f"⚠️ Insights deels verwerkt: kon {' en '.join(missing)} niet vinden in de "
+            "Meetingnote (placeholder ontbrak of was al vervangen). Controleer het document "
+            "handmatig."
+        )
+    return "✅ Insights toegevoegd aan de Meetingnote."
+
+
 @app.event("message")
 def handle_dm(event, say, client):
     # Ignore bot's own messages and unsupported subtypes
@@ -1076,19 +1100,19 @@ def handle_dm(event, say, client):
             pass
         try:
             from gdoc_tools import update_gdoc_section
-            update_gdoc_section(
+            result_text = update_gdoc_section(
                 doc_id,
                 "[INSIGHTS — vul hier in]",
                 f"{insights_text}",
             )
             # Also update the section header to include the lead's name
-            update_gdoc_section(
+            result_header = update_gdoc_section(
                 doc_id,
                 "INSIGHTS — [NAAM MINKOWSKI-LEAD]",
                 f"INSIGHTS — {lead_name.upper()}",
             )
             say(
-                text=f"✅ Insights toegevoegd aan de Meetingnote.",
+                text=_insights_update_message(result_text, result_header),
                 channel=channel,
                 mrkdwn=True,
             )

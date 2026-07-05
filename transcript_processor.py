@@ -262,12 +262,22 @@ def _detect_meeting_type(event: TranscriptEvent) -> str:
     """Return 'discovery', 'check_in', 'follow_up', or 'internal'."""
     title_lower = event.title.lower()
 
-    # Internal: all participants have Minkowski email domains
+    # Internal requires positive confirmation: every participant identified
+    # AND every one of them on a Minkowski domain. A participant without an
+    # email field (e.g. Jamie only caught "Speaker 1") is not proof of
+    # anything — treating that as "no external participants found" is what
+    # silently misclassified a real NN Group client call as internal on
+    # 3 July 2026 (only Jörgen had a recognizable email; the other four
+    # attendees were unidentified "Speaker N" entries). Unidentified
+    # attendees now block the internal classification instead of being
+    # dropped from the count.
+    participants_with_email = [p for p in event.participants if p.get("email")]
+    unidentified = [p for p in event.participants if not p.get("email")]
     non_minkowski = [
-        p for p in event.participants
-        if "@" in p.get("email", "") and p["email"].split("@")[-1] not in _MINKOWSKI_DOMAINS
+        p for p in participants_with_email
+        if p["email"].split("@")[-1] not in _MINKOWSKI_DOMAINS
     ]
-    if not non_minkowski:
+    if participants_with_email and not non_minkowski and not unidentified:
         return "internal"
     if any(kw in title_lower for kw in _INTERNAL_KEYWORDS):
         return "internal"

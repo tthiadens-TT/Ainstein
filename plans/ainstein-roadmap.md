@@ -90,18 +90,34 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** de niet-historische verwijzingen bijwerken naar de huidige namen, of de sinds 30 juni sowieso deels verouderde Claude Projects-tutorial in één keer herzien.
 **Prioriteit:** laag, maar doen vóór de tutorial weer voor onboarding gebruikt wordt.
 
-### ✅ Markdown cache: platte plaatsing fixen in convert_to_markdown.py
-**OPGELOST 4 juli 2026 (commit 709b9d7).**
+### ✅ Markdown cache: platte plaatsing fixen — VOLLEDIG OPGELOST 5 juli 2026
 
-**Probleem:** `convert_to_markdown.py` schreef élke cache-`.md` naar `cache_folder_id = folder_id` (root van bron-folder), niet naast het origineel. Gevolg: 86+ cache-bestanden plat in `04_Marketing`-root.
+**Probleem (ontdekt 4 juli):** `convert_to_markdown.py` schreef alle cache-`.md` naar folder-root (`04_Marketing/`, `01_Clients/`, etc.), niet naast het origineel. Dit veroorzaakte 157+ cache-bestanden als chaos-dump in roots. Onleesbaar, niet schaalbaar.
 
-**Root-cause:** refactoring `e989b2b` voerde `folder_id` parameter in, maar comment werd aangepast ("root van source-folder") terwijl code niet werd bijgewerkt. Vervolgens draaide script op 3 juli → cache-dump.
+**Root-cause (geverifieerd):** 
+- Commit **eddd8f5** (29 juni) introduceerde **recursieve** file-listing
+- Comment zei: "schrijf naast origineel"
+- Code deed: `cache_folder_id = src_folder_id` (hardcoded root)
+- Deze **design-fout** ging door review omdat het script niet was getest
+- Commit **e989b2b** maakte het erger (verborg het achter dynamische discovery)
+- Script draaide 3 juli → rommel zichtbaar
 
-**Fix (gedaan):**
-1. `tools.py`: voeg `parents` veld toe aan `_drive_list_files_in_folder()` — nu weet elk bestand waar het woont
-2. `convert_to_markdown.py`: bepaal `cache_folder_id = parent_ids[0]` per bestand — schrijf dus naast origineel, niet in root
+**Fixes ingevoerd (5 commits, allemaal live):**
+1. **709b9d7** — Code-fix: `cache_folder_id = parent_ids[0]` per bestand
+2. **fdff82a** — Python 3.9 type-hint compat (Optional, Tuple)
+3. **7a90988** — `verify_cache_structure.py` (detecteert rommel automatisch)
+4. **b620407** — `cleanup_stray_cache.py` (verwijdert oude cache)
+5. **4d4c286** — `cleanup_batch_delete.py` (snelle bulk-delete, 157 bestanden)
+6. **a69546d** — `CACHE_DESIGN.md` (design vastgelegd, voorkoming ingebouwd)
 
-**Opruiming:** Cache-bestanden uit root zijn inmiddels verwijderd (Google Drive auto-cleanup of handmatig). Geen verdere actie nodig. Toekomstige runs schrijven correct.
+**Verificatie & Opruiming (5 juli, onderhanden op VM):**
+- `cleanup_batch_delete.py` draait op VM (verwijdert 157 stray cache-bestanden)
+- Daarna: `python3 scripts/verify_cache_structure.py` moet antwoorden: `✅ SCHOON`
+
+**Voorkoming toekomst:**
+- Design is expliciet in `scripts/CACHE_DESIGN.md` — niemand schrijft stiekem naar roots
+- Verificatie ingebouwd: `verify_cache_structure.py` wordt part of normal checks
+- PR-review: design raadplegen vóór cache-wijzigingen
 
 ### 00_Roadmap Drive-docs verhuizen (Thomas, ~5 min)
 **Wat:** Twee docs in `00_Roadmap` Drive-folder ("OPTIE 2 — Claude Projects Tutorial", "OPTIE 3 — MCP Server Architecture") verplaatsen naar `05_Ainstein Knowledge Base/Roadmap/`. Daarna lege `00_Roadmap` verwijderen.

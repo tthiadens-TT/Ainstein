@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 6 juli 2026 (daily-code-review: cache-opruiming status recht getrokken, 2 bugs uit 92f20ba gecleared, 2 stale backlog-items verwijderd)*
+*Bijgewerkt: 6 juli 2026 (brand consistency audit + fix: CORE/PATTERNS-scheiding, sentinel-based parsing, Google Docs-opmaak, Meeting Notes vermerking)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -819,6 +819,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Brand consistency audit afgerond — 5 commits live: f59a099 (CORE/PATTERNS scheiding + sentinel-parsing), 6ace92c (Brand CORE onvoorwaardelijk injectie), 880003c (brand_core.md feitelijke basis injectie), 36c55f7 (Minkowski-kleur/font op alle Google Docs), f605536 (Meeting Notes vermerking). Probleem 1: `update_stijl.py` dupliceerde wekelijks met fragiel kopftekst-matching, nu sentinel-based (hard-fail op ontbrekende markers, geen stille append). Probleem 2: CORE-regels stonden dubbel (verbal_identity.md + minkowski_voice.md), nu enkel in verbal_identity.md, via agent.py onvoorwaardelijk geïnjecteerd. Probleem 3: visual_identity.md was leeg — gevuld met geverifieerde waarden uit pptx_builder.py + brondocument, gelabeld als "code-afgeleid/onbevestigd". Test-isolatie: 22 nieuwe tests toegevoegd (4 testbestanden), suite 73/73 groen. 200 OK webhook-test. | `f59a099` t/m `f605536` | 6 juli 2026 |
 | Roadmap-inconsistentie recht getrokken: cache-opruiming stond tegelijk als "🔴 URGENT, blokkeert afsluiting" én als "✅ VOLLEDIG OPGELOST". Herbevestigd via `verify_cache_structure.py` op de VM (grondwaarheid): alle 157 violations staan nog steeds in de folder-roots (86 `04_Marketing`, 41 `01_Clients`, 25 `03_Experts`, 3 `02_Frameworks & Tools`, 2 `05_Ainstein Knowledge Base`) — geen voortgang sinds 4 juli. De ✅-sectie herschreven zodat de 🔴 URGENT-sectie de enige actuele status is. Nieuw follow-up-item toegevoegd: drie mislukte, bijna-identieke cleanup-scripts consolideren. Gevonden door daily-code-review 6 juli. | Drive-verificatie + roadmap-edit | 6 juli 2026 |
 | Twee bugs uit de daily-code-review van 4-5 juli geverifieerd opgelost in `92f20ba`: `_detect_meeting_type()` classificeerde een klantgesprek stilzwijgend als intern zodra een deelnemer geen e-mailveld had; Insights-reply toonde altijd "✅" ongeacht of `update_gdoc_section()` de placeholder vond. Geverifieerd door de diff te lezen (niet aangenomen) + testsuite lokaal gedraaid: 51/51 groen. | `92f20ba` | 6 juli 2026 (geverifieerd, gefixt 5 juli) |
 | Twee stale backlog-items verwijderd: (1) "Losse screenshots in repo-root opruimen" — bestanden bevestigd verdwenen uit de working directory; (2) "Legacy Google Doc Slack-bestanden verwijderen uit Drive" — was al opgelost en genoteerd in dit archief op 3 juli ("0 gevonden, al eerder weg"), stond ten onrechte nog als open item verderop in de roadmap. | roadmap-edit | 6 juli 2026 |

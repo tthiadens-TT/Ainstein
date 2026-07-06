@@ -29,7 +29,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 5 juli 2026, 10:14 UTC (GitHub credentials op VM hersteld; deploy-workflow nu werkend)*
+*Bijgewerkt: 6 juli 2026 (whats-your-future tool live; Fable-briefs idee 1+5; brand consistency-commits f59a099 t/m f605536; lokale keychain-incident opgelost, zie memory connector_access_paths)*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
@@ -49,6 +49,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **update_drive_file.py** — `scripts/update_drive_file.py`: update bestaand Drive-bestand via service account. Gebruik: `python3 scripts/update_drive_file.py --file-id <ID> --local-path <pad>`
 - **Double Helix kennislaag herrun** — pipeline succesvol gedraaid 30 juni 2026 (stop_reason=end_turn, 111k chars). Type-labels actief in kennis_laag.md. REDUCE loopt via directe API-call, niet run_agent.
 - **kansen.md** — `04_Marketing/kansen.md` in Drive (ID: `1lcSCyA3QBMwLQTCFCKhIWC4MqHMGDDQN`): 4 say-vs-sell kansen geformuleerd als commercieel aandachtspunt. Aangemaakt 30 juni 2026.
+- **What's Your Future? tool** — `whats-your-future/` in de repo (`1386b68` + `5e6d509`, 6 juli): statisch facilitator-instrument voor discovery-gesprekken (Cone of Possibilities: probable/plausible/preferable; 4 ICP-sectoren × 4 thema's; signal-houdingen Observing/Anticipating/Futures Ready; Copy-session-summary → Slack → Ainstein; print-output). Dubbelklik `index.html`, werkt offline; facilitator-gids in `whats-your-future/README.md`. Fontrollen conform brandbook: Sen ExtraBold alleen wordmark, Helvetica Neue koppen/body. Bijbehorende Fable-briefs voor idee 1 (Proposal Engine 2.0) en idee 5 (toolregister + query_tools) in `plans/fable-brief-*.md`, uitvoerbaar op Opus/Sonnet — zie roadmap-backlog.
 
 ### Wat pending is
 - Geen open PRs. Alles staat op main.

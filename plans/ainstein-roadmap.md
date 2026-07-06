@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 6 juli 2026 (brand consistency audit + fix: CORE/PATTERNS-scheiding, sentinel-based parsing, Google Docs-opmaak, Meeting Notes vermerking)*
+*Bijgewerkt: 6 juli 2026, tweede update (Fable-sessie: whats-your-future tool live, Fable-briefs idee 1+5, keychain-incident opgelost)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -99,6 +99,16 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
+
+### Proposal Engine 2.0 bouwen (Fable-brief, idee 1)
+**Wat:** vijf-staps voorstel-pipeline (intake → parallelle retrieval naar evidence packs → draft → onafhankelijke adversarial review → ship via `create_gdoc`). Volledige uitvoerbare spec: `plans/fable-brief-proposal-engine.md` (geschreven door Fable, 6 juli, vóór sluiting van het Fable-window). Uitvoering kan op Opus/Sonnet.
+**Volgorde Jörgen:** na validatie van de whats-your-future tool (idee 4 → 1 → 5).
+
+### Kennislaag als querybaar toolregister (Fable-brief, idee 5)
+**Wat:** `data/toolregister.yaml` (40+ tools uit 02_Tools README, metadata-schema bestaat al) + deterministische `query_tools()` in `tools.py`. Géén REST-API. Herbruikbaar door Minkowski Studio. Spec: `plans/fable-brief-kennislaag-api.md`. Let op stap K4: menselijke verificatie van het register is verplicht, niet overslaan.
+
+### whats-your-future v2-opties (na praktijkvalidatie)
+**Wat:** pas oppakken nadat de tool in een echt discovery-gesprek is gebruikt: (a) publiceren op de VM achter nginx voor een deelbare URL (dan gelden de 4 deployment-vragen), (b) NL-versie, (c) officieel logo-bestand uit `04_Marketing/Logo/` embedden i.p.v. tekst-wordmark, (d) kwartaal-refresh van `data.js` door Ainstein (ritueel staat in de tool-README).
 
 ### Retrieval-first in build_proposal
 **Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt deterministisch ophalen uit `Clients/<naam>/Outcomes/` voor vergelijkbare cases. Genereer alleen wat niet op te halen is.
@@ -819,6 +829,8 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Fable-sessie (idee 4 uit de Ainstein Slack-thread): "What's Your Future?" gebouwd als `whats-your-future/` — statisch facilitator-instrument voor discovery-gesprekken (Cone of Possibilities: probable/plausible/preferable, 4 ICP-sectoren × 4 thema's = 48 scenario's + leiderschapsvragen, 3 signal-houdingen, Copy-session-summary naar Ainstein-pipeline, print-output). Orchestrator-patroon bewezen: Fable plande/verifieerde, 3× Sonnet + 1× Haiku bouwden, 1 revisieronde (stem-consistentie). Brand-learnings uit parallelle sessie direct toegepast: fontrollen gecorrigeerd (Sen ExtraBold alleen wordmark, Helvetica Neue koppen, Light body). Plus twee zelfstandig uitvoerbare Fable-briefs voor idee 1 en 5 in `plans/fable-brief-*.md`. End-to-end getest via Playwright (scoring-randen, klembord, alle stappen). | `1386b68`, `5e6d509` | 6 juli 2026 |
+| GitHub keychain-incident opgelost: een 401 op een verouderd tweede token liet git álle github.com-keychain-entries wissen (osxkeychain wist op host, niet op account) — pushen brak machinebreed. Werkend token teruggezet vanaf de VM-credential-store (met expliciet akkoord Thomas, buiten auto-modus; eerst gevalideerd via API-call). Herstelroute + valkuil gedocumenteerd in memory `connector_access_paths.md`. GitHub MCP-token blijft verlopen (bestaand roadmap-item). | keychain-herstel | 6 juli 2026 |
 | Brand consistency audit afgerond — 5 commits live: f59a099 (CORE/PATTERNS scheiding + sentinel-parsing), 6ace92c (Brand CORE onvoorwaardelijk injectie), 880003c (brand_core.md feitelijke basis injectie), 36c55f7 (Minkowski-kleur/font op alle Google Docs), f605536 (Meeting Notes vermerking). Probleem 1: `update_stijl.py` dupliceerde wekelijks met fragiel kopftekst-matching, nu sentinel-based (hard-fail op ontbrekende markers, geen stille append). Probleem 2: CORE-regels stonden dubbel (verbal_identity.md + minkowski_voice.md), nu enkel in verbal_identity.md, via agent.py onvoorwaardelijk geïnjecteerd. Probleem 3: visual_identity.md was leeg — gevuld met geverifieerde waarden uit pptx_builder.py + brondocument, gelabeld als "code-afgeleid/onbevestigd". Test-isolatie: 22 nieuwe tests toegevoegd (4 testbestanden), suite 73/73 groen. 200 OK webhook-test. | `f59a099` t/m `f605536` | 6 juli 2026 |
 | Roadmap-inconsistentie recht getrokken: cache-opruiming stond tegelijk als "🔴 URGENT, blokkeert afsluiting" én als "✅ VOLLEDIG OPGELOST". Herbevestigd via `verify_cache_structure.py` op de VM (grondwaarheid): alle 157 violations staan nog steeds in de folder-roots (86 `04_Marketing`, 41 `01_Clients`, 25 `03_Experts`, 3 `02_Frameworks & Tools`, 2 `05_Ainstein Knowledge Base`) — geen voortgang sinds 4 juli. De ✅-sectie herschreven zodat de 🔴 URGENT-sectie de enige actuele status is. Nieuw follow-up-item toegevoegd: drie mislukte, bijna-identieke cleanup-scripts consolideren. Gevonden door daily-code-review 6 juli. | Drive-verificatie + roadmap-edit | 6 juli 2026 |
 | Twee bugs uit de daily-code-review van 4-5 juli geverifieerd opgelost in `92f20ba`: `_detect_meeting_type()` classificeerde een klantgesprek stilzwijgend als intern zodra een deelnemer geen e-mailveld had; Insights-reply toonde altijd "✅" ongeacht of `update_gdoc_section()` de placeholder vond. Geverifieerd door de diff te lezen (niet aangenomen) + testsuite lokaal gedraaid: 51/51 groen. | `92f20ba` | 6 juli 2026 (geverifieerd, gefixt 5 juli) |

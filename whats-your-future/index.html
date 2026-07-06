@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's Your Future? -- Minkowski</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- STEP 1: CONTEXT -->
+  <section class="step step--context is-active" id="step-context" aria-hidden="false">
+    <div class="step__inner">
+      <p class="wordmark">MINKOWSKI</p>
+      <h1 class="title">What's Your Future?</h1>
+      <p class="hero-line">Every leader, in essence, is a futurist. Not because they predict the future, but because they shape it.</p>
+
+      <div class="context-form">
+        <div class="field">
+          <label for="input-organisation">Organisation <span class="field__optional">(optional)</span></label>
+          <input type="text" id="input-organisation" name="organisation" autocomplete="off" placeholder="e.g. Acme Group">
+        </div>
+
+        <div class="field">
+          <span class="field__label">Sector</span>
+          <div class="choice-grid" id="sector-grid" role="group" aria-label="Choose a sector"></div>
+        </div>
+
+        <div class="field">
+          <span class="field__label">Theme</span>
+          <div class="choice-grid" id="theme-grid" role="group" aria-label="Choose a theme"></div>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn--primary btn--begin" id="btn-begin" disabled>Begin</button>
+    </div>
+  </section>
+
+  <!-- STEP 2: SCENARIOS -->
+  <section class="step step--scenario" id="step-scenario" aria-hidden="true">
+    <div class="step__inner">
+
+      <div class="cone-indicator" id="cone-indicator" aria-hidden="true">
+        <svg viewBox="0 0 220 120" width="220" height="120">
+          <polygon points="0,60 220,10 220,110" class="cone-shape" />
+          <line x1="0" y1="60" x2="73" y2="43.3" class="cone-divider" />
+          <line x1="0" y1="60" x2="146" y2="26.7" class="cone-divider" />
+          <circle cx="0" cy="60" r="4" class="cone-origin" />
+        </svg>
+      </div>
+
+      <p class="zone-label" id="zone-label">Probable</p>
+      <p class="zone-meaning" id="zone-meaning">The future your current plans assume</p>
+
+      <p class="scenario-text" id="scenario-text">Scenario text.</p>
+
+      <p class="leadership-question" id="leadership-question">Leadership question?</p>
+
+      <div class="unavailable" id="unavailable-combo" hidden>
+        <p>This combination is prepared in conversation. Ask us.</p>
+        <button type="button" class="btn btn--ghost" id="btn-back-from-unavailable">Back</button>
+      </div>
+
+      <button type="button" class="btn btn--primary" id="btn-continue">Continue</button>
+    </div>
+  </section>
+
+  <!-- STEP 3: PULSE -->
+  <section class="step step--pulse" id="step-pulse" aria-hidden="true">
+    <div class="step__inner">
+      <h2 class="step-heading">Pulse</h2>
+
+      <div class="slider-list" id="slider-list"></div>
+
+      <button type="button" class="btn btn--primary" id="btn-see-signal">See the signal</button>
+    </div>
+  </section>
+
+  <!-- STEP 4: SIGNAL -->
+  <section class="step step--signal" id="step-signal" aria-hidden="true">
+    <div class="step__inner">
+      <p class="zone-label">Futures Readiness Signal</p>
+      <h2 class="signal-name" id="signal-name">Signal name</h2>
+      <p class="signal-stance" id="signal-stance">Stance description.</p>
+
+      <div class="next-step">
+        <p class="next-step__label">Where to start</p>
+        <p class="next-step__text" id="signal-next-step">Next step.</p>
+      </div>
+
+      <div class="signal-meta" id="signal-meta"></div>
+
+      <div class="recap" id="signal-recap"></div>
+
+      <div class="signal-actions">
+        <button type="button" class="btn btn--secondary" id="btn-copy-summary">Copy session summary</button>
+        <button type="button" class="btn btn--secondary" id="btn-print">Print</button>
+      </div>
+
+      <p class="copy-confirmation" id="copy-confirmation" hidden>Copied</p>
+
+      <a href="#" class="start-again" id="link-start-again">Start again</a>
+    </div>
+  </section>
+
+</div>
+
+<!-- Hidden fallback textarea for clipboard copy on file:// -->
+<textarea id="clipboard-fallback" aria-hidden="true" tabindex="-1"></textarea>
+
+<!-- PRINT LAYOUT (built at runtime, hidden on screen) -->
+<div id="print-sheet" class="print-sheet" aria-hidden="true"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

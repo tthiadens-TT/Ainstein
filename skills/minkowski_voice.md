@@ -1,16 +1,12 @@
-# Minkowski Voice
+# Minkowski Voice — PATTERNS
 
-*Dit bestand is de autoritatieve schrijfstijlreferentie voor Ainstein. Het wordt automatisch geprefixt aan alle klantgerichte skills. Bijgewerkt door `scripts/update_stijl.py` op basis van recente bronnen (LinkedIn, Substack, website). Laatste update: 2026-06-26.*
+*Dit bestand bevat uitsluitend de evoluerende schrijfpatronen (PATTERNS): waargenomen stijl, geen vaste regels. Wordt automatisch geprefixt aan alle klantgerichte skills. Bijgewerkt door `scripts/update_stijl.py` op basis van recente bronnen (LinkedIn, Substack, website). Laatste update: 2026-07-06.*
 
----
-
-## Taalregel
-
-Klantgerichte output (voorstellen, analyses, eerste-contact berichten): altijd **Engels**, tenzij de brief of context expliciet Nederlands is (NL bedrijf, NL stakeholders, NL taalgebruik in het verzoek). Bij twijfel: Engels.
-
-Interne output (Slack-berichten aan Jörgen, aantekeningen, rapportages): Nederlands.
+*De vaste kernregels (taalregel, verboden woorden, em dash-verbod, schrijfregels) staan sinds 2026-07-06 uitsluitend in `verbal_identity.md` (Drive, `04_Marketing/`) — daar onvoorwaardelijk geïnjecteerd in elke Ainstein-call via `agent.py`. Dit bestand dupliceert ze niet meer, om te voorkomen dat de twee documenten uit elkaar lopen (wat al was gebeurd: het em dash-verbod stond hier wel, in verbal_identity.md niet).*
 
 ---
+
+<!-- PATTERNS:START -->
 
 ## Vier schrijfpatronen — gebruik als mal
 
@@ -57,20 +53,7 @@ Beschrijf wat er in de zaal gebeurde, niet wat de agenda was. Focus op menselijk
 | faculty | trainers, docenten |
 | programme | traject, programma (NL) |
 
-**Verboden:** future-proof · thought leadership · disruptive · end-to-end transformation · journey · synergy · unlock · empower · best-in-class
-
-**Verboden leestekens:** de em dash (—). Niet gebruiken als scheidingsteken, niet als inleidend teken, nergens. Gebruik in plaats daarvan een punt, komma, dubbele punt, of herformuleer de zin.
-
----
-
-## Schrijfregels
-
-- Gebruik geen em dash (—). Nooit. Het klinkt formeel en machinaal. Gebruik een punt, komma, dubbele punt of herformuleer.
-- Begin met de beslissing of klantuitdaging, niet met wie Minkowski is.
-- Bullets zijn uitkomsten (welk gedrag of welke situatie na afloop), geen activiteiten.
-- Meer "you/your" dan "we/our" in klantgerichte tekst.
-- Als een tekst geen risico op tegenspraak van minstens één doordachte lezer oplevert, is hij te veilig.
-- Geen "about us" alinea — de positionering zit in de specificiteit.
+*(De basale verboden-woordenlijst en het em dash-verbod staan in `verbal_identity.md` CORE — deze tabel is de aanvullende, groeiende vocabulaire-observatie.)*
 
 ---
 
@@ -90,3 +73,5 @@ Beschrijf wat er in de zaal gebeurde, niet wat de agenda was. Focus op menselijk
 
 Nederlands: persoonlijker, reflexiever, meer zelfopenbaring en twijfel. Geschikt voor NL/Belgisch publiek.
 Engels: scherpere beweringen, universele claims, directere propositions. Standaard voor internationaal publiek en alle proposals.
+
+<!-- PATTERNS:END -->

@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
 """
-update_stijl.py — Schrijfstijl levend houden: haal nieuwe patronen op uit bronmateriaal,
-verrijk skills/minkowski_voice.md, sla op in Drive, herstart service.
+update_stijl.py — PATTERNS-laag levend houden: haal nieuwe patronen op uit bronmateriaal,
+verrijk de PATTERNS-zone in skills/minkowski_voice.md, sla op in Drive, herstart service.
+
+CORE/PATTERNS-scheiding (sinds 2026-07-06):
+- CORE (taalregel, verboden woorden, em dash-verbod, schrijfregels, taglines) leeft
+  uitsluitend in verbal_identity.md (Drive, mens-onderhouden). Dit script raakt CORE
+  nooit aan — geen download, geen LLM-prompt, geen schrijfactie.
+- PATTERNS (vier schrijfpatronen, vocabulaire, citaten) leeft in skills/minkowski_voice.md,
+  binnen sentinel-markers (<!-- PATTERNS:START/END -->). Dit is het enige dat dit script
+  leest, naar de LLM stuurt, en terugschrijft.
+- Beide bestanden gebruiken dezelfde sentinel-markers voor hun PATTERNS-stub, zodat
+  bijwerken nooit meer op koptekst-tekst hoeft te matchen (de oorzaak van de oude
+  duplicatie-bug: een hardcoded "## 6."-marker die niet bestond, viel terug op
+  stilzwijgend appenden). Ontbreken de sentinels: het script faalt hard, nooit stil.
 
 Architectuur:
 - Leest bronmateriaal (LinkedIn, Substack, website) uit Drive via service account
-- Laat een agent nieuwe stijlpatronen extraheren (skill=extract_style_patterns)
-- Schrijft de bijgewerkte minkowski_voice.md lokaal weg
+- Laat een agent nieuwe PATTERNS extraheren (skill=extract_style_patterns) — CORE gaat
+  niet mee de prompt in
+- Schrijft de bijgewerkte minkowski_voice.md lokaal weg (PATTERNS-sentinel vervangen)
 - Slaat de verrijkte voice op als 04_Marketing/_kennis/minkowski_voice.md in Drive
   (zodat restore_voice.py de verrijking kan herstellen na een git reset --hard)
-- Schrijft de bijgewerkte verbal_identity.md terug naar Drive (sectie 4+5)
+- Ververst alleen de PATTERNS-stub in verbal_identity.md, CORE blijft ongewijzigd
 - Herstart ainstein.service zodat de nieuwe stem direct actief is
 - Geen git-operaties — deploy.yml regelt git, cron regelt de verrijking
 
@@ -59,6 +72,14 @@ SLACK_CHANNEL = (
 )
 
 STEM_START, STEM_END = "<<<STEM_START>>>", "<<<STEM_END>>>"
+
+# Sentinel-comments die de PATTERNS-zone afbakenen — zowel in skills/minkowski_voice.md
+# als in verbal_identity.md. Matchen op deze vaste markers i.p.v. koptekst-tekst (## 4. ...):
+# koppen kunnen hernummerd/herschreven worden door mensen, sentinels niet. Ontbreken ze,
+# dan faalt het script hard (zie _extract_sentinel_block/_replace_sentinel_block) in plaats
+# van stilzwijgend te dupliceren — precies de bug die dit verving (zie CACHE_DESIGN.md-achtige
+# postmortem: append-fallback op een ontbrekende "## 6."-marker liet dubbele stubs achter).
+PATTERNS_START, PATTERNS_END = "<!-- PATTERNS:START -->", "<!-- PATTERNS:END -->"
 
 # Bronnen die het rijkst zijn voor stijlpatronen (eigen stem, geen feiten-bronnen)
 STIJL_BRONNEN = {"linkedin-jorgen", "linkedin-minkowski", "substack", "website-minkowski"}
@@ -166,6 +187,38 @@ def _download_verbal_identity(service) -> tuple[str, str | None]:
 
 
 # ---------------------------------------------------------------------------
+# Sentinel-parsing — vervangt het oude koptekst-matchen (## 4. ... ## 6.)
+# ---------------------------------------------------------------------------
+
+def _extract_sentinel_block(text: str, start_marker: str, end_marker: str) -> str:
+    """Geeft de inhoud strikt tussen twee sentinel-markers. Raises als ze ontbreken."""
+    i = text.find(start_marker)
+    j = text.find(end_marker)
+    if i == -1 or j == -1 or j <= i:
+        raise ValueError(f"Sentinel-blok {start_marker}...{end_marker} niet gevonden of ongeldig.")
+    return text[i + len(start_marker):j].strip()
+
+
+def _replace_sentinel_block(text: str, start_marker: str, end_marker: str, new_inner: str) -> str:
+    """Vervangt de inhoud strikt tussen twee sentinel-markers, markers blijven staan.
+
+    Raises als de markers ontbreken — geen stille append-fallback. Dat was precies de
+    oorzaak van de duplicatie-bug in verbal_identity.md (koptekst-marker "## 6." bestond
+    niet, dus viel het oude script terug op appenden, wekelijks een nieuwe kopie erbij).
+    """
+    i = text.find(start_marker)
+    j = text.find(end_marker)
+    if i == -1 or j == -1 or j <= i:
+        raise ValueError(
+            f"Sentinel-blok {start_marker}...{end_marker} niet gevonden — "
+            "weiger te schrijven (voorkomt stille duplicatie)."
+        )
+    before = text[: i + len(start_marker)]
+    after = text[j:]
+    return f"{before}\n{new_inner}\n{after}"
+
+
+# ---------------------------------------------------------------------------
 # Drive: voice opslaan als dedicated bestand in _kennis/
 # ---------------------------------------------------------------------------
 
@@ -227,15 +280,20 @@ def _restart_ainstein() -> None:
 # Prompt
 # ---------------------------------------------------------------------------
 
-def _build_prompt(bronnen_tekst: str, huidige_stem: str, today: str) -> str:
+def _build_prompt(bronnen_tekst: str, huidige_patterns: str, today: str) -> str:
+    """huidige_patterns is uitsluitend de PATTERNS-zone (vier schrijfpatronen, vocabulaire,
+    citaten, NL/EN-verschil) — nooit CORE (taalregel, verboden woorden, em dash, schrijfregels).
+    CORE leeft in verbal_identity.md en wordt hier nooit meegestuurd of overschreven."""
     return (
-        "Verrijk de Minkowski schrijfstijl op basis van het bronmateriaal hieronder. "
-        "Volg de extract_style_patterns skill.\n\n"
+        "Verrijk de Minkowski PATTERNS-laag (waargenomen schrijfstijl) op basis van het "
+        "bronmateriaal hieronder. Volg de extract_style_patterns skill. Dit is uitsluitend "
+        "de evoluerende laag — vaste kernregels (taalregel, verboden woorden, em dash) staan "
+        "elders en horen niet in je antwoord thuis.\n\n"
         f"Vandaag is {today}.\n\n"
-        f"<HUIDIGE_STEM>\n{huidige_stem}\n</HUIDIGE_STEM>\n\n"
+        f"<HUIDIGE_PATTERNS>\n{huidige_patterns}\n</HUIDIGE_PATTERNS>\n\n"
         f"<BRONNEN>\n{bronnen_tekst}\n</BRONNEN>\n\n"
-        f"Lever precies één blok ({STEM_START}…{STEM_END}) met de volledige bijgewerkte inhoud. "
-        "Niets erbuiten."
+        f"Lever precies één blok ({STEM_START}…{STEM_END}) met de volledige bijgewerkte "
+        "PATTERNS-inhoud. Niets erbuiten."
     )
 
 
@@ -283,11 +341,19 @@ def main() -> int:
     bronnen_tekst = "\n\n" + ("=" * 60 + "\n\n").join(bron_secties)
     log.info("Totaal bronmateriaal: %d tekens", len(bronnen_tekst))
 
-    # Huidige stem laden
+    # Huidige stem laden — alleen de PATTERNS-zone gaat naar de LLM.
+    # CORE (taalregel, verboden woorden, em dash-verbod, schrijfregels) leeft
+    # sinds 2026-07-06 uitsluitend in verbal_identity.md en wordt hier nooit
+    # aangeraakt — dit bestand bevat het niet meer.
     if not VOICE_FILE.exists():
         log.error("skills/minkowski_voice.md niet gevonden: %s", VOICE_FILE)
         return 1
-    huidige_stem = VOICE_FILE.read_text(encoding="utf-8")
+    huidige_bestand = VOICE_FILE.read_text(encoding="utf-8")
+    try:
+        huidige_patterns = _extract_sentinel_block(huidige_bestand, PATTERNS_START, PATTERNS_END)
+    except ValueError as e:
+        log.error("skills/minkowski_voice.md: %s — afgebroken (geen stille fallback).", e)
+        return 1
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -297,7 +363,7 @@ def main() -> int:
 
     log.info("Agent aan het werk (skill=extract_style_patterns)...")
     response, _ = run_agent(
-        [{"role": "user", "content": _build_prompt(bronnen_tekst, huidige_stem, today)}],
+        [{"role": "user", "content": _build_prompt(bronnen_tekst, huidige_patterns, today)}],
         client,
         skill="extract_style_patterns",
         max_iterations=8,
@@ -314,33 +380,35 @@ def main() -> int:
             print(response)
         return 1
 
-    nieuwe_stem = response[i + len(STEM_START):j].strip()
+    nieuwe_patterns = response[i + len(STEM_START):j].strip()
 
-    # Minimale sanity-check
-    if len(nieuwe_stem) < len(huidige_stem) * 0.7:
+    # Minimale sanity-check op de PATTERNS-inhoud (niet meer het hele bestand)
+    if len(nieuwe_patterns) < len(huidige_patterns) * 0.7:
         log.error(
-            "Nieuwe stem is >30%% korter dan de huidige (%d vs %d tekens) — "
+            "Nieuwe PATTERNS-inhoud is >30%% korter dan de huidige (%d vs %d tekens) — "
             "waarschijnlijk onvolledig. Afgebroken.",
-            len(nieuwe_stem), len(huidige_stem),
+            len(nieuwe_patterns), len(huidige_patterns),
         )
         return 1
 
+    nieuwe_stem = _replace_sentinel_block(huidige_bestand, PATTERNS_START, PATTERNS_END, nieuwe_patterns)
+
     if args.dry_run:
         print("\n" + "=" * 64)
-        print("NIEUWE MINKOWSKI VOICE (dry-run, niet weggeschreven)")
+        print("NIEUWE MINKOWSKI VOICE — PATTERNS-zone (dry-run, niet weggeschreven)")
         print("=" * 64)
-        print(nieuwe_stem)
+        print(nieuwe_patterns)
         return 0
 
     # Schrijf lokaal
     VOICE_FILE.write_text(nieuwe_stem, encoding="utf-8")
-    log.info("skills/minkowski_voice.md bijgewerkt (%d → %d tekens)", len(huidige_stem), len(nieuwe_stem))
+    log.info("skills/minkowski_voice.md bijgewerkt (PATTERNS: %d → %d tekens)", len(huidige_patterns), len(nieuwe_patterns))
 
     # Sla op in Drive als persistent backup (zodat restore_voice.py na deploy kan herstellen)
     _save_voice_to_drive_kennis(service, nieuwe_stem)
 
     # Update verbal_identity.md in Drive (secties 4+5 worden vervangen)
-    _update_verbal_identity_in_drive(service, nieuwe_stem, today)
+    _update_verbal_identity_in_drive(service, today)
 
     # Herstart service zodat nieuwe voice direct actief is
     _restart_ainstein()
@@ -361,38 +429,46 @@ def main() -> int:
     return 0
 
 
-def _update_verbal_identity_in_drive(service, nieuwe_stem: str, today: str) -> None:
-    """Update de schrijfpatronen-secties (4+5) in verbal_identity.md op Drive."""
+def _update_verbal_identity_in_drive(service, today: str) -> None:
+    """Ververst alleen de PATTERNS-stub in verbal_identity.md (sentinel-based, geen
+    koptekst-matching meer). CORE (secties 1-3) wordt hier nooit aangeraakt — dat is
+    precies het punt: dit script mag het onaantastbare deel niet kunnen wijzigen.
+
+    Faalt hard als de PATTERNS-sentinels ontbreken, in plaats van stilzwijgend te
+    appenden — dat appenden veroorzaakte de duplicatie-bug die dit vervangt.
+    """
     inhoud, fid = _download_verbal_identity(service)
     if not inhoud:
         log.warning("verbal_identity.md niet gevonden of leeg — Drive-update overgeslagen.")
         return
 
-    # Vervang secties 4 en 5 met de distillatie uit de nieuwe stem
-    # We zoeken sectie 4 tot het einde van sectie 5, en vervangen
-    markering_start = "## 4. Schrijfpatronen"
-    markering_einde = "## 6."  # sectie 6 blijft intact
-    i = inhoud.find(markering_start)
-    j = inhoud.find(markering_einde)
-
-    extractie = (
+    stub = (
         f"## 4. Schrijfpatronen — automatisch verrijkt\n\n"
         f"*Laatste update: {today}. Gegenereerd door update_stijl.py op basis van recente bronnen.*\n\n"
-        f"Zie `skills/minkowski_voice.md` voor de volledige, actuele stem die Ainstein gebruikt.\n\n"
-        f"---\n\n"
+        f"Zie `skills/minkowski_voice.md` voor de volledige, actuele PATTERNS-laag die Ainstein "
+        f"gebruikt. De kernregels (CORE) staan alleen in dit bestand.\n"
     )
 
-    if i != -1 and j != -1 and j > i:
-        nieuwe_inhoud = inhoud[:i] + extractie + inhoud[j:]
-    else:
-        # Secties niet gevonden — voeg toe aan het einde
-        nieuwe_inhoud = inhoud + f"\n\n{extractie}"
+    try:
+        nieuwe_inhoud = _replace_sentinel_block(inhoud, PATTERNS_START, PATTERNS_END, stub)
+    except ValueError as e:
+        log.error(
+            "verbal_identity.md: %s — Drive-update NIET uitgevoerd. "
+            "Los dit handmatig op (sentinels teruggezet) vóór de volgende cron-run.",
+            e,
+        )
+        _slack_notify(
+            f":warning: *update_stijl.py kon verbal_identity.md niet bijwerken* ({today})\n"
+            f"PATTERNS-sentinels ontbreken of zijn beschadigd. Geen wijziging doorgevoerd — "
+            f"controleer het bestand handmatig in Drive."
+        )
+        return
 
     try:
         import drive_structure as ds
         folder_id = ds.resolve_path(service, "marketing", VERBAL_IDENTITY_PAD)
         _upload_markdown(service, VERBAL_IDENTITY_NAAM, nieuwe_inhoud, folder_id)
-        log.info("verbal_identity.md bijgewerkt in Drive.")
+        log.info("verbal_identity.md PATTERNS-stub bijgewerkt in Drive (CORE ongewijzigd).")
     except Exception as e:
         log.warning("Kon verbal_identity.md niet bijwerken in Drive: %s", e)
 

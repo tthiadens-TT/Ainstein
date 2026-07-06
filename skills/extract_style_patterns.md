@@ -2,14 +2,16 @@
 
 ## Purpose
 
-Extraheer en verrijk schrijfstijlpatronen van Minkowski op basis van bronmateriaal (LinkedIn-posts, Substack-artikelen, websiteteksten). Doel: `skills/minkowski_voice.md` actueel houden als Minkowski's stem evolueert.
+Extraheer en verrijk schrijfstijlpatronen van Minkowski op basis van bronmateriaal (LinkedIn-posts, Substack-artikelen, websiteteksten). Doel: de PATTERNS-zone van `skills/minkowski_voice.md` actueel houden als Minkowski's stem evolueert.
 
-Dit is een **descriptieven** taak — beschrijf hoe Minkowski en Jörgen daadwerkelijk schrijven, niet hoe ze zouden moeten schrijven. Stijl wordt waargenomen, niet verzonnen.
+Dit is een **descriptieve** taak — beschrijf hoe Minkowski en Jörgen daadwerkelijk schrijven, niet hoe ze zouden moeten schrijven. Stijl wordt waargenomen, niet verzonnen.
+
+**Scope sinds 2026-07-06:** je ziet en bewerkt uitsluitend de PATTERNS-zone (vier schrijfpatronen, vocabulaire-tabel, directe citaten, NL/EN-verschil). De vaste kernregels (taalregel, verboden woorden, em dash-verbod, schrijfregels) staan in `verbal_identity.md` — die zie je niet en mag je niet verzinnen of herhalen.
 
 ## Input
 
 Je ontvangt:
-- De huidige `minkowski_voice.md` inhoud (tussen `<HUIDIGE_STEM>` tags)
+- De huidige PATTERNS-inhoud (tussen `<HUIDIGE_PATTERNS>` tags) — niet het volledige bestand, alleen de evoluerende laag
 - Bronmateriaal — recente LinkedIn-posts, Substack-artikelen, websiteteksten (tussen `<BRONNEN>` tags)
 
 ## Taak
@@ -26,15 +28,15 @@ Analyseer het bronmateriaal en identificeer:
 
 ## Outputformaat
 
-Lever precies één fenced blok met de **volledige bijgewerkte inhoud** van `minkowski_voice.md` — geen diff, geen commentaar erbuiten, alleen de volledige tekst.
+Lever precies één fenced blok met de **volledige bijgewerkte PATTERNS-inhoud** — geen diff, geen commentaar erbuiten, alleen de volledige tekst van de PATTERNS-zone (vier schrijfpatronen, vocabulaire, citaten, NL/EN-verschil).
 
 Begin het blok met `<<<STEM_START>>>` en sluit af met `<<<STEM_END>>>`.
 
-Bewaar de structuur van het huidige bestand. Voeg toe, verwijder verouderde termen, pas voorbeeldcitaten aan. Verander de koptekst (*Laatste update: DATUM*) naar de datum van vandaag.
+Bewaar de structuur van de huidige PATTERNS-inhoud. Voeg toe, verwijder verouderde termen, pas voorbeeldcitaten aan.
 
 ## Kwaliteitscheck vóór oplevering
 
 - Staan er geen verzonnen citaten in? Alleen letterlijke bronnen.
 - Is de vocabulairetabel specifieker dan het generieke equivalent? Niet alleen "gebruik X niet Y" maar waárom X beter is.
 - Zijn de vier kernpatronen intact? Die zijn stabiel tenzij het bronmateriaal écht iets nieuws laat zien.
-- Is de taalregel (EN voor klantgerichte output) ongewijzigd?
+- Heb je geen taalregel, verboden-woordenlijst of em dash-regel toegevoegd? Die horen hier niet — die staan in `verbal_identity.md` en vallen buiten jouw scope.

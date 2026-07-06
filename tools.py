@@ -847,6 +847,96 @@ def load_brand_core_context(max_chars: int = 6000) -> str:
         return content
 
 
+def drive_read_brand_core_facts(max_chars: int = 6000) -> str | None:
+    """Read brand_core.md from Drive (04_Marketing/) — feitelijke merk-basis: naam,
+    purpose, oprichtingsverhaal, team-specialisaties, en bevestigde merkbelofte/
+    -facetten via de Double Helix kennislaagmethode (Zekerheid/oorsprongen-labels).
+
+    Gevonden op 2026-07-06 tijdens verificatie — stond nergens geïnjecteerd, ondanks
+    bevestigde inhoud (bv. de merkbelofte, bevestigd door Charlotte 23 juni 2026).
+    Geen sentinels nodig: dit bestand wordt niet automatisch herschreven door een
+    script (in tegenstelling tot verbal_identity.md/minkowski_voice.md) — het groeit
+    door handmatige aanvullingen met kennislaag-labels. Retourneert het hele bestand.
+    """
+    from googleapiclient.http import MediaIoBaseDownload
+
+    service = _get_drive_service()
+    if not service:
+        return None
+    folder_ids = _get_drive_folder_ids()
+    marketing_id = folder_ids.get("04_Marketing")
+    if not marketing_id:
+        return None
+    try:
+        results = service.files().list(
+            q=f"name='brand_core.md' and '{marketing_id}' in parents and trashed=false",
+            fields="files(id)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+    except Exception as e:
+        logger.error("drive_read_brand_core_facts: file lookup failed: %s", e)
+        return None
+    files = results.get("files", [])
+    if not files:
+        return None
+    file_id = files[0]["id"]
+    try:
+        request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        buf.seek(0)
+        content = buf.read().decode("utf-8", errors="replace")
+        if not content.strip():
+            return None
+        if len(content) > max_chars:
+            content = content[:max_chars] + "\n...[rest weggelaten]"
+        return content
+    except Exception as e:
+        logger.error("drive_read_brand_core_facts: download failed: %s", e)
+        return None
+
+
+_brand_facts_cache: dict = {"content": None, "loaded_at": 0.0}
+_brand_facts_cache_lock = threading.Lock()
+_BRAND_FACTS_TTL = 300  # seconds
+
+
+def load_brand_facts_context(max_chars: int = 6000) -> str:
+    """Return brand_core.md content for unconditional injection — zelfde garantie
+    als load_brand_core_context() (tone/regels), maar dan voor de feitelijke
+    merk-basis (naam, purpose, oorsprong, merkbelofte). Cached voor _BRAND_FACTS_TTL
+    seconden. Lege string bij afwezigheid — mag de rest van de call nooit blokkeren.
+    """
+    import time as _time
+    global _brand_facts_cache
+    now = _time.time()
+    with _brand_facts_cache_lock:
+        if _brand_facts_cache["content"] is not None and now - _brand_facts_cache["loaded_at"] < _BRAND_FACTS_TTL:
+            return _brand_facts_cache["content"]
+        content = ""
+        try:
+            if _is_drive_mode():
+                raw = drive_read_brand_core_facts(max_chars=max_chars)
+                content = raw or ""
+            else:
+                bc_path = SOURCE_ROOT / "04_Marketing" / "brand_core.md"
+                if bc_path.exists():
+                    raw = bc_path.read_text(encoding="utf-8")
+                    if len(raw) > max_chars:
+                        raw = raw[:max_chars] + "\n...[rest weggelaten]"
+                    content = raw
+        except Exception as e:
+            logger.warning("load_brand_facts_context failed: %s", e)
+        _brand_facts_cache["content"] = content
+        _brand_facts_cache["loaded_at"] = now
+        return content
+
+
 def load_kennis_context(max_chars: int = 8000) -> str:
     """Return kennis_laag.md content for injection into the agent system prompt.
 

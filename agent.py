@@ -312,6 +312,31 @@ def run_agent(
     except Exception as _brand_err:
         logger.warning("brand CORE inject failed (non-fatal): %s", _brand_err)
 
+    # Inject brand FACTS — feitelijke merk-basis uit brand_core.md (naam, purpose,
+    # oprichtingsverhaal, team-specialisaties, bevestigde merkbelofte). Gevonden op
+    # 2026-07-06: dit bestand bestond, met geverifieerde inhoud, maar werd nergens
+    # geïnjecteerd — Ainstein kon dus feitelijk onjuist zijn over zijn eigen merk
+    # (bv. een verkeerde oprichtingsdatum verzinnen) terwijl het juiste antwoord al
+    # in de bronnenlaag stond. Zelfde onvoorwaardelijke garantie als CORE hierboven.
+    try:
+        from tools import load_brand_facts_context
+        brand_facts_ctx = load_brand_facts_context()
+        if brand_facts_ctx.strip():
+            system.append({
+                "type": "text",
+                "text": (
+                    "## Brand Facts (04_Marketing/brand_core.md)\n\n"
+                    "Feitelijke basis van het merk Minkowski — naam, purpose, "
+                    "oprichtingsverhaal, team-specialisaties, bevestigde merkbelofte. "
+                    "Gebruik dit voor elke vraag over wie Minkowski is, wanneer het is "
+                    "opgericht, wat de merkbelofte is. Verzin nooit een alternatief als "
+                    "hier al een antwoord staat.\n\n"
+                    + brand_facts_ctx
+                ),
+            })
+    except Exception as _facts_err:
+        logger.warning("brand FACTS inject failed (non-fatal): %s", _facts_err)
+
     def _finish(text: str) -> tuple[str, dict]:
         trace["iterations"] = iteration
         trace["total_duration_s"] = round(time.time() - _t_start, 2)

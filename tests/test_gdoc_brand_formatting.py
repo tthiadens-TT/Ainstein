@@ -117,3 +117,66 @@ def test_empty_paragraph_generates_no_requests():
 
     gdoc_tools._apply_basic_formatting(service, "doc123")
     assert "requests" not in calls  # batchUpdate niet aangeroepen als er niets te doen is
+
+
+def test_create_doc_via_drive_applies_brand_formatting(monkeypatch):
+    """Regressietest voor het Meetingnote-gat (2026-07-06): create_doc_via_drive()
+    sloeg formatting historisch over ("geen Docs API toegang") — die beperking
+    bestaat niet meer (documents-scope zit al in _get_service_account_creds()),
+    maar niemand had de opmaakstap teruggezet. Elke Meetingnote bleef daardoor
+    onbestyled terwijl create_gdoc()-documenten al wel gebrand werden."""
+    created_file = {"id": "doc456", "webViewLink": "https://docs.google.com/document/d/doc456/edit", "name": "Meetingnote test"}
+
+    class _FakeFilesCreate:
+        def execute(self):
+            return created_file
+
+    class _FakeDriveFiles:
+        def create(self, **kwargs):
+            return _FakeFilesCreate()
+
+    class _FakeDriveService:
+        def files(self):
+            return _FakeDriveFiles()
+
+    apply_calls = []
+
+    def fake_apply_basic_formatting(docs_service, doc_id):
+        apply_calls.append((docs_service, doc_id))
+
+    monkeypatch.setattr(gdoc_tools, "_get_drive_write_service", lambda: _FakeDriveService())
+    monkeypatch.setattr(gdoc_tools, "_get_docs_service", lambda: "fake-docs-service")
+    monkeypatch.setattr(gdoc_tools, "_apply_basic_formatting", fake_apply_basic_formatting)
+
+    result = gdoc_tools.create_doc_via_drive("Meetingnote test", "# Meetingnote\n\nInhoud.", "folder123")
+
+    assert result["doc_id"] == "doc456"
+    assert apply_calls == [("fake-docs-service", "doc456")]
+
+
+def test_create_doc_via_drive_survives_formatting_failure(monkeypatch):
+    """Formatting-fout mag het aanmaken van de Meetingnote nooit blokkeren —
+    zelfde non-fatal contract als create_gdoc()."""
+    created_file = {"id": "doc789", "webViewLink": "https://docs.google.com/document/d/doc789/edit", "name": "Meetingnote test"}
+
+    class _FakeFilesCreate:
+        def execute(self):
+            return created_file
+
+    class _FakeDriveFiles:
+        def create(self, **kwargs):
+            return _FakeFilesCreate()
+
+    class _FakeDriveService:
+        def files(self):
+            return _FakeDriveFiles()
+
+    def boom(docs_service, doc_id):
+        raise RuntimeError("Docs API onbereikbaar")
+
+    monkeypatch.setattr(gdoc_tools, "_get_drive_write_service", lambda: _FakeDriveService())
+    monkeypatch.setattr(gdoc_tools, "_get_docs_service", lambda: "fake-docs-service")
+    monkeypatch.setattr(gdoc_tools, "_apply_basic_formatting", boom)
+
+    result = gdoc_tools.create_doc_via_drive("Meetingnote test", "# Meetingnote\n\nInhoud.", "folder123")
+    assert result["doc_id"] == "doc789"  # document bestaat alsnog, ondanks de formatting-fout

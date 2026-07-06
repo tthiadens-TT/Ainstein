@@ -238,10 +238,21 @@ def find_or_create_meetingnotes_folder(search_terms) -> str:
 
 
 def create_doc_via_drive(title: str, content: str, folder_id: str) -> dict:
-    """Create a Google Doc using Drive API only (no Docs API required).
+    """Create a Google Doc using the Drive API for creation (content upload as
+    text/plain, Drive auto-converts to a Google Doc), then apply Minkowski brand
+    formatting via the Docs API.
 
-    The service account has Drive API access but not Docs API access.
-    Content is uploaded as text/plain and Drive converts it to a Google Doc.
+    Used by transcript_processor._create_meetingnote() — every Meetingnote goes
+    through this path, NOT create_gdoc(). Historical note (fixed 2026-07-06):
+    this function originally skipped formatting entirely because "the service
+    account has Drive API access but not Docs API access" (see commit history).
+    That constraint no longer holds — _get_service_account_creds() has requested
+    both drive and documents scopes for a while — but nobody wired the formatting
+    step back in, so every Meetingnote silently stayed unbranded (plain default
+    Google Doc) while create_gdoc()-based docs (save_note, proposals) already got
+    Minkowski heading colour/fonts. Found when Thomas asked directly whether
+    Meeting Notes used the Minkowski identity — they did not.
+
     Returns {"doc_id": str, "url": str, "title": str}.
     """
     import io
@@ -263,6 +274,13 @@ def create_doc_via_drive(title: str, content: str, folder_id: str) -> dict:
     url = doc.get("webViewLink", f"https://docs.google.com/document/d/{doc['id']}/edit")
     doc_id = doc["id"]
     logger.info("create_doc_via_drive: created '%s' in folder %s → %s", title, folder_id, doc_id)
+
+    try:
+        docs_service = _get_docs_service()
+        _apply_basic_formatting(docs_service, doc_id)
+    except Exception as e:
+        logger.warning("create_doc_via_drive: brand formatting failed (non-fatal): %s", e)
+
     return {"doc_id": doc_id, "url": url, "title": doc["name"]}
 
 

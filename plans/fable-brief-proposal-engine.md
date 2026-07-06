@@ -28,12 +28,21 @@ Briefing (Slack / doc / debrief sectie 11)
   [3] DRAFT (Sonnet)           — build_proposal.md-skill + de evidence packs (NIET de ruwe
         │                        documenten). Volledige conceptversie.
   [4] ADVERSARIAL REVIEW (beste beschikbare model, verse context)
-        │                      — aparte call die het concept sloopt: DVV-toets, verbal_identity
-        │                        CORE, positionering, eigenaarschapslabels ([Klant]/[Minkowski]/
-        │                        [Nog te bepalen]), audit op verzonnen cijfers (elke prijs moet
-        │                        traceren naar pack c). Output: genummerde revisie-eisen.
-  [5] REVISE & SHIP (Sonnet)   — verwerk revisie-eisen, create_gdoc, Slack-post met doc-URL
-                                 en de bekende /refine-comments vervolgroute.
+        │                      — aparte call die het concept sloopt: DVV-toets, beide merklagen
+        │                        (Brand CORE = verbal_identity.md stijlregels én Brand FACTS =
+        │                        brand_core.md feitelijke identiteit; sinds 6 juli 2026 beide
+        │                        onvoorwaardelijk geïnjecteerd in run_agent, dus op run_agent
+        │                        gebouwde stappen erven ze automatisch), positionering,
+        │                        eigenaarschapslabels ([Klant]/[Minkowski]/[Nog te bepalen]),
+        │                        audit op verzonnen cijfers (elke prijs moet traceren naar
+        │                        pack c). Output: genummerde revisie-eisen.
+  [5] REVISE & SHIP (Sonnet)   — verwerk revisie-eisen, doc aanmaken UITSLUITEND via
+                                 create_gdoc() (het gebrande pad met _apply_basic_formatting:
+                                 Helvetica Neue, koppen #287093), Slack-post met doc-URL en de
+                                 bekende /refine-comments vervolgroute. Introduceer nooit een
+                                 tweede doc-creatieroute: de Meeting Notes-bug van 6 juli 2026
+                                 (f605536) ontstond precies zo, via een parallel pad
+                                 (create_doc_via_drive) dat de formatting-stap miste.
 ```
 
 ## Ontwerpbeslissingen en waarom

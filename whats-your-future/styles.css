@@ -1,6 +1,8 @@
 /*
  * What's Your Future? -- Minkowski facilitator instrument.
- * Visual identity: dark navy, aqua/cyan accent, olive wordmark, Sen ExtraBold headings.
+ * Visual identity: dark navy, aqua/cyan accent, olive wordmark.
+ * Font roles per MK-new-brandbook.pptx (verified 2026-07-06): Sen ExtraBold is the
+ * wordmark font ONLY; Helvetica Neue carries headings/display; Helvetica Neue Light body.
  * No build step. Font is embedded as a data: URI so the tool works from file://.
  */
 
@@ -23,8 +25,9 @@
   --text-dim: #9FB4BC;
   --border: rgba(230, 239, 242, 0.14);
 
-  --font-display: "Sen", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-body: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-wordmark: "Sen", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: "Helvetica Neue", Helvetica, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-body: "Helvetica Neue", Helvetica, -apple-system, "Segoe UI", Arial, sans-serif;
 }
 
 * {
@@ -37,6 +40,7 @@ html, body {
   background: var(--navy-deep);
   color: var(--text);
   font-family: var(--font-body);
+  font-weight: 300; /* Helvetica Neue Light: the brand body weight */
   height: 100%;
 }
 
@@ -86,8 +90,8 @@ button {
 /* ---------- WORDMARK / TITLE ---------- */
 
 .wordmark {
-  font-family: var(--font-display);
-  font-weight: 800;
+  font-family: var(--font-wordmark);
+  font-weight: 800; /* Sen ExtraBold: the only element that carries the wordmark font */
   letter-spacing: 0.18em;
   color: var(--olive);
   font-size: 1rem;
@@ -97,7 +101,7 @@ button {
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: clamp(2.2rem, 5vw, 3.4rem);
   margin: 0;
   color: var(--text);
@@ -289,7 +293,7 @@ button {
 
 .zone-label {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--aqua);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -312,7 +316,7 @@ button {
 
 .leadership-question {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: clamp(1.6rem, 3.6vw, 2.4rem);
   color: var(--text);
   max-width: 780px;
@@ -342,7 +346,7 @@ button {
 
 .step-heading {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: clamp(1.8rem, 4vw, 2.4rem);
   margin: 0 0 1rem;
 }
@@ -367,7 +371,7 @@ button {
 
 .slider-row__zone {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--aqua);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -402,7 +406,7 @@ button {
 
 .slider-row__value {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.3rem;
   color: var(--aqua);
   min-width: 2ch;
@@ -413,7 +417,7 @@ button {
 
 .signal-name {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: clamp(2rem, 5vw, 3rem);
   color: var(--text);
   margin: 0;

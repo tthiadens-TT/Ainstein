@@ -290,6 +290,28 @@ def run_agent(
     except Exception as _kennis_err:
         logger.warning("kennis_laag inject failed (non-fatal): %s", _kennis_err)
 
+    # Inject brand CORE — taalregel, verboden woorden, em dash-verbod, schrijfregels,
+    # taglines uit verbal_identity.md. Onvoorwaardelijk, ongeacht skill of kanaal
+    # (Jamie-webhook, losse Slack-vraag, elke skill) — zelfde garantie als gaps.md/
+    # kennis_laag.md hierboven. Dit is de enige plek waar CORE de context ingaat;
+    # geen kopie in minkowski_voice.md of skill-bestanden.
+    try:
+        from tools import load_brand_core_context
+        brand_core_ctx = load_brand_core_context()
+        if brand_core_ctx.strip():
+            system.append({
+                "type": "text",
+                "text": (
+                    "## Brand CORE (04_Marketing/verbal_identity.md)\n\n"
+                    "Onaantastbare Minkowski-merkregels — taalregel, verboden woorden en "
+                    "leestekens, schrijfregels, taglines. Deze gelden op elk kanaal, altijd, "
+                    "ongeacht welke skill actief is. Wijk hier nooit van af.\n\n"
+                    + brand_core_ctx
+                ),
+            })
+    except Exception as _brand_err:
+        logger.warning("brand CORE inject failed (non-fatal): %s", _brand_err)
+
     def _finish(text: str) -> tuple[str, dict]:
         trace["iterations"] = iteration
         trace["total_duration_s"] = round(time.time() - _t_start, 2)

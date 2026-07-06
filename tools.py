@@ -737,6 +737,116 @@ def drive_read_kennis_laag(max_chars: int = 8000) -> str | None:
         return None
 
 
+_CORE_START, _CORE_END = "<!-- CORE:START -->", "<!-- CORE:END -->"
+
+
+def drive_read_verbal_identity_core(max_chars: int = 6000) -> str | None:
+    """Read verbal_identity.md from Drive (04_Marketing/) and return only the CORE
+    zone — the content strictly between <!-- CORE:START --> and <!-- CORE:END -->
+    (taalregel, verboden woorden, em dash-verbod, schrijfregels, taglines).
+
+    Never returns PATTERNS content (that stays scoped to the 9 voice-skills via
+    minkowski_voice.md). Returns None if the file, or the CORE sentinels, are missing
+    — callers must fail silent (log + skip injection), never inject a partial/broken
+    CORE block.
+    """
+    from googleapiclient.http import MediaIoBaseDownload
+
+    service = _get_drive_service()
+    if not service:
+        return None
+    folder_ids = _get_drive_folder_ids()
+    marketing_id = folder_ids.get("04_Marketing")
+    if not marketing_id:
+        return None
+    try:
+        results = service.files().list(
+            q=f"name='verbal_identity.md' and '{marketing_id}' in parents and trashed=false",
+            fields="files(id)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+    except Exception as e:
+        logger.error("drive_read_verbal_identity_core: file lookup failed: %s", e)
+        return None
+    files = results.get("files", [])
+    if not files:
+        return None
+    file_id = files[0]["id"]
+    try:
+        request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        buf.seek(0)
+        content = buf.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        logger.error("drive_read_verbal_identity_core: download failed: %s", e)
+        return None
+
+    i = content.find(_CORE_START)
+    j = content.find(_CORE_END)
+    if i == -1 or j == -1 or j <= i:
+        logger.error(
+            "drive_read_verbal_identity_core: CORE-sentinels ontbreken of ongeldig in "
+            "verbal_identity.md — injectie overgeslagen (geen halve/kapotte CORE)."
+        )
+        return None
+    core = content[i + len(_CORE_START):j].strip()
+    if not core:
+        return None
+    if len(core) > max_chars:
+        core = core[:max_chars] + "\n...[rest weggelaten]"
+    return core
+
+
+_brand_core_cache: dict = {"content": None, "loaded_at": 0.0}
+_brand_core_cache_lock = threading.Lock()
+_BRAND_CORE_TTL = 300  # seconds — zelfde ritme als kennis_laag
+
+
+def load_brand_core_context(max_chars: int = 6000) -> str:
+    """Return the CORE brand rules (verbal_identity.md, secties 1-3) for unconditional
+    injection into every agent call — same guarantee level as gaps.md/kennis_laag.md.
+
+    Cached for _BRAND_CORE_TTL seconds. Returns empty string when unavailable (missing
+    file, missing sentinels, or Drive unreachable) — the caller must not fail the whole
+    request just because brand rules couldn't be fetched.
+    """
+    import time as _time
+    global _brand_core_cache
+    now = _time.time()
+    with _brand_core_cache_lock:
+        if _brand_core_cache["content"] is not None and now - _brand_core_cache["loaded_at"] < _BRAND_CORE_TTL:
+            return _brand_core_cache["content"]
+        content = ""
+        try:
+            if _is_drive_mode():
+                raw = drive_read_verbal_identity_core(max_chars=max_chars)
+                content = raw or ""
+            else:
+                vi_path = SOURCE_ROOT / "04_Marketing" / "verbal_identity.md"
+                if vi_path.exists():
+                    raw_text = vi_path.read_text(encoding="utf-8")
+                    i = raw_text.find(_CORE_START)
+                    j = raw_text.find(_CORE_END)
+                    if i != -1 and j != -1 and j > i:
+                        raw = raw_text[i + len(_CORE_START):j].strip()
+                        if len(raw) > max_chars:
+                            raw = raw[:max_chars] + "\n...[rest weggelaten]"
+                        content = raw
+                    else:
+                        logger.warning("load_brand_core_context: CORE-sentinels ontbreken in lokale verbal_identity.md")
+        except Exception as e:
+            logger.warning("load_brand_core_context failed: %s", e)
+        _brand_core_cache["content"] = content
+        _brand_core_cache["loaded_at"] = now
+        return content
+
+
 def load_kennis_context(max_chars: int = 8000) -> str:
     """Return kennis_laag.md content for injection into the agent system prompt.
 

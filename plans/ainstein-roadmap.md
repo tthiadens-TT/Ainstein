@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 5 juli 2026, 10:20 (GitHub deploy-workflow hersteld: VM credentials opgelost, beide failure-runs nu groen)*
+*Bijgewerkt: 6 juli 2026 (daily-code-review: cache-opruiming status recht getrokken, 2 bugs uit 92f20ba gecleared, 2 stale backlog-items verwijderd)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -51,9 +51,21 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 
 ## 🔴 URGENT — Cache-rommel opruimen (prioriteit 1, blokkeert afsluiting)
 
-**Probleem:** 157 cache-bestanden staan nog in folder-roots (04_Marketing, 03_Experts, 01_Clients, 02_Frameworks & Tools, 05_Ainstein Knowledge Base). Automatische API-deletie faalde (Google Drive file-ID sync-lag). 
+**Dit is de enige open actie op het cache-dossier. Zie `### Markdown cache: platte plaatsing — code gefixed, data-cleanup nog open` verderop in dit bestand voor de volledige fix-geschiedenis; die sectie verwijst hierheen en claimt zelf geen "opgelost" meer.**
 
-**Actie:** handmatige Drive UI opruiming:
+**Probleem:** 157 cache-bestanden staan nog in folder-roots. Automatische API-deletie faalde (Google Drive file-ID sync-lag: `cleanup_direct.py` en `cleanup_batch_delete.py` meldden beide "0 deleted, 157 failed").
+
+**Opnieuw geverifieerd 6 juli 2026 via `scripts/verify_cache_structure.py` op de VM (grondwaarheid, niet de connector) — exact hetzelfde aantal als bij ontdekking op 4 juli, dus nog niets van opgeruimd:**
+- `04_Marketing`: 86
+- `01_Clients`: 41
+- `03_Experts`: 25
+- `02_Frameworks & Tools`: 3
+- `05_Ainstein Knowledge Base`: 2
+- **Totaal: 157**
+
+**Nevenschade ontdekt 6 juli:** 41 van de 157 rommel-bestanden staan in `01_Clients` (o.a. kale tekstversies van NN LEAD3/LEAD4-voorstellen en debriefs). Wie handmatig door klantmappen browst kan de cache-versie per ongeluk aanzien voor een los, nieuw document.
+
+**Actie:** handmatige Drive UI opruiming (de enige route die nog niet geprobeerd is):
 1. Open Google Drive (Minkowski AInstein Shared Drive)
 2. Per root-folder: selecteer alle .md-bestanden met `**Gecachet:**` header
 3. Delete
@@ -67,8 +79,8 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 
 **Criteria voor verwijdering:** bestand eindigt op `.md` EN bevat `**Gecachet:**` in eerste 400 chars.
 
-**Status:** Thomas handelt uit zodra hij in Drive kan.
-**Prioriteit:** blokkeert afsluiting van cache-fix — pas dan gesloten.
+**Status:** Thomas handelt uit zodra hij in Drive kan. Nog steeds 157/157 aanwezig — geen voortgang sinds 4 juli.
+**Prioriteit:** blokkeert afsluiting van cache-fix — pas dan gesloten. Sluit dit item niet af op basis van een script-run; automatische deletie is al twee keer bewezen kapot (stale file-ID's). Alleen handmatige Drive UI-actie of een herbevestigde `verify_cache_structure.py` → `✅ SCHOON` telt als bewijs.
 
 ---
 
@@ -101,11 +113,6 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** Drive + code (bronnen.json, tools.py kennis-pad, agent.py injectie-pad).
 **Prioriteit:** laag.
 
-### Losse screenshots in repo-root opruimen
-**Wat:** `studio-delivery-mobile.png` en `studio-editor.png` (aangemaakt 4 juli, untracked) staan in de root van `/Users/thomasthiadens/Ainstein`. Op basis van de bestandsnamen horen ze bij het Minkowski Studio-prototype (`~/minkowski-studio`), niet bij Ainstein — vermoedelijk per ongeluk in de verkeerde working directory opgeslagen. Gevonden door daily-code-review 5 juli.
-**Actie Thomas:** verplaats ze naar `~/minkowski-studio` (of verwijder als niet meer nodig) en verwijder uit `~/Ainstein`.
-**Prioriteit:** laag, cosmetisch — geen functioneel risico (niet gecommit).
-
 ### Stale mapnaam-verwijzingen in deze roadmap zelf opschonen
 **Wat:** de 30-juni-hernoeming (`06_Marketing` naar `04_Marketing`, `04_Experts` naar `03_Experts`) is in code en Drive volledig afgehandeld, maar de roadmap-tekst zelf verwijst nog naar de oude namen in de Claude Projects-tutorial (de "Files vullen"-tabel, de connector-troubleshooting en de referentie-sectie onderaan). Geverifieerd 5 juli: meerdere `06_Marketing`- en `04_Experts`-vermeldingen in die secties.
 **Waarom het telt:** die tutorial stuurt teamleden naar mappen die niet meer bestaan. Actueel misleidend, geen cosmetiek.
@@ -113,7 +120,9 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** de niet-historische verwijzingen bijwerken naar de huidige namen, of de sinds 30 juni sowieso deels verouderde Claude Projects-tutorial in één keer herzien.
 **Prioriteit:** laag, maar doen vóór de tutorial weer voor onboarding gebruikt wordt.
 
-### ✅ Markdown cache: platte plaatsing fixen — VOLLEDIG OPGELOST 5 juli 2026
+### Markdown cache: platte plaatsing — code gefixed, data-cleanup nog open
+
+**Let op (correctie 6 juli 2026):** deze sectie heette eerder "VOLLEDIG OPGELOST". Dat klopte niet — alleen de root-cause in de code is gefixed. De 157 bestaande rommel-bestanden staan er nog steeds, ongewijzigd sinds ontdekking. **De enige actuele status van de data-cleanup staat in de `🔴 URGENT`-sectie bovenaan dit bestand — die is leidend, niet deze sectie.**
 
 **Probleem (ontdekt 4 juli):** `convert_to_markdown.py` schreef alle cache-`.md` naar folder-root (`04_Marketing/`, `01_Clients/`, etc.), niet naast het origineel. Dit veroorzaakte 157+ cache-bestanden als chaos-dump in roots. Onleesbaar, niet schaalbaar.
 
@@ -125,17 +134,15 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 - Commit **e989b2b** maakte het erger (verborg het achter dynamische discovery)
 - Script draaide 3 juli → rommel zichtbaar
 
-**Fixes ingevoerd (5 commits, allemaal live):**
-1. **709b9d7** — Code-fix: `cache_folder_id = parent_ids[0]` per bestand
+**Wat wél echt klaar is — de code-fix (live, voorkomt herhaling):**
+1. **709b9d7** — Code-fix: `cache_folder_id = parent_ids[0]` per bestand. Nieuwe conversie-runs schrijven correct.
 2. **fdff82a** — Python 3.9 type-hint compat (Optional, Tuple)
-3. **7a90988** — `verify_cache_structure.py` (detecteert rommel automatisch)
-4. **b620407** — `cleanup_stray_cache.py` (verwijdert oude cache)
-5. **4d4c286** — `cleanup_batch_delete.py` (snelle bulk-delete, 157 bestanden)
-6. **a69546d** — `CACHE_DESIGN.md` (design vastgelegd, voorkoming ingebouwd)
+3. **a69546d** — `CACHE_DESIGN.md` (design vastgelegd, voorkoming ingebouwd)
+4. **7a90988** — `verify_cache_structure.py` (detecteert rommel automatisch — dit is het script dat vandaag opnieuw 157 violations teruggaf)
 
-**Verificatie & Opruiming (5 juli, onderhanden op VM):**
-- `cleanup_batch_delete.py` draait op VM (verwijdert 157 stray cache-bestanden)
-- Daarna: `python3 scripts/verify_cache_structure.py` moet antwoorden: `✅ SCHOON`
+**Wat NIET klaar is — de opruiming van de 157 bestaande bestanden:**
+- **b620407** (`cleanup_stray_cache.py`), **4d4c286** (`cleanup_batch_delete.py`) en **46f675a** (`cleanup_direct.py`) zijn drie pogingen om de bestaande rommel automatisch te verwijderen. **Alle drie zijn mislukt** — Google Drive API geeft 404 op de file-ID's ondanks dat folder-listing ze toont (stale file-ID sync-lag, mogelijk gerelateerd aan connector-bug #53442). Resultaat: drie bijna-identieke scripts in `scripts/` die geen van alle werken. **Nieuw follow-up-item:** consolideer tot één of ruim de twee overbodige op (zie backlog hieronder).
+- Enige overgebleven route: handmatige Drive UI-opruiming door Thomas — zie 🔴 URGENT-sectie.
 
 **Voorkoming toekomst:**
 - Design is expliciet in `scripts/CACHE_DESIGN.md` — niemand schrijft stiekem naar roots
@@ -200,10 +207,11 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** `TAVILY_SEARCH_DEPTH` env var toevoegen (default `"basic"`).
 **Prioriteit:** laag.
 
-### Legacy Google Doc Slack-bestanden verwijderen uit Drive
-**Wat:** Drie bestanden `slack_C09CEQ29AU8_2026-04/05/06` staan in Drive als `application/vnd.google-apps.document`. Vervangen door plain-text `.md`-bakjes na fix in commit `15bec6c`. Kunnen worden verwijderd.
-**Actie:** handmatig verwijderen in Drive via de Ainstein Shared Drive.
-**Prioriteit:** laag — rommelt, blokkeert niets.
+### Drie duplicate cleanup-scripts consolideren (cache-opruiming)
+**Wat:** `scripts/cleanup_stray_cache.py`, `scripts/cleanup_batch_delete.py` en `scripts/cleanup_direct.py` doen alle drie hetzelfde (zoek `.md` met `**Gecachet:**`-header in folder-roots, verwijder via Drive `files().delete()` — permanent, geen prullenbak). Alle drie zijn mislukt op dezelfde stale file-ID's (zie cache-sectie hierboven) en staan nu als dode/duplicate code in de repo. Alleen de eerste heeft een `--dry-run`.
+**Actie:** houd er één aan (met dry-run) en verwijder de andere twee, of voeg een duidelijke comment toe ("mislukt, zie CACHE_DESIGN.md — niet opnieuw draaien in de veronderstelling dat dit wél werkt").
+**Gevonden door:** daily-code-review 6 juli 2026.
+**Prioriteit:** laag, cosmetisch — geen functioneel risico, wel verwarrend voor een volgende sessie.
 
 ### Klantbronnen als kennisbron — websites, jaarverslagen, nieuws
 **Wat:** publiek beschikbare informatie over (potentiële) klanten toevoegen als bron aan de kennis-laag. Per klant: website, jaarverslag, persberichten, LinkedIn. Geeft Ainstein context over de wereld van de klant — vóórdat een voorstel of meeting begint.
@@ -311,6 +319,25 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 ### Kwaliteitscheck eerste productie-output meeting_reviewer
 **Wat:** twee Drive-docs van 18 juni zijn nog niet handmatig beoordeeld: `260618_Gespreksnotitie _ Voorbereiding Hei-dag Waardestromen` en `260618_Debrief_SNI_NonLife_Leiderschapsprogramma`. Dit is de validatiestap vóór Ainstein breder ingezet wordt bij klantgesprekken.
 **Actie Thomas:** open beide docs in Drive en beoordeel of de analyse correct en commercieel bruikbaar is.
+
+### Kwaliteitsbeoordeling 7 gecureerde kennislaag-docs
+**Wat:** de 7 documenten die op 24 juni zijn aangemaakt na Charlotte's validatie (4x in `02_Frameworks & Tools`, 3x in `04_Marketing` — zie ✅ Gedaan-archief) zijn nog niet inhoudelijk beoordeeld op kwaliteit/bruikbaarheid.
+**Actie Thomas/Jörgen:** lees de 7 docs (via `read_file_cached`, niet de connector) en beoordeel of de synthese klopt en commercieel bruikbaar is.
+**Eerst gevlagd:** 25 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
+**Prioriteit:** medium — bepaalt of de kennislaag-methode het vertrouwen krijgt om breder te schalen.
+
+### NN KS/IT leiderschapsprogramma: aangepast voorstel van Jörgen
+**Wat:** Jörgen levert een aangepast voorstel (2 vs. 3 carrousels) voor het NN KS/IT-leiderschapsprogramma.
+**Status:** deadline was "deze week" per 23 juni 2026 — inmiddels 13 dagen over (peildatum 6 juli 2026).
+**Actie Thomas/Jörgen:** navragen bij Jörgen wat de status is en of de deadline nog realistisch is.
+**Eerst gevlagd:** 23 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
+**Prioriteit:** hoog qua commercieel risico — 13 dagen over deadline zonder zichtbare voortgang.
+
+### KNS-call Jane & Louis — uitkomst onbekend
+**Wat:** de call met Jane & Louis op 1 juli 2026 (KNS) had een onbekende uitkomst vanuit de daily-code-reviews.
+**Actie Thomas:** korte update — wat kwam eruit, en is er een vervolgactie voor Ainstein (voorstel, expert-match, debrief)?
+**Eerst gevlagd:** 25 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
+**Prioriteit:** medium.
 
 ### PPTX font-embedding visueel testen
 **Wat:** Sen ExtraBold is via OOXML ingebakken in PPTX-output (`pptx_builder.py:_embed_sen_extrabold`). Nog niet visueel geverifieerd op een machine zonder Sen-installatie.
@@ -792,6 +819,9 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Roadmap-inconsistentie recht getrokken: cache-opruiming stond tegelijk als "🔴 URGENT, blokkeert afsluiting" én als "✅ VOLLEDIG OPGELOST". Herbevestigd via `verify_cache_structure.py` op de VM (grondwaarheid): alle 157 violations staan nog steeds in de folder-roots (86 `04_Marketing`, 41 `01_Clients`, 25 `03_Experts`, 3 `02_Frameworks & Tools`, 2 `05_Ainstein Knowledge Base`) — geen voortgang sinds 4 juli. De ✅-sectie herschreven zodat de 🔴 URGENT-sectie de enige actuele status is. Nieuw follow-up-item toegevoegd: drie mislukte, bijna-identieke cleanup-scripts consolideren. Gevonden door daily-code-review 6 juli. | Drive-verificatie + roadmap-edit | 6 juli 2026 |
+| Twee bugs uit de daily-code-review van 4-5 juli geverifieerd opgelost in `92f20ba`: `_detect_meeting_type()` classificeerde een klantgesprek stilzwijgend als intern zodra een deelnemer geen e-mailveld had; Insights-reply toonde altijd "✅" ongeacht of `update_gdoc_section()` de placeholder vond. Geverifieerd door de diff te lezen (niet aangenomen) + testsuite lokaal gedraaid: 51/51 groen. | `92f20ba` | 6 juli 2026 (geverifieerd, gefixt 5 juli) |
+| Twee stale backlog-items verwijderd: (1) "Losse screenshots in repo-root opruimen" — bestanden bevestigd verdwenen uit de working directory; (2) "Legacy Google Doc Slack-bestanden verwijderen uit Drive" — was al opgelost en genoteerd in dit archief op 3 juli ("0 gevonden, al eerder weg"), stond ten onrechte nog als open item verderop in de roadmap. | roadmap-edit | 6 juli 2026 |
 | `entiteiten.md` foute noot verwijderd: de "Technische noot (29 juni)" claimde dat expertprofielen alleen in de persoonlijke Drive stonden, NIET in de Shared Drive. Onafhankelijk geverifieerd via serviceaccount: `03_Experts` bevat 54 items waarvan 23 expertprofielen (.docx). Bug-artefact van de connector-blokkade. Noot verwijderd via serviceaccount (80→71 regels, byte-identiek teruggelezen, backup bewaard). Restant gesignaleerd: Beheerregels verwijzen nog naar oude mapnaam `04_Experts` (moet `03_Experts`). | Drive | 3 juli 2026 |
 | dev-branch opgeruimd: lokaal + remote `dev` verwijderd en losse stash gedropt. Geverifieerd dat alle waardevolle inhoud al superseded is op main (skills `6fff459`, save_note-refactor, `DEPLOYMENT.md`, deploy.yml health-check, en de stash-fix `_send_chunked` lege-tekst-guard staan al op main). Herstel-SHA vastgelegd: `git branch dev faf53f0`. | lokaal + remote | 3 juli 2026 |
 | Auto-review-teller persistent gemaakt: `feedback._open_count` nulde bij elke botherstart (drempel 10 werd mogelijk nooit gehaald). Nu best-effort naar `logs/open_count.txt` (gitignored), in-memory teller als fallback, geladen bij import. 2 tests toegevoegd, suite 42 groen. Carry-forward daily-review sinds 18 juni. | `d551b64` | 3 juli 2026 |

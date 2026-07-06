@@ -286,12 +286,25 @@ def _preprocess_content(content: str) -> str:
     return "\n".join(line for line in lines if not _is_table_separator(line))
 
 
-def _apply_basic_formatting(service, doc_id: str) -> None:
-    """Apply HEADING_1 / HEADING_2 paragraph styles to lines that start with # / ##.
+# Minkowski-merkwaarden, rechtstreeks geverifieerd tegen MK-new-brandbook.pptx
+# (python-pptx-inspectie 2026-07-06 van het echte bestand, niet de tekst-cache —
+# slide 1: kleurvlak + hex-label per kleur, slide 2: font-schaal 14/25/50 geannoteerd).
+# Zelfde bron als pptx_builder.py:BRAND — hier ingezet voor Google Docs, die tot nu toe
+# alleen generieke Google-kopstijlen kregen en geen Minkowski-kleur/font.
+_BRAND_HEADING_COLOR_RGB = {"red": 0x28 / 255, "green": 0x70 / 255, "blue": 0x93 / 255}  # #287093
+_BRAND_FONT_HEADING = "Helvetica Neue"
+_BRAND_FONT_BODY = "Helvetica Neue Light"
 
-    The # markers are kept in the text so parse_proposal_sections() can still
-    split the doc into PPTX sections via plain-text Drive export. Heading styles
-    make the document structure visually clear in Google Docs without touching content.
+
+def _apply_basic_formatting(service, doc_id: str) -> None:
+    """Apply HEADING_1 / HEADING_2 paragraph styles + Minkowski brand kleur/font aan
+    lines die met # / ## beginnen; body-tekst krijgt het Minkowski body-font.
+
+    De # markers blijven in de tekst staan zodat parse_proposal_sections() de doc
+    nog kan splitsen in PPTX-secties via plain-text Drive-export. Dit is de enige
+    opmaak-functie die alle Google Docs doorlopen (save_note, create_report_doc.py,
+    proposal-flow) — vóór deze wijziging kregen ze alleen Google's generieke
+    kopstijlen, geen Minkowski-merkidentiteit (kleur, typografie).
     """
     doc = service.documents().get(documentId=doc_id).execute()
     body_content = doc.get("body", {}).get("content", [])
@@ -324,13 +337,37 @@ def _apply_basic_formatting(service, doc_id: str) -> None:
                     "fields": "namedStyleType",
                 }
             })
+            requests.append({
+                "updateTextStyle": {
+                    "range": {"startIndex": start_idx, "endIndex": end_idx},
+                    "textStyle": {
+                        "weightedFontFamily": {"fontFamily": _BRAND_FONT_HEADING},
+                        "foregroundColor": {
+                            "color": {"rgbColor": _BRAND_HEADING_COLOR_RGB}
+                        },
+                    },
+                    "fields": "weightedFontFamily,foregroundColor",
+                }
+            })
+        elif text.strip():
+            # Body-tekst: alleen het font zetten, kleur ongemoeid laten — voorkomt
+            # dat bestaande inline-kleuren (bv. een handmatige markering) verdwijnen.
+            requests.append({
+                "updateTextStyle": {
+                    "range": {"startIndex": start_idx, "endIndex": end_idx},
+                    "textStyle": {
+                        "weightedFontFamily": {"fontFamily": _BRAND_FONT_BODY},
+                    },
+                    "fields": "weightedFontFamily",
+                }
+            })
 
     if requests:
         service.documents().batchUpdate(
             documentId=doc_id,
             body={"requests": requests},
         ).execute()
-        logger.info("_apply_basic_formatting: applied %d heading style(s) in %s", len(requests), doc_id)
+        logger.info("_apply_basic_formatting: applied %d formatting request(s) in %s", len(requests), doc_id)
 
 
 def _extract_doc_id(doc_id_or_url: str) -> str:

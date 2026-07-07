@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 6 juli 2026, tweede update (Fable-sessie: whats-your-future tool live, Fable-briefs idee 1+5, keychain-incident opgelost)*
+*Bijgewerkt: 7 juli 2026 (scope-correctie: KS/IT-item verwijderd, commercieel/klant-item hoort niet op de Ainstein-roadmap — zie memory/project_ks_it_leiderschapsprogramma_status.md)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -111,8 +111,9 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Wat:** pas oppakken nadat de tool in een echt discovery-gesprek is gebruikt: (a) publiceren op de VM achter nginx voor een deelbare URL (dan gelden de 4 deployment-vragen), (b) NL-versie, (c) officieel logo-bestand uit `04_Marketing/Logo/` embedden i.p.v. tekst-wordmark, (d) kwartaal-refresh van `data.js` door Ainstein (ritueel staat in de tool-README).
 
 ### Retrieval-first in build_proposal
-**Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt deterministisch ophalen uit `Clients/<naam>/Outcomes/` voor vergelijkbare cases. Genereer alleen wat niet op te halen is.
-**Geblokkeerd door:** folder-migratie + Outcomes vullen.
+**Wat:** `skills/build_proposal.md` aanpassen: stap 1 wordt eerst de finale geaccordeerde voorstellen ophalen als referentie, dan pas genereren. Genereer alleen wat niet op te halen is.
+**Bron (geverifieerd 7 juli 2026):** losse `FINAL`/`Proposal`/`Voorstel`-bestanden in de root van `01_Clients` (bv. `Proposal NN Lead4 by Minkowski FINAL.md`, `Voorstel NN Retail Schade en Zorg FINAL.md`). NIET een Outcomes- of Proposals-map: die bestaan niet (leeg steigerwerk). Het finale voorstel = 95-100% van de waarheid; ontwerpfase-delta is meestal kleine nuance.
+**Niet meer geblokkeerd:** de oude blokkade "folder-migratie + Outcomes vullen" vervalt. De bron bestaat al, alleen ongeordend (herkenning op naampatroon). Wél nuttig: idee 5 (toolregister) maakt dit ophalen betrouwbaar i.p.v. gok via full-text search.
 
 ### Origin-gewicht in merge-skill (synaptic stratification licht)
 **Wat:** zekerheid niet meer als `count(distinct origins)` maar als `sum(weights)`. Klant-stem weegt zwaarder dan intern-Slack.
@@ -336,18 +337,12 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Eerst gevlagd:** 25 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
 **Prioriteit:** medium — bepaalt of de kennislaag-methode het vertrouwen krijgt om breder te schalen.
 
-### NN KS/IT leiderschapsprogramma: aangepast voorstel van Jörgen
-**Wat:** Jörgen levert een aangepast voorstel (2 vs. 3 carrousels) voor het NN KS/IT-leiderschapsprogramma.
-**Status:** deadline was "deze week" per 23 juni 2026 — inmiddels 13 dagen over (peildatum 6 juli 2026).
-**Actie Thomas/Jörgen:** navragen bij Jörgen wat de status is en of de deadline nog realistisch is.
-**Eerst gevlagd:** 23 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
-**Prioriteit:** hoog qua commercieel risico — 13 dagen over deadline zonder zichtbare voortgang.
-
-### KNS-call Jane & Louis — uitkomst onbekend
+### [TWIJFEL — mogelijk verkeerde plek, zie hieronder] KNS-call Jane & Louis — uitkomst onbekend
 **Wat:** de call met Jane & Louis op 1 juli 2026 (KNS) had een onbekende uitkomst vanuit de daily-code-reviews.
 **Actie Thomas:** korte update — wat kwam eruit, en is er een vervolgactie voor Ainstein (voorstel, expert-match, debrief)?
 **Eerst gevlagd:** 25 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
 **Prioriteit:** medium.
+**Let op (7 juli 2026):** dit is, net als het inmiddels verwijderde KS/IT-item, waarschijnlijk een puur commercieel/klant-item dat niet op de Ainstein-roadmap hoort (zie `memory/feedback_way_of_working.md` sectie E). Nog niet verwijderd — wacht op Thomas' bevestiging.
 
 ### PPTX font-embedding visueel testen
 **Wat:** Sen ExtraBold is via OOXML ingebakken in PPTX-output (`pptx_builder.py:_embed_sen_extrabold`). Nog niet visueel geverifieerd op een machine zonder Sen-installatie.

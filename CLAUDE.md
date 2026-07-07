@@ -218,7 +218,7 @@ The local repo (`/Users/thomasthiadens/Ainstein`) holds only **code** — never 
 | Subfolder | Use for |
 |---|---|
 | `00_Werkdocumenten` | Default landing zone for `save_note` output when no project hint is given. Working notes — not the source layer. |
-| `01_Clients` | All client work: proposals, outcomes, meeting notes, briefs. Structure: `01_Clients/<naam>/<Proposals|Outcomes|Meeting Notes|Presentations|Programs|Client Briefs>/`. E.g. `NN Group/LEAD Programma's/Lead 3/Proposals/`. |
+| `01_Clients` | All client work: proposals, meeting notes, needs-analyses, transcripts, slides. **Werkelijke structuur (geverifieerd 7 juli 2026 via serviceaccount, NIET de connector): grotendeels PLATTE bestanden in de root van `01_Clients`, herkenbaar op naampatroon.** Het finale geaccordeerde voorstel = een los bestand met `FINAL`/`Proposal`/`Voorstel` in de naam (bv. `Proposal NN Lead4 by Minkowski FINAL.md`, `Voorstel NN Retail Schade en Zorg FINAL.md`). De per-klant submapstructuur (`<naam>/<Proposals|Outcomes|Meeting Notes|...>`) bestaat alleen als grotendeels LEEG steigerwerk (bv. Jetske Ultee: zes lege submappen). **Er is geen werkende Proposals-map en geen Outcomes-map. Behandel "Outcomes" niet als een te vullen bron: de uitkomst (het akkoord) zit in het finale voorstel zelf, dat is 95-100% van de waarheid; ontwerpfase-aanpassingen zijn meestal kleine nuance.** |
 | `02_Frameworks & Tools` | Frameworks, methods, workshop formats, facilitation tools, templates |
 | `03_Experts` | Expert profiles, role definitions, expertise comparisons, matching logic. Contains 20+ individual profiles (.docx), decision layer JSON, and team overview. Always start here for expert matching. |
 | `04_Marketing` | Proposition language, positioning, external messaging |
@@ -242,7 +242,7 @@ Use your tools to search and read source material first. Never skip this step. U
 **Mandatory files per task type:**
 - Methodologie beschrijven → lees altijd eerst `02_Frameworks & Tools/02_Tools_Agent_README.md` (SCOPE, Futures Cone, 7 Practices, Jörgens eigen uitleg)
 - Merk/toon/taal schrijven → lees `04_Marketing/verbal_identity.md` (verboden woorden, vocabulary pairs, directe citatbronnen)
-- Voorstel bouwen of verbeteren → raadpleeg `01_Clients/<naam>/Outcomes` vóór alles
+- Voorstel bouwen of verbeteren → raadpleeg de finale voorstellen in `01_Clients` vóór alles (losse bestanden met `FINAL`/`Proposal`/`Voorstel` in de naam, NIET een Outcomes-map: die bestaat niet)
 - Vóór elk niet-triviaal antwoord → lees `05_Ainstein Knowledge Base/gaps.md` DIRECT via `read_file` (niet via `search_files` — term-matching is onbetrouwbaar)
 
 **Step 3 — Ground your answer in the Minkowski context.**

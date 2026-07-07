@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 7 juli 2026 (scope-correctie: KS/IT-item verwijderd, commercieel/klant-item hoort niet op de Ainstein-roadmap — zie memory/project_ks_it_leiderschapsprogramma_status.md)*
+*Bijgewerkt: 7 juli 2026 (scope-correctie: KS/IT- en KNS-call-item verwijderd — bleek dubbeling van hetzelfde NN-traject, hoort sowieso niet op de Ainstein-roadmap. Eerste vervolgoplossing — een Slack-canvas als los logboek — teruggedraaid: bouwt een systeem naast Ainstein i.p.v. Ainstein zelf te verbeteren. Juiste item toegevoegd: live Slack-leestool voor Ainstein's eigen agent, zie sectie "Backlog — Technisch")*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -99,6 +99,31 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 ---
 
 ## 📋 Backlog — Technisch (bouwwerk)
+
+### Ainstein: live Slack-leestool (`search_slack` / `read_slack_channel`)
+
+**Wat & Waarom:** Ainstein's eigen agent kan Slack alleen **schrijven** (`send_slack_message`) — nooit lezen of doorzoeken. Al haar kennis komt via Drive (`search_files`/`read_file`/`drive_read_kennis_laag`). Bij een vraag als "wat is de status van klant X" heeft Ainstein daardoor geen live bron: niet de kennislaag (die mijnt bewust alleen herbruikbare patronen, geen klantstatus-feiten — zie `memory/kennis_laag_prove_phase.md`), niet de batch-Slackscraper (draait pas sinds 22 juni cron, rollend venster van 2 dagen, geen historische backfill). Dit item vult **laag 3 van de kennisgroeistrategie** die op 22 juni al is besloten maar nooit gebouwd: *"Contextlaag (real-time per vraag) — deels op roadmap"* (zie `memory/architecture_state.md`).
+
+**Ontstaan (7 juli 2026):** ontdekt tijdens het uitzoeken van de NN KS/IT-status. Een Claude Code-sessie kon dit live in Slack vinden; Ainstein zelf zou dat niet gekund hebben. Eerste oplossing (een los Slack-canvas + scheduled task als "boekhouding ernaast") is bewust teruggedraaid — dat maakt Ainstein niet slimmer, het bouwt een schaduwsysteem. De juiste plek is een tool op Ainstein's eigen agent, zelfde patroon als de bestaande Drive-tools.
+
+**Ontwerp:**
+- `list_slack_channels()` — mirrort `list_folder`. Gebruikt `conversations.list` (scrape_slack.py bewijst dat dit al werkt in productie).
+- `read_slack_channel(channel, since=None)` — mirrort `read_file`. Hergebruikt de al bestaande, geteste `_fetch_history`/`_fetch_replies`-functies uit `scripts/scrape_slack.py` (paginering + thread-replies is al opgelost, geen nieuwe code nodig voor dat deel).
+- `search_slack(query, channel=None)` — mirrort `search_files`. **Geen** Slack `search.messages`-API (die is uitsluitend voor user tokens, niet voor bot tokens — een bot-token-implementatie kan dit niet vervangen). Implementatie: haal historie van het (resolved) kanaal op en filter lokaal op keyword, zelfde aanpak als de bestaande Drive-`search_files`-fallback.
+
+**Verificeren vóór bouwen (niet aannemen):**
+1. Heeft de bot-token al `channels:history`? Tegenstrijdig bewijs: `slack_app.py`'s setup-docstring (regel 8) noemt het als vereist én er bestaat al een fallback-aanroep (`conversations_history`, regel 1211, reactie-feedbackflow) — maar de Verified Configurations-tabel in CLAUDE.md vermeldt de scope niet. Test met een echte call op de VM vóór dit als "ontbrekend" of "aanwezig" wordt gerapporteerd.
+2. `groups:history` nodig als private klantkanalen bestaan (bevestigd publiek: `#nn-ks-it`; niet elk klantkanaal is gecheckt).
+
+**Bewuste grens (privacy):** géén `im:history` (DM's) aanvragen. Dit is een tool voor klant-/projectkanalen, niet voor het meelezen van privégesprekken. Bot kan sowieso alleen kanalen lezen waar hij lid van is — geen workspace-brede toegang.
+
+**Open beslissing (Thomas/Jörgen):** welke Slack-identiteit? Optie A (aanbevolen): nieuwe bot-scopes aanvragen + workspace opnieuw installeren (zelfde precedent als `users:read.email` eerder) — schoon, houdt niet op te bestaan als Thomas iets aan zijn eigen account verandert. Optie B (sneller, geen Slack-adminactie nodig): hergebruik `SLACK_USER_TOKEN` zoals `scrape_slack.py` al doet — dan handelt Ainstein voortaan onder Thomas' eigen Slack-identiteit, wat op termijn verwarrend wordt zodra iemand anders (Jörgen, een medewerker) Ainstein aanspreekt in een kanaal waar alleen Thomas bij kan.
+
+**Vervolgwaarde:** zodra deze tool bestaat, wordt "Ainstein signaleert eigen onbeantwoorde proactieve voorstellen" een kleine skill die hem gebruikt (checkt of een eerdere DM/thread een antwoord kreeg) — geen apart systeem, gewoon Ainstein-gedrag. Ook `meeting_reviewer` en `build_proposal` kunnen hier later live Slack-context uit putten in plaats van alleen de batch-snapshot.
+
+**Niet verwarren met:** de kennislaag (patronen, geen feiten) en de roadmap zelf (Ainstein-ontwikkeling, geen klantstatus). Zie `memory/project_ks_it_leiderschapsprogramma_status.md` voor het incident dat dit item opleverde.
+
+**Prioriteit:** medium — geen productie-impact vandaag, maar vult een structureel gat dat al drie keer deze sessie zichtbaar werd.
 
 ### Proposal Engine 2.0 bouwen (Fable-brief, idee 1)
 **Wat:** vijf-staps voorstel-pipeline (intake → parallelle retrieval naar evidence packs → draft → onafhankelijke adversarial review → ship via `create_gdoc`). Volledige uitvoerbare spec: `plans/fable-brief-proposal-engine.md` (geschreven door Fable, 6 juli, vóór sluiting van het Fable-window). Uitvoering kan op Opus/Sonnet.
@@ -337,13 +362,6 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie Thomas/Jörgen:** lees de 7 docs (via `read_file_cached`, niet de connector) en beoordeel of de synthese klopt en commercieel bruikbaar is.
 **Eerst gevlagd:** 25 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
 **Prioriteit:** medium — bepaalt of de kennislaag-methode het vertrouwen krijgt om breder te schalen.
-
-### [TWIJFEL — mogelijk verkeerde plek, zie hieronder] KNS-call Jane & Louis — uitkomst onbekend
-**Wat:** de call met Jane & Louis op 1 juli 2026 (KNS) had een onbekende uitkomst vanuit de daily-code-reviews.
-**Actie Thomas:** korte update — wat kwam eruit, en is er een vervolgactie voor Ainstein (voorstel, expert-match, debrief)?
-**Eerst gevlagd:** 25 juni 2026 (carry-forward in reviews, nooit in roadmap zelf opgenomen — hier alsnog toegevoegd 6 juli 2026).
-**Prioriteit:** medium.
-**Let op (7 juli 2026):** dit is, net als het inmiddels verwijderde KS/IT-item, waarschijnlijk een puur commercieel/klant-item dat niet op de Ainstein-roadmap hoort (zie `memory/feedback_way_of_working.md` sectie E). Nog niet verwijderd — wacht op Thomas' bevestiging.
 
 ### PPTX font-embedding visueel testen
 **Wat:** Sen ExtraBold is via OOXML ingebakken in PPTX-output (`pptx_builder.py:_embed_sen_extrabold`). Nog niet visueel geverifieerd op een machine zonder Sen-installatie.

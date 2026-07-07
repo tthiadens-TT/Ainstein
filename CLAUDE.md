@@ -79,6 +79,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 | Jamie payload veldnamen | ✅ Bevestigd | `metadata.id` (meeting ID), `data.title`, `data.summary.markdown`, `data.transcript[].speakerName`. Bij afwijkend schema in echte meeting: `jamie.py` logt raw payload naar `#ainstein-status`. |
 | Transcript truncatie | ✅ Geïmplementeerd | Max 24.000 chars (eerste 12k + laatste 12k). Voorkomt token-overflow bij lange transcripten. Zie `transcript_processor.py`. |
 | Slack OAuth scopes (volledig) | ✅ Geconfigureerd | `chat:write`, `reactions:read`, `users:read`, `users:read.email`, `app_mentions:mark`, `files:write`. SocketMode: `connections:write`. Niet opnieuw instellen — al geregeld. |
+| Slack `channels:history` + `channels:read` | ✅ Geconfigureerd | Ontdekt/bevestigd 7 juli 2026 via live test op de VM (`conversations_history`/`conversations_list` slagen met de bestaande bot-token) — stond niet in deze tabel, maar was al aanwezig. Draagt `list_slack_channels`/`read_slack_channel`/`search_slack` in `tools.py`. Geen nieuwe Slack-app-installatie nodig. |
 
 **Wanneer Thomas me corrigeert ("dat wist je al"): direct deze tabel updaten. Niet wachten.**
 

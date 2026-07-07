@@ -100,7 +100,13 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 
 ## 📋 Backlog — Technisch (bouwwerk)
 
-### Ainstein: live Slack-leestool (`search_slack` / `read_slack_channel`)
+### 🟢 Ainstein: live Slack-leestool — GEBOUWD + GETEST, wacht op push/deploy-akkoord
+
+**Status (7 juli 2026):** `list_slack_channels`, `read_slack_channel`, `search_slack` toegevoegd aan `tools.py` (functies + TOOL_SCHEMAS + dispatch), zelfde patroon als de bestaande Drive-tools. Live smoke-test op de VM tegen de echte Slack API geslaagd (kanaallijst, historie van `#nn-ks-it`, keyword-filter op "jane" — allemaal correcte resultaten). 9 nieuwe tests in `tests/test_slack_read_tools.py` (volledig gemockt, geen echte Slack-calls in de suite), volledige suite 82/82 groen. **Nog niet gepusht** — nieuwe agent-tools wijzigen live bot-gedrag zodra ze op main staan (auto-deploy), dus dat verdient een expliciet akkoord i.p.v. automatisch meegenomen worden. Zie `memory/project_ks_it_leiderschapsprogramma_status.md`.
+
+**Verificatie-uitkomst (was open, nu opgelost):** de bot-token heeft **al** `channels:history` + `channels:read` — bevestigd via een live testcall op de VM. Geen nieuwe Slack-scope-aanvraag, geen herinstallatie nodig. De "welke identiteit"-beslissing (bot-scopes vs. `SLACK_USER_TOKEN`) is daarmee vervallen: het gebruikt gewoon de bestaande `SLACK_BOT_TOKEN`, net als `send_slack_message`. CLAUDE.md's Verified Configurations-tabel was op dit punt verouderd, nu gecorrigeerd.
+
+**Nog wél open:** `groups:history` (private klantkanalen) is niet los getest — `#nn-ks-it` is publiek, dus dat pad is bewezen; een privékanaal is nog niet geprobeerd. Functies falen daar naar verwachting netjes met een foutmelding, niet stil.
 
 **Wat & Waarom:** Ainstein's eigen agent kan Slack alleen **schrijven** (`send_slack_message`) — nooit lezen of doorzoeken. Al haar kennis komt via Drive (`search_files`/`read_file`/`drive_read_kennis_laag`). Bij een vraag als "wat is de status van klant X" heeft Ainstein daardoor geen live bron: niet de kennislaag (die mijnt bewust alleen herbruikbare patronen, geen klantstatus-feiten — zie `memory/kennis_laag_prove_phase.md`), niet de batch-Slackscraper (draait pas sinds 22 juni cron, rollend venster van 2 dagen, geen historische backfill). Dit item vult **laag 3 van de kennisgroeistrategie** die op 22 juni al is besloten maar nooit gebouwd: *"Contextlaag (real-time per vraag) — deels op roadmap"* (zie `memory/architecture_state.md`).
 
@@ -111,13 +117,13 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 - `read_slack_channel(channel, since=None)` — mirrort `read_file`. Hergebruikt de al bestaande, geteste `_fetch_history`/`_fetch_replies`-functies uit `scripts/scrape_slack.py` (paginering + thread-replies is al opgelost, geen nieuwe code nodig voor dat deel).
 - `search_slack(query, channel=None)` — mirrort `search_files`. **Geen** Slack `search.messages`-API (die is uitsluitend voor user tokens, niet voor bot tokens — een bot-token-implementatie kan dit niet vervangen). Implementatie: haal historie van het (resolved) kanaal op en filter lokaal op keyword, zelfde aanpak als de bestaande Drive-`search_files`-fallback.
 
-**Verificeren vóór bouwen (niet aannemen):**
-1. Heeft de bot-token al `channels:history`? Tegenstrijdig bewijs: `slack_app.py`'s setup-docstring (regel 8) noemt het als vereist én er bestaat al een fallback-aanroep (`conversations_history`, regel 1211, reactie-feedbackflow) — maar de Verified Configurations-tabel in CLAUDE.md vermeldt de scope niet. Test met een echte call op de VM vóór dit als "ontbrekend" of "aanwezig" wordt gerapporteerd.
-2. `groups:history` nodig als private klantkanalen bestaan (bevestigd publiek: `#nn-ks-it`; niet elk klantkanaal is gecheckt).
+**Verificeren vóór bouwen — OPGELOST, zie Status hierboven:**
+~~1. Heeft de bot-token al channels:history?~~ Ja, bevestigd via live test.
+~~2. groups:history nodig voor private kanalen?~~ Nog niet los getest (geen blocker, geen private klantkanaal bij de hand); functies falen netjes als het ontbreekt.
 
-**Bewuste grens (privacy):** géén `im:history` (DM's) aanvragen. Dit is een tool voor klant-/projectkanalen, niet voor het meelezen van privégesprekken. Bot kan sowieso alleen kanalen lezen waar hij lid van is — geen workspace-brede toegang.
+**Bewuste grens (privacy):** géén `im:history` (DM's) aangevraagd of gebruikt. Dit is een tool voor klant-/projectkanalen, niet voor het meelezen van privégesprekken. Bot kan sowieso alleen kanalen lezen waar hij lid van is (privékanalen) of die publiek zijn — geen workspace-brede toegang tot DM's.
 
-**Open beslissing (Thomas/Jörgen):** welke Slack-identiteit? Optie A (aanbevolen): nieuwe bot-scopes aanvragen + workspace opnieuw installeren (zelfde precedent als `users:read.email` eerder) — schoon, houdt niet op te bestaan als Thomas iets aan zijn eigen account verandert. Optie B (sneller, geen Slack-adminactie nodig): hergebruik `SLACK_USER_TOKEN` zoals `scrape_slack.py` al doet — dan handelt Ainstein voortaan onder Thomas' eigen Slack-identiteit, wat op termijn verwarrend wordt zodra iemand anders (Jörgen, een medewerker) Ainstein aanspreekt in een kanaal waar alleen Thomas bij kan.
+**Open beslissing (Thomas/Jörgen) — VERVALLEN:** de "welke identiteit"-vraag hoefde niet meer beantwoord te worden — de bestaande bot-token volstaat, geen Slack-adminactie nodig.
 
 **Vervolgwaarde:** zodra deze tool bestaat, wordt "Ainstein signaleert eigen onbeantwoorde proactieve voorstellen" een kleine skill die hem gebruikt (checkt of een eerdere DM/thread een antwoord kreeg) — geen apart systeem, gewoon Ainstein-gedrag. Ook `meeting_reviewer` en `build_proposal` kunnen hier later live Slack-context uit putten in plaats van alleen de batch-snapshot.
 

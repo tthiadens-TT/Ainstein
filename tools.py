@@ -2220,6 +2220,197 @@ def send_slack_message(channel: str, text: str, thread_ts: str | None = None) ->
 
 
 # ---------------------------------------------------------------------------
+# Slack read tools — live context (kennisgroeistrategie laag 3: Contextlaag)
+#
+# Bot-tokens kunnen geen Slack search.messages aanroepen (user-token-only in
+# Slack's API). search_slack filtert daarom lokaal op keyword na het ophalen
+# van kanaalhistorie — zelfde aanpak als _drive_search_files voor Drive.
+# ---------------------------------------------------------------------------
+
+_SLACK_CHANNEL_ID_RE = re.compile(r"^[A-Z][A-Z0-9]{8,}$")
+_SLACK_MAX_PAGES = 3  # begrenst latency/rate-limit-risico per tool-call
+
+
+def _slack_read_client():
+    token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
+    if not token:
+        return None, "SLACK_BOT_TOKEN not set — cannot read Slack."
+    from slack_sdk import WebClient as _WebClient
+    return _WebClient(token=token), None
+
+
+def _resolve_slack_channel_id(client, channel: str) -> str | None:
+    """Resolve '#nn-ks-it', 'nn-ks-it' or a channel ID to a channel ID."""
+    if not channel:
+        return None
+    channel = channel.strip()
+    if _SLACK_CHANNEL_ID_RE.match(channel):
+        return channel
+    name = channel.lstrip("#").lower()
+    cursor = None
+    while True:
+        kwargs = {"types": "public_channel,private_channel", "limit": 200}
+        if cursor:
+            kwargs["cursor"] = cursor
+        resp = client.conversations_list(**kwargs)
+        for ch in resp.get("channels", []):
+            if ch.get("name", "").lower() == name:
+                return ch["id"]
+        cursor = resp.get("response_metadata", {}).get("next_cursor", "")
+        if not cursor:
+            return None
+
+
+def list_slack_channels() -> dict:
+    """List Slack channels the bot can see (public) or is a member of (private)."""
+    client, err = _slack_read_client()
+    if err:
+        return {"error": err}
+    try:
+        channels = []
+        cursor = None
+        pages = 0
+        while pages < _SLACK_MAX_PAGES:
+            kwargs = {"types": "public_channel,private_channel", "limit": 200, "exclude_archived": True}
+            if cursor:
+                kwargs["cursor"] = cursor
+            resp = client.conversations_list(**kwargs)
+            for ch in resp.get("channels", []):
+                channels.append({
+                    "id": ch["id"],
+                    "name": ch.get("name"),
+                    "is_private": ch.get("is_private", False),
+                    "is_member": ch.get("is_member", False),
+                    "topic": (ch.get("topic") or {}).get("value", ""),
+                })
+            pages += 1
+            cursor = resp.get("response_metadata", {}).get("next_cursor", "")
+            if not cursor:
+                break
+        return {"channels": channels, "total": len(channels), "truncated": bool(cursor)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def read_slack_channel(channel: str, since_days: int = 30, limit: int = 200) -> dict:
+    """Read recent message history (incl. thread replies) from one Slack channel.
+
+    Only works for channels the bot can access: public channels, or private
+    channels it has been invited to. since_days bounds how far back to read.
+    """
+    client, err = _slack_read_client()
+    if err:
+        return {"error": err}
+    channel_id = _resolve_slack_channel_id(client, channel)
+    if not channel_id:
+        return {"error": f"Kanaal niet gevonden of bot heeft geen toegang: {channel}"}
+    try:
+        oldest = str((datetime.now(timezone.utc) - timedelta(days=since_days)).timestamp()) if since_days else "0"
+        messages = []
+        cursor = None
+        pages = 0
+        truncated = False
+        while pages < _SLACK_MAX_PAGES and len(messages) < limit:
+            kwargs = {"channel": channel_id, "oldest": oldest, "limit": 200}
+            if cursor:
+                kwargs["cursor"] = cursor
+            resp = client.conversations_history(**kwargs)
+            for m in resp.get("messages", []):
+                if m.get("subtype"):
+                    continue
+                entry = {"ts": m.get("ts"), "user": m.get("user", "bot"), "text": m.get("text", "")}
+                if m.get("thread_ts") and m.get("reply_count", 0) > 0:
+                    try:
+                        replies = client.conversations_replies(
+                            channel=channel_id, ts=m["thread_ts"], limit=50,
+                        ).get("messages", [])[1:]
+                        entry["replies"] = [
+                            {"ts": r.get("ts"), "user": r.get("user", "bot"), "text": r.get("text", "")}
+                            for r in replies
+                        ]
+                    except Exception:
+                        pass
+                messages.append(entry)
+            pages += 1
+            cursor = resp.get("response_metadata", {}).get("next_cursor", "")
+            if not cursor:
+                break
+        else:
+            truncated = bool(cursor)
+        messages.sort(key=lambda m: float(m["ts"]))
+        return {
+            "channel": channel_id,
+            "since_days": since_days,
+            "messages": messages[-limit:],
+            "total": len(messages),
+            "truncated": truncated,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def search_slack(query: str, channel: str | None = None, since_days: int = 90, max_results: int = 20) -> dict:
+    """Keyword-search Slack message history. Searches one channel if given,
+    otherwise all public channels plus private channels the bot is a member of
+    (capped, see truncated flag). No Slack search.messages API involved —
+    fetches history per channel and filters locally on keyword.
+    """
+    client, err = _slack_read_client()
+    if err:
+        return {"error": err}
+    terms = [t.lower() for t in query.split() if t]
+    if channel:
+        cid = _resolve_slack_channel_id(client, channel)
+        if not cid:
+            return {"error": f"Kanaal niet gevonden of bot heeft geen toegang: {channel}"}
+        target_channels = [cid]
+        channels_truncated = False
+    else:
+        listing = list_slack_channels()
+        if "error" in listing:
+            return listing
+        candidates = [
+            c["id"] for c in listing["channels"]
+            if not c["is_private"] or c["is_member"]
+        ]
+        _MAX_CHANNELS = 15
+        target_channels = candidates[:_MAX_CHANNELS]
+        channels_truncated = len(candidates) > _MAX_CHANNELS
+
+    oldest = str((datetime.now(timezone.utc) - timedelta(days=since_days)).timestamp()) if since_days else "0"
+    results = []
+    for cid in target_channels:
+        try:
+            cursor = None
+            pages = 0
+            while pages < _SLACK_MAX_PAGES:
+                kwargs = {"channel": cid, "oldest": oldest, "limit": 200}
+                if cursor:
+                    kwargs["cursor"] = cursor
+                resp = client.conversations_history(**kwargs)
+                for m in resp.get("messages", []):
+                    text = (m.get("text") or "").lower()
+                    if terms and all(t in text for t in terms):
+                        results.append({
+                            "channel": cid, "ts": m.get("ts"),
+                            "user": m.get("user", "bot"), "text": m.get("text", ""),
+                        })
+                pages += 1
+                cursor = resp.get("response_metadata", {}).get("next_cursor", "")
+                if not cursor:
+                    break
+        except Exception as e:
+            logger.warning("search_slack: kanaal %s mislukt: %s", cid, e)
+    results.sort(key=lambda r: float(r.get("ts", 0)), reverse=True)
+    return {
+        "query": query,
+        "channels_searched": len(target_channels),
+        "channels_truncated": channels_truncated,
+        "results": results[:max_results],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Tool schemas for the Anthropic API
 # ---------------------------------------------------------------------------
 
@@ -2542,6 +2733,66 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "list_slack_channels",
+        "description": (
+            "List Slack channels — public channels workspace-wide, plus private channels "
+            "this bot is a member of. Use to find a channel ID/name before read_slack_channel "
+            "or search_slack, e.g. to find the channel for a specific client."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "read_slack_channel",
+        "description": (
+            "Read recent message history (including thread replies) from one Slack channel — "
+            "e.g. to check the live, current status of a client engagement instead of relying "
+            "on the (static) kennislaag or Drive source layer. Only works for channels this bot "
+            "can access (public channels, or private channels it has been invited to)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string",
+                    "description": "Channel ID (e.g. 'C0BAFJ1GDF1') or name (e.g. '#nn-ks-it' or 'nn-ks-it').",
+                },
+                "since_days": {
+                    "type": "integer",
+                    "description": "How many days of history to fetch. Default 30.",
+                },
+            },
+            "required": ["channel"],
+        },
+    },
+    {
+        "name": "search_slack",
+        "description": (
+            "Keyword-search Slack messages — across one named channel, or across all accessible "
+            "channels if none is given. Use for 'what's the status of X' / 'what happened with Y' "
+            "questions where the answer is a current fact, not a reusable pattern (that's the "
+            "kennislaag's job, not this tool's). This is a local keyword filter over fetched "
+            "channel history, not Slack's workspace search — so results depend on since_days."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search terms, e.g. 'KS/IT programmaschets klankbord'.",
+                },
+                "channel": {
+                    "type": "string",
+                    "description": "Optional. Restrict search to one channel (ID or name).",
+                },
+                "since_days": {
+                    "type": "integer",
+                    "description": "How many days back to search. Default 90.",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "export_proposal_deck",
         "description": (
             "Generate a Minkowski-branded PowerPoint deck from a Google Doc proposal. "
@@ -2658,6 +2909,19 @@ def dispatch(tool_name: str, tool_input: dict) -> str:
             channel=tool_input["channel"],
             text=tool_input["text"],
             thread_ts=tool_input.get("thread_ts"),
+        )
+    elif tool_name == "list_slack_channels":
+        result = list_slack_channels()
+    elif tool_name == "read_slack_channel":
+        result = read_slack_channel(
+            tool_input["channel"],
+            since_days=tool_input.get("since_days", 30),
+        )
+    elif tool_name == "search_slack":
+        result = search_slack(
+            tool_input["query"],
+            channel=tool_input.get("channel"),
+            since_days=tool_input.get("since_days", 90),
         )
     elif tool_name == "export_proposal_deck":
         try:

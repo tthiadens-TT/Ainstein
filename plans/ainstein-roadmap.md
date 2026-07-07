@@ -309,11 +309,12 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 
 ### Richtingkeuze simulatielaag: oordeel- en uitkomstenregister starten? (verkenning 2 juli 2026)
 **Wat:** de verkenning `docs/verkenning-simulatielaag-general-intuition.md` (ook als Google Doc in `00_Werkdocumenten`) concludeert: de sterkste vertaling van de General Intuition-mechaniek is richting D+A, een oordeel- en uitkomstenregister (beslissingen + verwachtingen + latere uitkomsten vastleggen als cumulatieve asset). Bewoonbare scenario's (C) zijn de commerciële horizon maar horen ná de datafundering.
-**Voorgestelde kleinste eerste stap (uit het document):**
-1. Twee bekende uitkomsten handmatig registreren in de bestaande `08_Outcomes`-template (NN IC gewonnen mei 2026; expert-match verloren op tarief). Half uur werk, test het format.
-2. `meeting_reviewer` uitbreiden met sectie "Oordelen en verwachtingen" → append-only register in Drive (skill-tekstwijziging, geen nieuwe architectuur).
+**Herzien 7 juli 2026:** de "uitkomsten"-helft van dit idee vervalt grotendeels. Deal-uitkomsten hoeven niet apart geregistreerd: het akkoord zit in het finale voorstel (`FINAL`-bestand in `01_Clients`), 95-100% van de waarheid. Er is geen `08_Outcomes`-template om te vullen (fantoom-map, leeg steigerwerk). Wat WEL een apart en onbeantwoord idee blijft: een **oordelen-en-verwachtingen**-register (voorspellingen van experts vastleggen om ze later te toetsen), dat is iets anders dan deal-uitkomsten.
+**Voorgestelde kleinste eerste stap (herzien):**
+1. VERVALLEN: handmatig uitkomsten loggen in 08_Outcomes. In plaats daarvan: retrieval-first in `build_proposal` (haalt uit de bestaande finale voorstellen) is de echte eerste stap, zie Technisch-backlog.
+2. `meeting_reviewer` uitbreiden met sectie "Oordelen en verwachtingen" → append-only register in Drive (skill-tekstwijziging, geen nieuwe architectuur). Alleen als de open vraag hieronder JA is.
 3. Maandelijks terugkijk-moment in `#ainstein-status`: welke open voorspellingen hebben een uitkomst?
-**Open vraag [aanname in doc]:** willen Jörgen en de experts dat hun oordeel vastgelegd en herbruikbaar wordt? Nooit expliciet besproken.
+**Open vraag [aanname in doc]:** willen Jörgen en de experts dat hun oordeel vastgelegd en herbruikbaar wordt? Nooit expliciet besproken. Dit is de enige echte beslissing die dit item nog draagt.
 **Beslissing Thomas/Jörgen:** akkoord op deze richting en eerste stap, of andere prioritering.
 
 ### Optie 2 (Claude Projects): connector eerst testen, niet aannemen — gecorrigeerd 2 juli 2026
@@ -396,6 +397,8 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 ## 📋 Backlog — Architectuuropties (Major Decisions)
 
 ### OPTIE 2: Claude Projects Goed Inrichten — Tutorial & Checklist
+> ⚠️ **Verouderde mapnamen (markering 7 juli 2026):** dit hele tutorialblok hieronder gebruikt de pre-migratie type-structuur (`01_Proposals`, `07_Feedback`, `08_Outcomes`) die op 30 juni is vervangen door de entiteit-structuur (`01_Clients`, gaps.md in `05_Ainstein Knowledge Base`). `08_Outcomes` is bovendien een fantoom-map (zie Technisch-backlog + CLAUDE.md). Lees de mapverwijzingen hieronder als achterhaald; het werkwijze-idee (samen in een Project aan een voorstel werken met feedback-loop) blijft geldig. Bij activeren eerst de paden actualiseren.
+
 **Status:** Ready to launch  
 **Priority:** HOOG  
 **Horizon:** NU (deze week starten)  

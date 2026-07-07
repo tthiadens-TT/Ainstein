@@ -22,7 +22,7 @@ Use this skill when the request includes questions like:
 
 ## Inputs to Retrieve
 Retrieve from:
-- `01_Clients` for similar proposals, structures, and wording
+- `01_Clients` for similar proposals, structures, and wording — see Step 0 for how these are actually organized (loose final files, not a subfolder)
 - `02_Frameworks & Tools` for methods, formats, and program logic
 - `04_Marketing/Pricing` for commercial structure and pricing logic
 - `03_Experts` for relevant profiles and staffing options
@@ -36,6 +36,17 @@ Also use:
 - internal notes
 
 ## Proposal Steps
+
+### 0. Retrieve Before Generating (always first)
+Before drafting anything, retrieve the finalised, accepted proposals from `01_Clients`. This is the strongest source of proven structure, wording, and pricing logic — reuse it before generating anything new.
+
+**Where to look:** `01_Clients` is mostly flat — client subfolders exist but the real proposals sit as loose files in the folder itself, not in a `Proposals` or `Outcomes` subfolder (those are empty scaffolding, not populated). Identify final proposals by filename pattern: contains `FINAL`, `Proposal`, or `Voorstel` (e.g. `Proposal NN Lead4 by Minkowski FINAL.md`, `Voorstel NN Retail Schade en Zorg FINAL.md`). A finalised proposal is 95–100% of the truth for what was actually agreed — design-phase deltas are usually minor nuance, not a reason to skip it.
+
+**How to search:** search `01_Clients` for the same or an adjacent client/sector first. If nothing matches, broaden to any final proposal with a similar module logic or program type.
+
+**What to do with what you find:** use it as the reference structure, wording, and pricing baseline. Generate only what cannot be retrieved — a genuinely new module, a client-specific angle, or content that doesn't exist yet in any prior proposal. Do not regenerate from scratch what a finalised proposal already solved.
+
+**If nothing relevant exists:** say so explicitly before proceeding — this is a signal the source layer is thin for this case, not a reason to invent confident-sounding boilerplate.
 
 ### 1. Define the Core Problem
 Clarify:
@@ -53,15 +64,15 @@ Make explicit:
 - where Minkowski is distinctive
 - why this is not a generic training, workshop, or strategy process
 
-### 3. Retrieve Reusable Elements
-Search for:
+### 3. Confirm Reusable Elements
+Building on Step 0, confirm what from the retrieved final proposal(s) actually fits this case:
 - similar client situations
 - reusable proposal structures
 - recurring module logic
 - strong phrasing
 - proof points or framing worth reusing
 
-Reuse first. Do not start from zero unless necessary.
+Reuse first. Only generate from zero what Step 0 did not surface.
 
 ### 4. Shape the Offer
 Propose a structure for the offer:

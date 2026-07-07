@@ -100,37 +100,6 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 
 ## 📋 Backlog — Technisch (bouwwerk)
 
-### 🟢 Ainstein: live Slack-leestool — GEBOUWD + GETEST, wacht op push/deploy-akkoord
-
-**Status (7 juli 2026):** `list_slack_channels`, `read_slack_channel`, `search_slack` toegevoegd aan `tools.py` (functies + TOOL_SCHEMAS + dispatch), zelfde patroon als de bestaande Drive-tools. Live smoke-test op de VM tegen de echte Slack API geslaagd (kanaallijst, historie van `#nn-ks-it`, keyword-filter op "jane" — allemaal correcte resultaten). 9 nieuwe tests in `tests/test_slack_read_tools.py` (volledig gemockt, geen echte Slack-calls in de suite), volledige suite 82/82 groen. **Nog niet gepusht** — nieuwe agent-tools wijzigen live bot-gedrag zodra ze op main staan (auto-deploy), dus dat verdient een expliciet akkoord i.p.v. automatisch meegenomen worden. Zie `memory/project_ks_it_leiderschapsprogramma_status.md`.
-
-**Verificatie-uitkomst (was open, nu opgelost):** de bot-token heeft **al** `channels:history` + `channels:read` — bevestigd via een live testcall op de VM. Geen nieuwe Slack-scope-aanvraag, geen herinstallatie nodig. De "welke identiteit"-beslissing (bot-scopes vs. `SLACK_USER_TOKEN`) is daarmee vervallen: het gebruikt gewoon de bestaande `SLACK_BOT_TOKEN`, net als `send_slack_message`. CLAUDE.md's Verified Configurations-tabel was op dit punt verouderd, nu gecorrigeerd.
-
-**Nog wél open:** `groups:history` (private klantkanalen) is niet los getest — `#nn-ks-it` is publiek, dus dat pad is bewezen; een privékanaal is nog niet geprobeerd. Functies falen daar naar verwachting netjes met een foutmelding, niet stil.
-
-**Wat & Waarom:** Ainstein's eigen agent kan Slack alleen **schrijven** (`send_slack_message`) — nooit lezen of doorzoeken. Al haar kennis komt via Drive (`search_files`/`read_file`/`drive_read_kennis_laag`). Bij een vraag als "wat is de status van klant X" heeft Ainstein daardoor geen live bron: niet de kennislaag (die mijnt bewust alleen herbruikbare patronen, geen klantstatus-feiten — zie `memory/kennis_laag_prove_phase.md`), niet de batch-Slackscraper (draait pas sinds 22 juni cron, rollend venster van 2 dagen, geen historische backfill). Dit item vult **laag 3 van de kennisgroeistrategie** die op 22 juni al is besloten maar nooit gebouwd: *"Contextlaag (real-time per vraag) — deels op roadmap"* (zie `memory/architecture_state.md`).
-
-**Ontstaan (7 juli 2026):** ontdekt tijdens het uitzoeken van de NN KS/IT-status. Een Claude Code-sessie kon dit live in Slack vinden; Ainstein zelf zou dat niet gekund hebben. Eerste oplossing (een los Slack-canvas + scheduled task als "boekhouding ernaast") is bewust teruggedraaid — dat maakt Ainstein niet slimmer, het bouwt een schaduwsysteem. De juiste plek is een tool op Ainstein's eigen agent, zelfde patroon als de bestaande Drive-tools.
-
-**Ontwerp:**
-- `list_slack_channels()` — mirrort `list_folder`. Gebruikt `conversations.list` (scrape_slack.py bewijst dat dit al werkt in productie).
-- `read_slack_channel(channel, since=None)` — mirrort `read_file`. Hergebruikt de al bestaande, geteste `_fetch_history`/`_fetch_replies`-functies uit `scripts/scrape_slack.py` (paginering + thread-replies is al opgelost, geen nieuwe code nodig voor dat deel).
-- `search_slack(query, channel=None)` — mirrort `search_files`. **Geen** Slack `search.messages`-API (die is uitsluitend voor user tokens, niet voor bot tokens — een bot-token-implementatie kan dit niet vervangen). Implementatie: haal historie van het (resolved) kanaal op en filter lokaal op keyword, zelfde aanpak als de bestaande Drive-`search_files`-fallback.
-
-**Verificeren vóór bouwen — OPGELOST, zie Status hierboven:**
-~~1. Heeft de bot-token al channels:history?~~ Ja, bevestigd via live test.
-~~2. groups:history nodig voor private kanalen?~~ Nog niet los getest (geen blocker, geen private klantkanaal bij de hand); functies falen netjes als het ontbreekt.
-
-**Bewuste grens (privacy):** géén `im:history` (DM's) aangevraagd of gebruikt. Dit is een tool voor klant-/projectkanalen, niet voor het meelezen van privégesprekken. Bot kan sowieso alleen kanalen lezen waar hij lid van is (privékanalen) of die publiek zijn — geen workspace-brede toegang tot DM's.
-
-**Open beslissing (Thomas/Jörgen) — VERVALLEN:** de "welke identiteit"-vraag hoefde niet meer beantwoord te worden — de bestaande bot-token volstaat, geen Slack-adminactie nodig.
-
-**Vervolgwaarde:** zodra deze tool bestaat, wordt "Ainstein signaleert eigen onbeantwoorde proactieve voorstellen" een kleine skill die hem gebruikt (checkt of een eerdere DM/thread een antwoord kreeg) — geen apart systeem, gewoon Ainstein-gedrag. Ook `meeting_reviewer` en `build_proposal` kunnen hier later live Slack-context uit putten in plaats van alleen de batch-snapshot.
-
-**Niet verwarren met:** de kennislaag (patronen, geen feiten) en de roadmap zelf (Ainstein-ontwikkeling, geen klantstatus). Zie `memory/project_ks_it_leiderschapsprogramma_status.md` voor het incident dat dit item opleverde.
-
-**Prioriteit:** medium — geen productie-impact vandaag, maar vult een structureel gat dat al drie keer deze sessie zichtbaar werd.
-
 ### Proposal Engine 2.0 bouwen (Fable-brief, idee 1)
 **Wat:** vijf-staps voorstel-pipeline (intake → parallelle retrieval naar evidence packs → draft → onafhankelijke adversarial review → ship via `create_gdoc`). Volledige uitvoerbare spec: `plans/fable-brief-proposal-engine.md` (geschreven door Fable, 6 juli, vóór sluiting van het Fable-window). Uitvoering kan op Opus/Sonnet.
 **Volgorde Jörgen:** na validatie van de whats-your-future tool (idee 4 → 1 → 5).
@@ -851,6 +820,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Ainstein: live Slack-leestool. `list_slack_channels`, `read_slack_channel`, `search_slack` toegevoegd aan `tools.py`, zelfde patroon als de bestaande Drive-tools. Vult laag 3 (contextlaag, real-time per vraag) van de kennisgroeistrategie — Ainstein kon Slack eerder alleen schrijven, nooit lezen. Bot-token had `channels:history`/`channels:read` al, live geverifieerd op de VM, geen nieuwe Slack-scope-aanvraag nodig. 9 nieuwe tests (volledig gemockt), suite 82/82 groen. Live smoke-test op de VM tegen echte Slack API geslaagd. Gepusht naar main en dus via GitHub Actions auto-deploy live op de VM (geverifieerd via `git log`, niet aangenomen — de roadmap-tekst zei nog "wacht op akkoord" maar dat was al achterhaald). | `2883d1f` | 7 juli 2026 |
 | Fable-sessie (idee 4 uit de Ainstein Slack-thread): "What's Your Future?" gebouwd als `whats-your-future/` — statisch facilitator-instrument voor discovery-gesprekken (Cone of Possibilities: probable/plausible/preferable, 4 ICP-sectoren × 4 thema's = 48 scenario's + leiderschapsvragen, 3 signal-houdingen, Copy-session-summary naar Ainstein-pipeline, print-output). Orchestrator-patroon bewezen: Fable plande/verifieerde, 3× Sonnet + 1× Haiku bouwden, 1 revisieronde (stem-consistentie). Brand-learnings uit parallelle sessie direct toegepast: fontrollen gecorrigeerd (Sen ExtraBold alleen wordmark, Helvetica Neue koppen, Light body). Plus twee zelfstandig uitvoerbare Fable-briefs voor idee 1 en 5 in `plans/fable-brief-*.md`. End-to-end getest via Playwright (scoring-randen, klembord, alle stappen). | `1386b68`, `5e6d509` | 6 juli 2026 |
 | GitHub keychain-incident opgelost: een 401 op een verouderd tweede token liet git álle github.com-keychain-entries wissen (osxkeychain wist op host, niet op account) — pushen brak machinebreed. Werkend token teruggezet vanaf de VM-credential-store (met expliciet akkoord Thomas, buiten auto-modus; eerst gevalideerd via API-call). Herstelroute + valkuil gedocumenteerd in memory `connector_access_paths.md`. GitHub MCP-token blijft verlopen (bestaand roadmap-item). | keychain-herstel | 6 juli 2026 |
 | Brand consistency audit afgerond — 5 commits live: f59a099 (CORE/PATTERNS scheiding + sentinel-parsing), 6ace92c (Brand CORE onvoorwaardelijk injectie), 880003c (brand_core.md feitelijke basis injectie), 36c55f7 (Minkowski-kleur/font op alle Google Docs), f605536 (Meeting Notes vermerking). Probleem 1: `update_stijl.py` dupliceerde wekelijks met fragiel kopftekst-matching, nu sentinel-based (hard-fail op ontbrekende markers, geen stille append). Probleem 2: CORE-regels stonden dubbel (verbal_identity.md + minkowski_voice.md), nu enkel in verbal_identity.md, via agent.py onvoorwaardelijk geïnjecteerd. Probleem 3: visual_identity.md was leeg — gevuld met geverifieerde waarden uit pptx_builder.py + brondocument, gelabeld als "code-afgeleid/onbevestigd". Test-isolatie: 22 nieuwe tests toegevoegd (4 testbestanden), suite 73/73 groen. 200 OK webhook-test. | `f59a099` t/m `f605536` | 6 juli 2026 |

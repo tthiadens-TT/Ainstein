@@ -52,6 +52,17 @@
 ### 1. Van "bestanden overal" naar één bestand per bron
 Nu staan er nog losse en dubbele bestanden: verweesde legacy-docs in verkeerde mappen, meerdere versies per bron, een mix van oude Google Docs en nieuwe `.md`. Doel: **precies één canoniek, platte-tekst bestand per bron**, dat na elke scrape wordt aangevuld/vernieuwd/ontdubbeld — nooit een tweede ernaast. Ordelijk, begrijpelijk, geen archeologie meer nodig.
 
+### 1b. De brónlaag zelf ordenen (`01_Clients` als schrijnend voorbeeld)
+Het probleem zit niet alleen in `_bronmateriaal` (de scrape-bakjes), maar net zo hard in de **bronlaag zelf**. `01_Clients` is nu een platte stortplaats: tientallen losse `.md`-bestanden (voorstellen, needs-analyses, transcripten, cache-versies, forwards) door elkaar, met daartussen een handvol echte klantmappen (NN Group, Jetske Ultee, Holland & Barrett). Voor een mens onvindbaar, voor Ainstein ruis, en cache-bestanden zijn niet te onderscheiden van echte documenten.
+
+**Ontwerprichting (te beoordelen):**
+- **Per entiteit een map, niet plat.** Elke klant zijn eigen submap (zoals NN Group al heeft), met een vaste, herkenbare interne indeling (bv. voorstellen / gespreksnotities / analyses / uitkomst). De top-laag werd op 30 juni al entiteit-gebaseerd gemaakt; die logica moet nú ook *binnen* de mappen doorgetrokken.
+- **Cache hoort niet in de root.** De markdown-cache moet naast zijn origineel staan, nooit los in de map-root (dit is deels het bekende cache-opruim-item, maar hoort structureel hier thuis).
+- **Eén canoniek document per ding.** Niet vijf forwards en drie versies van dezelfde needs-analysis los naast elkaar; het finale/geaccordeerde document is leidend, de rest is historie of weg.
+- **Naamgeving die de structuur draagt** i.p.v. losse datum-prefixen die alleen chronologie geven.
+
+Dit is dezelfde ziekte als het compleetheids-lek: er is geen ordenend principe dat wordt afgedwongen, dus rommel stapelt zich op tot iemand het toevallig ziet.
+
 ### 2. De flow perfectioneren (kwaliteit als garantie, niet toeval)
 Inbouwen wat op 8 juli ontbrak:
 - **Compleetheids-check:** een bron mag nooit stilletjes krimpen. Wat de map hoort te bevatten, staat vast en wordt geverifieerd.
@@ -75,6 +86,7 @@ De huidige routine bewaakt een dode lijst en is op pauze gezet. De juiste routin
 Dit is niet een opruimklus, het is het verschil tussen een Ainstein die toevallig goed antwoordt en een Ainstein die je kunt vertrouwen omdat de kennisstroom eronder ordelijk, compleet en controleerbaar is. Elke verbetering hierboven maakt Ainstein een stap minder afhankelijk van wie op welk moment welke scrape deed, en een stap dichter bij "de kennis is van Minkowski, geborgd en schaalbaar".
 
 ## Te beoordelen op een later moment
+0. Akkoord op een **ordenend principe voor de hele bronlaag** (per entiteit een map met vaste indeling, cache naast origineel, één canoniek document per ding) — te beginnen bij `01_Clients`.
 1. Akkoord op "één canoniek bestand per bron" als harde ontwerpregel.
 2. Welke kwaliteitsverbeteringen eerst (stemgewicht, derde stemmen, merge-stap).
 3. De routine: scrape, bevestigingsloop, of beide — en onder welke guardrails.

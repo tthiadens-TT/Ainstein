@@ -27,7 +27,6 @@ SKIP_MODULES = {
     "setup_gdrive_auth.py",  # eenmalig setup script
     "read_gdoc_comments.py", # utility
     "update_gdoc.py",        # utility
-    "list_drive_changes.py", # utility
     "run_backup.sh",         # bash, geen py
     "__init__.py",
     # Scrapers: gedekt door generieke vermelding in Current State
@@ -48,6 +47,10 @@ SKIP_MODULES = {
     "migrate_stray_marketing.py",
     # Handmatig testscript voor de Jamie-webhook (geen productielogica)
     "test_jamie_webhook.py",
+    # Eenmalig consolidatiescript (8 juli 2026): herstelt compleetheid LinkedIn-
+    # bronnen + ruimt verweesde legacy-docs op. Verwijderen na geslaagde --apply.
+    # Gedocumenteerd in plans/ainstein-roadmap.md.
+    "consolidate_linkedin_source.py",
 }
 
 # Drive-mappen die in de code voorkomen en gedocumenteerd moeten zijn

@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 7 juli 2026 (scope-correctie: KS/IT- en KNS-call-item verwijderd — bleek dubbeling van hetzelfde NN-traject, hoort sowieso niet op de Ainstein-roadmap. Eerste vervolgoplossing — een Slack-canvas als los logboek — teruggedraaid: bouwt een systeem naast Ainstein i.p.v. Ainstein zelf te verbeteren. Juiste item toegevoegd: live Slack-leestool voor Ainstein's eigen agent, zie sectie "Backlog — Technisch")*
+*Bijgewerkt: 8 juli 2026 (kennislaag bron-governance uitgezocht: LinkedIn-Jörgen-bron bleek incompleet — pijplijn las 42 posts terwijl een completere 120-post-scrape verweesd in de root lag. Scraper-compleetheids-grendel gebouwd, consolidatiescript klaar (dry-run geverifieerd). Bevestigingsroutine beoordeeld: stale, herontwerp nodig. Zie nieuwe sectie "Kennislaag bron-governance".)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -46,6 +46,34 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 - **BESLISSING NODIG:** `00_Werkdocumenten` heeft `LEAD3_NN_Group_Opzet_updated.pptx` **4x met drie verschillende groottes** (62467/62801/63074 b). Dit zijn géén schone duplicaten maar mogelijk verschillende versies van een klant-deck. Niet blind verwijderd. Thomas: welke is de canonieke versie? Dan ruim ik de rest op.
 - `01_Clients/.../Test/Meetingnotes`: 4x identieke `Meetingnote 2026-06-26 — Test kennismaking` (nog niet onderzocht; laag).
 **Prioriteit:** laag, blokkeert niets.
+
+---
+
+## 🟠 Kennislaag bron-governance (uitgezocht 8 juli 2026)
+
+**Kern:** de kennislaag-pijplijn leest per bron een Drive-*map* (`bronnen.json`), niet een versie. Er was geen compleetheids-check. Gevolg: voor LinkedIn-Jörgen las de pijplijn een handmatige scrape van **42 posts** (`linkedin_jorgen_archief.md`, 21 juni), terwijl een completere scrape van **120 posts** (27 mei) verweesd als Google Doc in de root van `_bronmateriaal/` lag, ongelezen. Ainstein kreeg dus een derde van Jörgens LinkedIn-stem. Grondwaarheid geverifieerd via serviceaccount op de VM (niet de connector).
+
+**Wat is gedaan (code, live via deploy):**
+- `scrape_linkedin.py` **compleetheids-grendel**: stabiele bestandsnaam (`linkedin_<origin>.md`, geen datum meer) + weigert een bestaande rijkere bron te overschrijven met minder posts + convergeert naar één bestand. Voorkomt de oorzaak: de VM-scraper haalt maar ~6 seed-posts en kon zo een handmatige rijke bron verpesten. Docstring recht. 82/82 tests groen.
+- `scripts/consolidate_linkedin_source.py` gebouwd (eenmalig, dry-run default). Overlap-grendel via tekst-shingles: ruimt een wees alleen op als zijn inhoud ≥92% in het canonieke bestand zit. Dry-run op de VM geverifieerd.
+
+**Wat Thomas moet doen (VM-schrijfactie, kan niet via read-only SSH):**
+```
+# op de VM, na deploy:
+cd ~/Ainstein && python3 scripts/consolidate_linkedin_source.py            # herlees dry-run
+cd ~/Ainstein && python3 scripts/consolidate_linkedin_source.py --apply    # uitvoeren
+```
+Wat --apply doet (lossless): schrijft de 120-post VOLLEDIG als `linkedin_jorgen.md` in de pijplijn-map; laat `linkedin_jorgen_archief.md` (42, 80% gedekt → ~20% unieke, waarschijnlijk nieuwere posts) STAAN en vlagt hem; ruimt de 97%-gedekte Substack-wees op; laat de Minkowski-varianten (beide 24 posts) staan. De distilleer-stap leest de hele map, dus Ainstein krijgt meteen de **unie** (120 + unieke 42). **Verwijder daarna `consolidate_linkedin_source.py`** (eenmalig hulpmiddel).
+
+**Vervolgstappen (na apply):**
+1. **Double Helix opnieuw draaien** — pas dan profiteert `kennis_laag.md` van 120 i.p.v. 42 posts. `python3 scripts/run_kennisextractie.py` op de VM (map-reduce, ~64k tokens).
+2. **Echte ontdubbeling tot één bestand per bron** (Thomas' doelarchitectuur): een geverifieerde merge-pass die VOLLEDIG + de unieke archief-posts (+ de twee Minkowski-varianten) samenvoegt tot één canonieke `.md` per bron, zodat er niet twee overlappende bestanden in de map blijven. Dit is een aparte, te verifiëren stap (LLM-merge met coverage-check op ≈100% dekking van beide bronnen), geen blinde concat.
+3. **Overige scrapers gelijktrekken** — `substack`/`medium` gebruiken jaar-in-de-naam (meerdere bestanden per bron), `slack` heeft nog een mix van legacy Google Docs + `.md`. Beoordelen of één-bestand-per-bron + `.md`-only overal moet gelden.
+
+### Bevestigingsroutine `ainstein-kennis-bevestiging` — herontwerp nodig
+**Beoordeeld 8 juli 2026 (op Thomas' verzoek).** De scheduled task (dagelijks 09:05) bewaakt één vaste Slack-thread uit 22 juni met dezelfde **7 kennisitems die Charlotte op 24 juni al 100% bevestigde**. De thread is dood, de lijst bevroren; de dagelijkse run doet niets zinnigs meer. Ontwerpfout: gekoppeld aan één momentopname i.p.v. een levende stroom kandidaat-kennis.
+**Aanbeveling:** (1) nu deactiveren (ronde afgerond — de routine zegt in zijn eigen Stap 0 dat dat mag); (2) herontwerpen tot een **levende bevestigingsloop**: leest na elke kennis-extractie de nieuwe `promotie-kandidaat`-items uit `kennis_laag.md`, legt alleen de níéuwe voor aan Jörgen/Charlotte, verwerkt reacties, legt promotie vast (mensenwerk). **Blokkade voor heractivering:** de routine doet autonome SSH-writes + `git push`, wat botst met de read-only-VM-regel in CLAUDE.md — dit raakt de open Loop-Charter/guardrails-beslissing. Eerst die guardrails, dan bouwen.
+**Actie Thomas:** akkoord om te deactiveren + akkoord op de herontwerp-richting (of alternatief).
 
 ---
 
@@ -788,6 +816,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Kennislaag bron-governance uitgezocht + LinkedIn-compleetheids-lek gedicht (code-deel). Bewezen via serviceaccount op de VM: de pijplijn las 42 posts (`linkedin_jorgen_archief.md`) terwijl een 120-post-scrape (27 mei) verweesd in de root lag. `scrape_linkedin.py` compleetheids-grendel gebouwd (`_count_posts` + `_pick_richest`: stabiele naam, weigert overschrijven met minder, convergeert naar één bestand); docstring recht. `scripts/consolidate_linkedin_source.py` (eenmalig, dry-run default, overlap-grendel via shingles) — dry-run geverifieerd op de VM. Toegevoegd aan `audit_claude_md.py` SKIP_MODULES. 82/82 tests groen, audit geslaagd. Data-apply (VM-write) + Double Helix-herrun + echte merge-tot-één-bestand + routine-herontwerp staan als vervolg in de sectie "Kennislaag bron-governance". Mijn eerdere sessiediagnose ("twee versies vechten in één map") was fout en is door VM-verificatie gecorrigeerd — de map was schoon, de rommel lag verweesd in de root. | scraper-fix + consolidatiescript | 8 juli 2026 |
 | Repo-audit met workflow (4 parallelle scans + onafhankelijke verificatie per bevinding, 27 agents, 22 kandidaat-bevindingen, 21 bevestigd). Direct uitgevoerd na dubbele verificatie (zelf herhaald, niet alleen de workflow geloofd): 8 stale remote branches verwijderd (`claude/ainstein-slack-questions-AmZir`, `claude/busy-dhawan-14fcc1`, `claude/charlotte-recent-documents-Nm1Tp`, `claude/confident-babbage-4fafaf`, `claude/determined-haslett-2386c1`, `claude/quirky-jemison-02ab60`, `claude/review-code-plans-CrWIC`, `fix/startup-logging-and-deploy-check` — allemaal 0 unieke commits t.o.v. main, of al via ander pad aanwezig). Roadmap-item "Prompt Coaching format fixen" verwijderd: probleem al op 31 mei gefixed (`0953e5d`), geverifieerd dat "max 4 regels" niet meer in `brain.md` staat. `HANDOFF.md` verwijderd: volledig achterhaalde eenmalige sessie-overdracht (31 mei) die een Jamie-integratie als "nog te bouwen" beschreef terwijl die allang live is. Overige bevindingen (LinkedIn Jörgen-bronvarianten, LEAD3-pptx-duplicaten, `list_drive_changes.py`, Test/Meetingnotes-groei, NN Group lege submappen, onboarding-doc-naamgeving) staan apart genoteerd — zie backlog, vereisten eerst een beslissing of dieper onderzoek. | roadmap-edit + `git push origin --delete` (8x) | 8 juli 2026 |
 | `tools.py` Tavily `search_depth` niet meer hardcoded. `TAVILY_SEARCH_DEPTH` env var toegevoegd (default `"basic"`, was hardcoded `"advanced"`), gedocumenteerd in `.env.example`. Voorkomt onbewust sneller opmaken van het gratis Tavily-quotum (1.000 zoekopdrachten/maand). Geen tests raakten de oude hardcoded waarde. Testsuite 82/82 groen, audit_claude_md geslaagd. | geen aparte hash bekend bij schrijven | 8 juli 2026 |
 | Stale backlog-item verwijderd: "Bug: `feedback.py` auto-review trigger onbetrouwbaar" beschreef een probleem dat al op 3 juli was opgelost (`d551b64`, persistent maken van `_open_count` via `logs/open_count.txt`) en al in dit archief stond. Geverifieerd door de huidige code te lezen: fix staat er en werkt. Dubbel-boeking in de open backlog gecorrigeerd. | verificatie + roadmap-edit | 8 juli 2026 |

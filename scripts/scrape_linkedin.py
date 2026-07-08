@@ -6,9 +6,15 @@ LinkedIn posts zijn publiek toegankelijk via directe URL (geen inlog nodig).
 Google Search indexeert LinkedIn posts — wij halen de URL-lijst op via Google
 en lezen dan elk post direct van LinkedIn (meta/OG-tags + page text via Playwright-achtige fetch).
 
-Output:
-  04_Marketing/_bronmateriaal/linkedin/jorgen/linkedin_jorgen_YYYY.md
-  04_Marketing/_bronmateriaal/linkedin/minkowski/linkedin_minkowski_YYYY.md
+Output (één stabiel bestand per bron — geen datum in de naam, zodat een
+nieuwe scrape het bestaande bestand vernieuwt i.p.v. er een tweede naast te zetten):
+  04_Marketing/_bronmateriaal/linkedin/jorgen/linkedin_jorgen.md
+  04_Marketing/_bronmateriaal/linkedin/minkowski/linkedin_minkowski.md
+
+COMPLEETHEIDS-GRENDEL: LinkedIn is auth-walled; op de VM haalt deze scraper
+alleen de seed-URLs op (Google blokkeert de zoek-URL). Een bestaande, rijkere
+bron (bv. een handmatige browser-scrape) wordt daarom NOOIT overschreven met
+een kleinere scrape. De rijkste versie wint altijd. Zie _pick_richest().
 
 Gebruik:
     python3 scripts/scrape_linkedin.py [--dry-run] [--max-posts N]
@@ -247,6 +253,54 @@ def _post_to_md(post: dict) -> str:
     return "\n".join(lines)
 
 
+def _count_posts(text: str) -> int:
+    """Schat het aantal posts in een bron-document, formaat-onafhankelijk.
+    Herkent zowel het markdown-formaat (## Post N / ## <titel>) als het
+    handmatige VOLLEDIG-formaat (POST 001 ...). Neemt de sterkste indicator."""
+    md_headers  = len(re.findall(r'(?m)^#{2,3}\s+', text))
+    post_labels = len(re.findall(r'(?mi)^\s*POST\s+\d', text))
+    url_markers = len(re.findall(r'_URL:', text))
+    # 'LinkedIn — <naam>'-kop en 'WAT STAAT HIER'-blokken zijn geen posts;
+    # de grootste van de drie tellers is de betrouwbaarste ondergrens.
+    return max(md_headers - 1, post_labels, url_markers, 0)
+
+
+def _pick_richest(service, folder_id: str, origin: str, new_count: int):
+    """Compleetheids-grendel. Zoekt bestaande bron-bestanden in de map en telt
+    hun posts. Geeft (mag_overschrijven, bestaande_max, te_ruimen_ids) terug.
+
+    Regel: een nieuwe scrape mag een bestaande bron nooit vervangen door minder.
+    De rijkste versie wint altijd. Bij gelijk/meer posts overschrijven we het
+    stabiele bestand en ruimen we legacy-varianten (dated/_archief) op, zodat we
+    naar precies één bestand per bron convergeren."""
+    res = service.files().list(
+        q=f"'{folder_id}' in parents and trashed=false",
+        fields="files(id,name,mimeType)",
+        supportsAllDrives=True, includeItemsFromAllDrives=True,
+    ).execute().get("files", [])
+    candidates = [f for f in res if f["name"].lower().startswith(f"linkedin_{origin}")]
+    existing_max = 0
+    cleanup_ids: list[str] = []
+    for f in candidates:
+        txt = _read_drive_file_content_safe(service, f)
+        cnt = _count_posts(txt)
+        existing_max = max(existing_max, cnt)
+        cleanup_ids.append(f["id"])
+        log.info("  bestaande bron '%s': ~%d posts", f["name"], cnt)
+    may_overwrite = new_count >= existing_max
+    return may_overwrite, existing_max, cleanup_ids
+
+
+def _read_drive_file_content_safe(service, f: dict) -> str:
+    """Lees een Drive-bestand als tekst (voor de compleetheids-telling)."""
+    try:
+        import tools
+        return tools._read_drive_file_content(service, f["id"], f["name"], f["mimeType"])
+    except Exception as e:
+        log.warning("Kon '%s' niet lezen voor postentelling: %s", f.get("name"), e)
+        return ""
+
+
 def _build_doc(origin: str, posts: list[dict], today: str) -> str:
     header = (
         f"# LinkedIn — {origin}\n"
@@ -348,9 +402,34 @@ def main() -> int:
         path = JORGEN_PATH if origin == "jorgen" else MINKOWSKI_PATH
         folder_id = ds.resolve_path(service, "marketing", path, create=True)
         doc = _build_doc(origin, posts, today)
-        filename = f"linkedin_{origin}_{today}"
+
+        # Compleetheids-grendel: nooit een rijkere bron vervangen door minder.
+        new_count = len(posts)
+        may_overwrite, existing_max, cleanup_ids = _pick_richest(
+            service, folder_id, origin, new_count)
+        if not may_overwrite:
+            log.warning(
+                "GRENDEL: scrape [%s] heeft %d posts, bestaande bron heeft %d — "
+                "NIET overschreven (kwaliteitsbehoud). Werk deze bron handmatig bij "
+                "(browser-methode) als je meer posts wilt.",
+                origin, new_count, existing_max)
+            continue
+
+        # Stabiele naam (geen datum) → één bestand per bron. Overschrijft de
+        # bestaande stabiele versie; legacy-varianten worden hierna opgeruimd.
+        filename = f"linkedin_{origin}"
         link = _upload_markdown(service, filename, doc, folder_id)
-        log.info("Geüpload: %s → %s", filename, link)
+        log.info("Geüpload: %s.md (%d posts) → %s", filename, new_count, link)
+
+        # Convergeer naar één bestand: ruim legacy-varianten met een andere naam op.
+        stable_md = f"{filename}.md"
+        for fid in cleanup_ids:
+            meta = service.files().get(fileId=fid, fields="name",
+                                       supportsAllDrives=True).execute()
+            if meta.get("name") != stable_md:
+                service.files().update(fileId=fid, body={"trashed": True},
+                                       supportsAllDrives=True).execute()
+                log.info("Legacy-variant naar prullenbak: %s", meta.get("name"))
 
     log.info("=== LinkedIn scraper klaar ===")
     return 0

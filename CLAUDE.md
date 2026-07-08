@@ -29,7 +29,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 
 ## Current State
 
-*Bijgewerkt: 6 juli 2026 (whats-your-future tool live; Fable-briefs idee 1+5; brand consistency-commits f59a099 t/m f605536; lokale keychain-incident opgelost, zie memory connector_access_paths)*
+*Bijgewerkt: 8 juli 2026 (kennislaag bron-governance: LinkedIn-compleetheids-lek gevonden — pijplijn las 42 posts terwijl 120 verweesd in de root lagen; `scrape_linkedin.py` compleetheids-grendel live; consolidatiescript klaar voor VM-apply; bevestigingsroutine beoordeeld als stale. Zie plans/ainstein-roadmap.md sectie "Kennislaag bron-governance". Whats-your-future tool live; Fable-briefs idee 1+5; brand consistency-commits f59a099 t/m f605536)*
 
 ### Wat is live (productie op ainstein-vm)
 - **Ainstein Slack bot** — SocketMode, volledig operationeel
@@ -37,7 +37,7 @@ Doe dit ook bij twijfel over de huidige staat van het systeem. Raad nooit. Kijk 
 - **HTTPS** — Let's Encrypt cert via certbot, auto-renew actief
 - **Statisch IP** — `35.253.206.86`, gereserveerd in GCP
 - **PR #28 gemerged** — Ainstein karakter-update (uitdager/denkpartner) live op VM
-- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 10 bronnen; map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief; bronconfig: `scripts/bronnen.json`
+- **Kennis-laag (bewijs-fase)** — scrapers voor LinkedIn, Medium, Substack, minkowski.org, futuresready.com, Slack; `run_kennisextractie.py` handmatig op VM; `bronnen.json` heeft 9 bronnen (elk wijst naar een Drive-map, niet een versie); map-reduce pipeline live (distilleer per bron, merge daarna); tijd-dimensie actief; bronconfig: `scripts/bronnen.json`
 - **Feedback loop** — `gaps.md` geïnjecteerd in prompts, hallucinatie-verificatie actief, auto-review trigger op `#ainstein-status`
 - **PPTX export** — `export_proposal_deck` tool (via `pptx_builder.py`); Sen ExtraBold OOXML-embedded; triggerable via Slack `/pptx`
 - **meeting_reviewer skill** — onafhankelijke meeting-analyse: eigen takenlijst uit transcript → vergelijken met Jamie → bronnenlaag raadplegen → proactieve voorstellen. **Stap 0 (sinds `762447b`, 2 juli):** Ainstein stelt zelf klant/traject vast uit titel/samenvatting/transcript en vraagt bij twijfel i.p.v. te gokken; sub-dossier-regel (LEAD3 vs. Inkomen Collectief binnen NN Group). `infer_client_name()` verzint geen klantnamen meer.
@@ -212,6 +212,7 @@ Additional skills available: `qualify_lead`, `prepare_discovery`, `map_objection
 - `scripts/verify_cache_structure.py` — grondwaarheid-check: staan er cache-bestanden plat in folder-roots in plaats van naast hun origineel? Gebruikt om de cache-opruiming te verifiëren (zie roadmap).
 - `scripts/restore_voice.py` — haalt de verrijkte `minkowski_voice.md` terug uit Drive na `git reset --hard` in `deploy.yml`, die anders de GitHub-baseline (minder verrijkt) zou laten staan. Faalt nooit hard.
 - `scripts/update_stijl.py` — draait wekelijks via cron op de VM: verrijkt de PATTERNS-laag in `minkowski_voice.md` vanuit bronmateriaal, slaat op in Drive, herstart de service. Raakt CORE-regels (`verbal_identity.md`) nooit aan.
+- `scripts/list_drive_changes.py` — handmatig ops-hulpmiddel, geen cron/skill-koppeling. Wrapper om `tools.list_recent_files()` (dezelfde betrouwbare serviceaccount-route als `verify_shared_drive.py`, niet de kapotte MCP-connector) los vanaf de VM te draaien: `python3 scripts/list_drive_changes.py [--hours N]`. Bewust bewaard (8 juli 2026-audit): klein, betrouwbaar, geen onderhoudslast — niet gekoppeld aan daily-code-review zoals de introductie-commit ooit suggereerde, en dat hoeft ook niet.
 - `scripts/backfill_jamie_meetings.py` — vult `decisions.jsonl` met historische Jamie-meetings die vóór een trace-bugfix zijn verwerkt. Idempotent (dedupliceert op `meeting_id`), draait automatisch bij elke deploy.
 
 ## Your Source Layer

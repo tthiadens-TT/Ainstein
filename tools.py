@@ -2026,7 +2026,8 @@ def _web_search_tavily(query: str, max_results: int, api_key: str) -> dict:
     try:
         from tavily import TavilyClient
         client = TavilyClient(api_key=api_key)
-        response = client.search(query, max_results=max_results, search_depth="advanced")
+        search_depth = os.environ.get("TAVILY_SEARCH_DEPTH", "basic")
+        response = client.search(query, max_results=max_results, search_depth=search_depth)
         results = [
             {"title": r.get("title"), "url": r.get("url"), "snippet": r.get("content")}
             for r in response.get("results", [])

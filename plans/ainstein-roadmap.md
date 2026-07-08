@@ -192,20 +192,10 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Actie:** na de eerste Jörgen-meeting via Jamie: check logs op `meeting_type` — klopt het gedetecteerde type?
 **Prioriteit:** laag — wachten op volgende echte meeting.
 
-### Bug: `feedback.py` auto-review trigger onbetrouwbaar
-**Wat:** `_open_count` is een in-memory teller die reset bij elke botherstart. De auto-review trigger (drempel 10) bereikt de drempelwaarde mogelijk nooit als de bot regelmatig herstart via GitHub Actions deployments.
-**Actie:** teller persistent maken (bijv. eenvoudig tekstbestand op VM) of drempel drastisch verlagen.
-**Prioriteit:** laag — feedback loop werkt, trigger is alleen onbetrouwbaar.
-
 ### `pptx_builder.py` hardcoded relationship ID
 **Wat:** `rid = "rIdSenEB"` (regel 123) is hardcoded. Bij een tweede font collideren relationship-IDs in `presentation.xml.rels`.
 **Actie:** dynamisch genereren bij uitbreiding. Nu geen actie nodig.
 **Prioriteit:** laag — pas relevant als tweede font wordt toegevoegd.
-
-### `tools.py` Tavily `search_depth` hardcoded
-**Wat:** `search_depth="advanced"` hardcoded op regel 1650. Advanced kost meer API-credits dan `"basic"`. Op de gratis tier (1.000/maand) kan dit het quotum sneller uitputten.
-**Actie:** `TAVILY_SEARCH_DEPTH` env var toevoegen (default `"basic"`).
-**Prioriteit:** laag.
 
 ### Klantbronnen als kennisbron — websites, jaarverslagen, nieuws
 **Wat:** publiek beschikbare informatie over (potentiële) klanten toevoegen als bron aan de kennis-laag. Per klant: website, jaarverslag, persberichten, LinkedIn. Geeft Ainstein context over de wereld van de klant — vóórdat een voorstel of meeting begint.
@@ -803,6 +793,8 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| `tools.py` Tavily `search_depth` niet meer hardcoded. `TAVILY_SEARCH_DEPTH` env var toegevoegd (default `"basic"`, was hardcoded `"advanced"`), gedocumenteerd in `.env.example`. Voorkomt onbewust sneller opmaken van het gratis Tavily-quotum (1.000 zoekopdrachten/maand). Geen tests raakten de oude hardcoded waarde. Testsuite 82/82 groen, audit_claude_md geslaagd. | geen aparte hash bekend bij schrijven | 8 juli 2026 |
+| Stale backlog-item verwijderd: "Bug: `feedback.py` auto-review trigger onbetrouwbaar" beschreef een probleem dat al op 3 juli was opgelost (`d551b64`, persistent maken van `_open_count` via `logs/open_count.txt`) en al in dit archief stond. Geverifieerd door de huidige code te lezen: fix staat er en werkt. Dubbel-boeking in de open backlog gecorrigeerd. | verificatie + roadmap-edit | 8 juli 2026 |
 | `audit_claude_md.py` toegevoegd aan CI. **Vóór het toevoegen eerst geverifieerd dat de check zelf slaagt** (`python3 scripts/audit_claude_md.py` gaf initieel 14 ontbrekende items — was direct als blokkerende CI-stap toegevoegd, zou elke toekomstige deploy hebben gebroken). CLAUDE.md aangevuld met 6 echt ontbrekende productie-scripts (`drive_structure.py`, `convert_to_markdown.py`, `verify_cache_structure.py`, `restore_voice.py`, `update_stijl.py`, `backfill_jamie_meetings.py`) en 3 skills (`briefing_writer`, `extract_style_patterns`, `minkowski_voice`). 3 one-off/testscripts (`cleanup_stray_cache.py`, `migrate_stray_marketing.py`, `test_jamie_webhook.py`) bewust naar `SKIP_MODULES` — al gedocumenteerd in roadmap/CACHE_DESIGN.md, geen architectuur. Audit slaagt nu (0 issues), stap toegevoegd aan `.github/workflows/deploy.yml` na de syntax-check, binnen dezelfde job als `deploy` (dus faalt CI vóór deploy als iemand een module/skill vergeet te documenteren). Testsuite 82/82 groen na wijziging. | roadmap-item, geen aparte commit-hash bekend bij schrijven | 8 juli 2026 |
 | Drie bijna-identieke cache-cleanup-scripts geconsolideerd tot één. `cleanup_batch_delete.py` en `cleanup_direct.py` verwijderd (geverifieerd: geen cron, geen tests, geen andere code refereert eraan — alleen genoemd in roadmap-proza). `cleanup_stray_cache.py` (enige met `--dry-run`) blijft over, met een toegevoegde waarschuwing in de docstring dat het op 5 juli faalde op stale Drive file-ID's en niet zonder heroverweging opnieuw gedraaid moet worden. | roadmap-item, geen aparte commit-hash bekend bij schrijven | 8 juli 2026 |
 | Bug `slack_nn-schade-inkomen_2026-05.md` onleesbaar — **onderzocht en weerlegd, geen bug.** Bestand rechtstreeks gelezen via het serviceaccount op de VM (grondwaarheid, niet de connector): 20.211 bytes, valide UTF-8, geen controletekens, geen null-bytes, geen vervangingstekens, begin en eind van het bestand inhoudelijk correct en compleet (Slack-gesprek 25-26 mei 2026, #nn-schade-inkomen). Er bestaat maar één bestand met deze naam (geen verborgen duplicaat met corrupte inhoud). Conclusie: de oorspronkelijke "onleesbaar"-melding (21 juni 2026) was vrijwel zeker een connector-false-negative (hetzelfde patroon als het HERKENNINGSALARM in CLAUDE.md), geen data-corruptie. Geen codewijziging nodig. | Drive-verificatie via SSH+serviceaccount | 8 juli 2026 |

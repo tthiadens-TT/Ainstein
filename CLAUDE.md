@@ -194,10 +194,25 @@ Additional skills available: `qualify_lead`, `prepare_discovery`, `map_objection
 - `extract_knowledge_distilleer` — MAP-stap: verwerkt **één** bron naar entiteiten + facetten + tijdsperiode. Kleine context, nooit overflow. Gebruikt door `run_kennisextractie.py`.
 - `extract_knowledge_merge` — REDUCE-stap: ontvangt alle distillaties + huidige laag, kruist over onafhankelijke oorsprongen, werkt `kennis_laag.md` bij. Voert **geen** tool-calls uit.
 
+**Meeting Notes:**
+- `briefing_writer` — vult een vaste Meetingnote-template op basis van transcript + Jamie-output. → `skills/briefing_writer.md`
+
+**Schrijfstijl (Ainstein's stem):**
+- `minkowski_voice.md` — geen skill maar de PATTERNS-laag (vier schrijfpatronen, vocabulaire, citaten) van Ainstein's stem; automatisch geprefixt aan alle klantgerichte skills. Vaste kernregels (taalregel, verboden woorden, em dash-verbod) staan apart in `verbal_identity.md` (Drive). Zie `memory/stijl_architectuur.md`.
+- `extract_style_patterns` — verrijkt de PATTERNS-zone van `minkowski_voice.md` op basis van recent bronmateriaal (LinkedIn, Substack, website). Descriptief, niet voorschrijvend. Aangeroepen door `scripts/update_stijl.py` (cron, elke maandag 04:00 op de VM).
+
 **Output-tools (niet via Slack-skills):**
 - `export_proposal_deck` (tool in `tools.py`) — converteert Google Doc voorstel naar Minkowski-branded `.pptx` via `pptx_builder.py`. Uploadt naar `00_Werkdocumenten`. Branding: kleuren + fonts uit MK-new-brandbook.pptx (Charlotte, 2026). Triggerable via Slack `/pptx`. Font-embedding vereist `assets/fonts/Sen-ExtraBold.ttf` in de repo — stil overgeslagen als afwezig.
 - `create_report_doc.py` — CLI-script (niet in bot geïntegreerd). Maakt geformatteerd Google Doc van markdown-invoer. Gebruik op VM: `python3 create_report_doc.py --title "Maandrapport Juni 2026" < rapport.md`. Default folder: `00_Werkdocumenten`.
 - `gdoc_tools.py` — core bibliotheek voor Drive/Docs operaties: lezen, schrijven, zoeken, exporteren, commentaar. Wordt gebruikt door `tools.py`, `slack_app.py`, `pptx_builder.py` en `create_report_doc.py`. Niet rechtstreeks aanroepen — gebruik de tools-laag.
+
+**Infrastructuur-scripts (productie, draaien via cron of deploy.yml — niet handmatig tenzij vermeld):**
+- `drive_structure.py` (root) — centrale, dynamische Drive-mapresolutie. Herkent top-level mappen aan hun nummer-voorvoegsel (00_ t/m 05_), niet aan naam — rename-proof sinds de 30-juni-hernoeming. Alle scrapers en `save_text_bakje` gebruiken dit in plaats van hardcoded mapnamen.
+- `scripts/convert_to_markdown.py` — converteert bronbestanden (.docx/.pdf/.pptx/etc.) eenmalig naar plain-text `.md`-cache naast het origineel in Drive. Ainstein leest de cache, niet het propriëtaire origineel (60-80% minder tokens per raadpleging).
+- `scripts/verify_cache_structure.py` — grondwaarheid-check: staan er cache-bestanden plat in folder-roots in plaats van naast hun origineel? Gebruikt om de cache-opruiming te verifiëren (zie roadmap).
+- `scripts/restore_voice.py` — haalt de verrijkte `minkowski_voice.md` terug uit Drive na `git reset --hard` in `deploy.yml`, die anders de GitHub-baseline (minder verrijkt) zou laten staan. Faalt nooit hard.
+- `scripts/update_stijl.py` — draait wekelijks via cron op de VM: verrijkt de PATTERNS-laag in `minkowski_voice.md` vanuit bronmateriaal, slaat op in Drive, herstart de service. Raakt CORE-regels (`verbal_identity.md`) nooit aan.
+- `scripts/backfill_jamie_meetings.py` — vult `decisions.jsonl` met historische Jamie-meetings die vóór een trace-bugfix zijn verwerkt. Idempotent (dedupliceert op `meeting_id`), draait automatisch bij elke deploy.
 
 ## Your Source Layer
 The Minkowski source layer lives in **one** location: a Google Workspace Shared Drive named **"Minkowski AInstein"** (drive ID `0AFvBEDYKrnHbUk9PVA`). It is owned by the Minkowski organisation — not by any individual. Multi-user, single source of truth.

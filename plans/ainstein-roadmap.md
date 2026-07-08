@@ -152,7 +152,7 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 4. **7a90988** — `verify_cache_structure.py` (detecteert rommel automatisch — dit is het script dat vandaag opnieuw 157 violations teruggaf)
 
 **Wat NIET klaar is — de opruiming van de 157 bestaande bestanden:**
-- **b620407** (`cleanup_stray_cache.py`), **4d4c286** (`cleanup_batch_delete.py`) en **46f675a** (`cleanup_direct.py`) zijn drie pogingen om de bestaande rommel automatisch te verwijderen. **Alle drie zijn mislukt** — Google Drive API geeft 404 op de file-ID's ondanks dat folder-listing ze toont (stale file-ID sync-lag, mogelijk gerelateerd aan connector-bug #53442). Resultaat: drie bijna-identieke scripts in `scripts/` die geen van alle werken. **Nieuw follow-up-item:** consolideer tot één of ruim de twee overbodige op (zie backlog hieronder).
+- **b620407** (`cleanup_stray_cache.py`), **4d4c286** (`cleanup_batch_delete.py`) en **46f675a** (`cleanup_direct.py`) zijn drie pogingen om de bestaande rommel automatisch te verwijderen. **Alle drie zijn mislukt** — Google Drive API geeft 404 op de file-ID's ondanks dat folder-listing ze toont (stale file-ID sync-lag, mogelijk gerelateerd aan connector-bug #53442). Resultaat: drie bijna-identieke scripts in `scripts/` die geen van alle werken. **Opgelost 8 juli 2026:** de twee overbodige (`cleanup_batch_delete.py`, `cleanup_direct.py`) zijn verwijderd, `cleanup_stray_cache.py` (met `--dry-run`) blijft over met een waarschuwing in de docstring — zie Gedaan-archief.
 - Enige overgebleven route: handmatige Drive UI-opruiming door Thomas — zie 🔴 URGENT-sectie.
 
 **Voorkoming toekomst:**
@@ -187,17 +187,6 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Aanpak:** nieuwe skill `design_program.md`, bouwt voort op `build_proposal` output.
 **Effort:** 3–4 uur. Eerst Klant-Agent bouwen.
 
-### Bug: `slack_nn-schade-inkomen_2026-05.md` onleesbaar
-**Wat:** dit bestand is onleesbaar in twee onafhankelijke bronnen (Slack-scraper + Jamie). Structureel technisch probleem.
-**Actie:** bestand inspecteren op VM, scraper-output checken op encoding/formaat-fouten.
-**Prioriteit:** medium.
-
-### `audit_claude_md.py` toevoegen aan GitHub Actions CI
-**Wat:** `scripts/audit_claude_md.py` draait nu alleen handmatig. De deploy-workflow doet alleen een syntax-check. Als je een nieuwe skill of module toevoegt zonder CLAUDE.md bij te werken, pikt CI dit niet op.
-**Actie:** `python3 scripts/audit_claude_md.py` toevoegen als stap in `.github/workflows/deploy.yml` na de syntax-check.
-**Effort:** <30 min.
-**Prioriteit:** medium — voorkomt stille CLAUDE.md-drift.
-
 ### Smart meeting routing verificeren in productie
 **Wat:** `transcript_processor.py` detecteert meeting types (discovery/check_in/follow_up/internal) en routeert naar de juiste skill. Code bestaat, maar is nog niet geverifieerd met een echte Jörgen-Jamie meeting waarbij het type-detectie expliciet getest is.
 **Actie:** na de eerste Jörgen-meeting via Jamie: check logs op `meeting_type` — klopt het gedetecteerde type?
@@ -217,12 +206,6 @@ Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege 
 **Wat:** `search_depth="advanced"` hardcoded op regel 1650. Advanced kost meer API-credits dan `"basic"`. Op de gratis tier (1.000/maand) kan dit het quotum sneller uitputten.
 **Actie:** `TAVILY_SEARCH_DEPTH` env var toevoegen (default `"basic"`).
 **Prioriteit:** laag.
-
-### Drie duplicate cleanup-scripts consolideren (cache-opruiming)
-**Wat:** `scripts/cleanup_stray_cache.py`, `scripts/cleanup_batch_delete.py` en `scripts/cleanup_direct.py` doen alle drie hetzelfde (zoek `.md` met `**Gecachet:**`-header in folder-roots, verwijder via Drive `files().delete()` — permanent, geen prullenbak). Alle drie zijn mislukt op dezelfde stale file-ID's (zie cache-sectie hierboven) en staan nu als dode/duplicate code in de repo. Alleen de eerste heeft een `--dry-run`.
-**Actie:** houd er één aan (met dry-run) en verwijder de andere twee, of voeg een duidelijke comment toe ("mislukt, zie CACHE_DESIGN.md — niet opnieuw draaien in de veronderstelling dat dit wél werkt").
-**Gevonden door:** daily-code-review 6 juli 2026.
-**Prioriteit:** laag, cosmetisch — geen functioneel risico, wel verwarrend voor een volgende sessie.
 
 ### Klantbronnen als kennisbron — websites, jaarverslagen, nieuws
 **Wat:** publiek beschikbare informatie over (potentiële) klanten toevoegen als bron aan de kennis-laag. Per klant: website, jaarverslag, persberichten, LinkedIn. Geeft Ainstein context over de wereld van de klant — vóórdat een voorstel of meeting begint.
@@ -820,6 +803,9 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| `audit_claude_md.py` toegevoegd aan CI. **Vóór het toevoegen eerst geverifieerd dat de check zelf slaagt** (`python3 scripts/audit_claude_md.py` gaf initieel 14 ontbrekende items — was direct als blokkerende CI-stap toegevoegd, zou elke toekomstige deploy hebben gebroken). CLAUDE.md aangevuld met 6 echt ontbrekende productie-scripts (`drive_structure.py`, `convert_to_markdown.py`, `verify_cache_structure.py`, `restore_voice.py`, `update_stijl.py`, `backfill_jamie_meetings.py`) en 3 skills (`briefing_writer`, `extract_style_patterns`, `minkowski_voice`). 3 one-off/testscripts (`cleanup_stray_cache.py`, `migrate_stray_marketing.py`, `test_jamie_webhook.py`) bewust naar `SKIP_MODULES` — al gedocumenteerd in roadmap/CACHE_DESIGN.md, geen architectuur. Audit slaagt nu (0 issues), stap toegevoegd aan `.github/workflows/deploy.yml` na de syntax-check, binnen dezelfde job als `deploy` (dus faalt CI vóór deploy als iemand een module/skill vergeet te documenteren). Testsuite 82/82 groen na wijziging. | roadmap-item, geen aparte commit-hash bekend bij schrijven | 8 juli 2026 |
+| Drie bijna-identieke cache-cleanup-scripts geconsolideerd tot één. `cleanup_batch_delete.py` en `cleanup_direct.py` verwijderd (geverifieerd: geen cron, geen tests, geen andere code refereert eraan — alleen genoemd in roadmap-proza). `cleanup_stray_cache.py` (enige met `--dry-run`) blijft over, met een toegevoegde waarschuwing in de docstring dat het op 5 juli faalde op stale Drive file-ID's en niet zonder heroverweging opnieuw gedraaid moet worden. | roadmap-item, geen aparte commit-hash bekend bij schrijven | 8 juli 2026 |
+| Bug `slack_nn-schade-inkomen_2026-05.md` onleesbaar — **onderzocht en weerlegd, geen bug.** Bestand rechtstreeks gelezen via het serviceaccount op de VM (grondwaarheid, niet de connector): 20.211 bytes, valide UTF-8, geen controletekens, geen null-bytes, geen vervangingstekens, begin en eind van het bestand inhoudelijk correct en compleet (Slack-gesprek 25-26 mei 2026, #nn-schade-inkomen). Er bestaat maar één bestand met deze naam (geen verborgen duplicaat met corrupte inhoud). Conclusie: de oorspronkelijke "onleesbaar"-melding (21 juni 2026) was vrijwel zeker een connector-false-negative (hetzelfde patroon als het HERKENNINGSALARM in CLAUDE.md), geen data-corruptie. Geen codewijziging nodig. | Drive-verificatie via SSH+serviceaccount | 8 juli 2026 |
 | Ainstein: live Slack-leestool. `list_slack_channels`, `read_slack_channel`, `search_slack` toegevoegd aan `tools.py`, zelfde patroon als de bestaande Drive-tools. Vult laag 3 (contextlaag, real-time per vraag) van de kennisgroeistrategie — Ainstein kon Slack eerder alleen schrijven, nooit lezen. Bot-token had `channels:history`/`channels:read` al, live geverifieerd op de VM, geen nieuwe Slack-scope-aanvraag nodig. 9 nieuwe tests (volledig gemockt), suite 82/82 groen. Live smoke-test op de VM tegen echte Slack API geslaagd. Gepusht naar main en dus via GitHub Actions auto-deploy live op de VM (geverifieerd via `git log`, niet aangenomen — de roadmap-tekst zei nog "wacht op akkoord" maar dat was al achterhaald). | `2883d1f` | 7 juli 2026 |
 | Fable-sessie (idee 4 uit de Ainstein Slack-thread): "What's Your Future?" gebouwd als `whats-your-future/` — statisch facilitator-instrument voor discovery-gesprekken (Cone of Possibilities: probable/plausible/preferable, 4 ICP-sectoren × 4 thema's = 48 scenario's + leiderschapsvragen, 3 signal-houdingen, Copy-session-summary naar Ainstein-pipeline, print-output). Orchestrator-patroon bewezen: Fable plande/verifieerde, 3× Sonnet + 1× Haiku bouwden, 1 revisieronde (stem-consistentie). Brand-learnings uit parallelle sessie direct toegepast: fontrollen gecorrigeerd (Sen ExtraBold alleen wordmark, Helvetica Neue koppen, Light body). Plus twee zelfstandig uitvoerbare Fable-briefs voor idee 1 en 5 in `plans/fable-brief-*.md`. End-to-end getest via Playwright (scoring-randen, klembord, alle stappen). | `1386b68`, `5e6d509` | 6 juli 2026 |
 | GitHub keychain-incident opgelost: een 401 op een verouderd tweede token liet git álle github.com-keychain-entries wissen (osxkeychain wist op host, niet op account) — pushen brak machinebreed. Werkend token teruggezet vanaf de VM-credential-store (met expliciet akkoord Thomas, buiten auto-modus; eerst gevalideerd via API-call). Herstelroute + valkuil gedocumenteerd in memory `connector_access_paths.md`. GitHub MCP-token blijft verlopen (bestaand roadmap-item). | keychain-herstel | 6 juli 2026 |

@@ -9,6 +9,15 @@ Dit script verwijdert ze zodat de structuur schoon is.
 Gebruik:
     python3 scripts/cleanup_stray_cache.py
     python3 scripts/cleanup_stray_cache.py --dry-run
+
+Let op: mislukt op 5 juli 2026 op de bekende 157 bestanden — Google Drive API
+gaf 404 op deze file-ID's ondanks dat folder-listing ze toont (stale
+file-ID sync-lag, mogelijk gerelateerd aan connector-bug #53442). Niet
+opnieuw draaien in de veronderstelling dat dit alsnog werkt zonder eerst
+te checken of de sync-lag is opgelost. Zie plans/ainstein-roadmap.md
+(sectie cache-opruiming) voor actuele status. Twee bijna-identieke
+duplicaten (cleanup_batch_delete.py, cleanup_direct.py) zijn verwijderd
+op 8 juli 2026 — dit is het enige overgebleven script, met --dry-run.
 """
 
 import io, sys, os

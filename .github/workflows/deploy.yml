@@ -28,6 +28,9 @@ jobs:
           find . -name "*.py" -not -path "./.venv*" -not -path "./.git*" \
             -exec python3 -m py_compile {} + && echo "✅ Alle bestanden syntactisch correct"
 
+      - name: CLAUDE.md audit — geen ongedocumenteerde modules/skills
+        run: python3 scripts/audit_claude_md.py
+
   deploy:
     needs: syntax-check
     runs-on: ubuntu-latest

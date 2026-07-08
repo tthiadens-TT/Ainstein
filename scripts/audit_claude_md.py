@@ -41,6 +41,13 @@ SKIP_MODULES = {
     "backup_drive.py",
     # Dit script zelf
     "audit_claude_md.py",
+    # Eenmalige/one-off cleanup- en migratiescripts: gedocumenteerd in
+    # plans/ainstein-roadmap.md en scripts/CACHE_DESIGN.md, niet in CLAUDE.md
+    # (dat is architectuur, geen opruimlog)
+    "cleanup_stray_cache.py",
+    "migrate_stray_marketing.py",
+    # Handmatig testscript voor de Jamie-webhook (geen productielogica)
+    "test_jamie_webhook.py",
 }
 
 # Drive-mappen die in de code voorkomen en gedocumenteerd moeten zijn

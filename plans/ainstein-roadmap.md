@@ -40,6 +40,7 @@ Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bug
 ## 📋 Backlog — Drive opruiming (na serviceaccount-scan 2 juli 2026)
 
 Gevonden via de betrouwbare serviceaccount-scan, dus echte bevindingen (geen connector-artefact). Niet urgent.
+**→ Valt onder het koepelitem "Bronlaag-ordening ontwerpen" (sectie Kennislaag bron-governance). Niet los oppakken; plannen als onderdeel van dat ordeningstraject.**
 
 ### Dubbele/overbodige bestanden opruimen (rest — laag)
 Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege `_kennis`, 2x `.DS_Store`, en de bewezen-identieke `260601_Opzet NN LEAD3`-dubbel opgeruimd. Legacy `slack_C09CEQ29AU8` Google Docs: 0 gevonden, al eerder weg. Wat nog rest:
@@ -73,8 +74,11 @@ Wat --apply doet (lossless): schrijft de 120-post VOLLEDIG als `linkedin_jorgen.
 ### Bronlaag-ordening ontwerpen (`01_Clients` als startpunt) — nieuw 8 juli 2026
 **Aanleiding:** Thomas toonde `01_Clients` in Drive: tientallen losse `.md`-bestanden (voorstellen, needs-analyses, transcripten, forwards, cache) plat door elkaar, met een paar echte klantmappen ertussen (NN Group, Jetske Ultee, Holland & Barrett). Dit is geen architectuur. Ainstein-ruis, mensonvindbaar, cache niet te onderscheiden van echte docs.
 **Wat:** een ordenend principe voor de hele bronlaag, afgedwongen i.p.v. gehoopt. Richting (te beoordelen, zie concept-plan): per entiteit een submap met vaste interne indeling; cache náást origineel, nooit in de root; één canoniek document per ding (finale/geaccordeerde versie leidend); naamgeving die structuur draagt. De top-laag is sinds 30 juni entiteit-gebaseerd; die logica moet nú ook *binnen* de mappen.
-**Relatie:** overlapt met het 🔴 URGENT cache-opruim-item (41 cache-bestanden in `01_Clients`), maar is breder: dat is opruimen, dit is een structuur ontwerpen zodat het opgeruimd blijft.
-**Prioriteit:** medium-hoog — raakt zowel mensbruikbaarheid als de kwaliteit van wat Ainstein leest. Eerst ontwerp + akkoord Thomas, dan uitvoeren (grotendeels Drive-werk + evt. code voor cache-plaatsing).
+**Dit is het KOEPELITEM voor alle Drive-ordening.** De volgende losse items zijn facetten hiervan en worden onder deze ene aanpak uitgevoerd (niet meer los oppakken):
+- 🔴 URGENT cache-rommel (157 bestanden in folder-roots, waarvan 41 in `01_Clients`) — "cache náást origineel, niet in root" is precies deel van het ordenend principe. NB: het opruimen zelf houdt zijn eigen verificatie-waarschuwing (niet afsluiten zonder `verify_cache_structure.py` → SCHOON).
+- 📋 Drive opruiming: 4x `LEAD3_NN_Group_Opzet_updated.pptx` in `00_Werkdocumenten` + 4x identieke Test-Meetingnotes — "één canoniek document per ding" lost dit soort versie-duplicaten structureel op.
+- "kennis-bestanden verplaatsen naar `05_Ainstein Knowledge Base`" (Technisch-backlog) — een structurele verplaatsing die in het ordeningsontwerp thuishoort.
+**Prioriteit:** medium-hoog — raakt zowel mensbruikbaarheid als de kwaliteit van wat Ainstein leest. Eerst ontwerp + akkoord Thomas, dan uitvoeren (grotendeels Drive-werk + evt. code voor cache-plaatsing). De losse cleanup-items hierboven blijven staan waar ze staan (met hun eigen instructies/guards), maar worden gepland als onderdeel van dit ene ordeningstraject.
 **Volledig concept:** `plans/kennislaag-bron-verrijking-concept.md`.
 
 ### Bevestigingsroutine `ainstein-kennis-bevestiging` — herontwerp nodig
@@ -157,7 +161,7 @@ Wat --apply doet (lossless): schrijft de 120-post VOLLEDIG als `linkedin_jorgen.
 ### kennis-bestanden verplaatsen naar 05_Ainstein Knowledge Base (latere fase)
 **Wat:** `kennis_laag.md`, `entiteiten.md`, `minkowski_voice.md` verplaatsen van `04_Marketing/_kennis/` naar `05_Ainstein Knowledge Base/`. De kennis is ook marketingkennis — urgentie is laag, maar hoort architectureel bij Ainstein, niet bij Marketing.
 **Actie:** Drive + code (bronnen.json, tools.py kennis-pad, agent.py injectie-pad).
-**Prioriteit:** laag.
+**Prioriteit:** laag. **→ Meenemen in het koepelitem "Bronlaag-ordening ontwerpen".**
 
 ### Stale mapnaam-verwijzingen in deze roadmap zelf opschonen
 **Wat:** de 30-juni-hernoeming (`06_Marketing` naar `04_Marketing`, `04_Experts` naar `03_Experts`) is in code en Drive volledig afgehandeld, maar de roadmap-tekst zelf verwijst nog naar de oude namen in de Claude Projects-tutorial (de "Files vullen"-tabel, de connector-troubleshooting en de referentie-sectie onderaan). Geverifieerd 5 juli: meerdere `06_Marketing`- en `04_Experts`-vermeldingen in die secties.

@@ -242,10 +242,25 @@ def _generate_meetingnote_content(event: TranscriptEvent, anthropic_client) -> s
             system=skill_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
-        return response.content[0].text.strip()
+        return _strip_code_fence(response.content[0].text.strip())
     except Exception:
         logger.exception("_generate_meetingnote_content: API call mislukt")
         return ""
+
+
+def _strip_code_fence(text: str) -> str:
+    """Verwijder een omringend ``` (of ```markdown) codeblok als het model dat
+    om de hele respons heeft gezet. De briefing_writer-skill toont zijn eigen
+    outputtemplate binnen een ```-codeblok (om het format te demonstreren) —
+    Haiku reproduceert dat blok soms letterlijk, waardoor elke Meetingnote met
+    een kale ``` -regel begint en eindigt (gevlagd daily-review 2026-07-07).
+    Alleen strippen als de fence de VOLLEDIGE respons omvat, niet bij een
+    losse code-snippet middenin inhoudelijke tekst."""
+    stripped = text.strip()
+    lines = stripped.split("\n")
+    if len(lines) >= 2 and lines[0].startswith("```") and lines[-1].strip() == "```":
+        return "\n".join(lines[1:-1]).strip()
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -411,6 +426,11 @@ def _extract_client_line(debrief_text: str) -> str | None:
     if not match:
         return None
     value = match.group(1).strip()
+    # Mechanische guard i.p.v. alleen op prompt-adherentie vertrouwen: het model
+    # negeert het CORE em dash-verbod herhaaldelijk (~2/3 van de gevallen,
+    # daily-review 2026-07-08) juist in deze vrije-tekstregel, die ongefilterd
+    # in het #ainstein-status headerblok terechtkomt.
+    value = value.replace(" — ", ", ").replace("—", ",")
     return value or None
 
 

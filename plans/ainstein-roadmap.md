@@ -1,6 +1,6 @@
 # Ainstein Backlog
 
-*Bijgewerkt: 8 juli 2026 (kennislaag bron-governance uitgezocht: LinkedIn-Jörgen-bron bleek incompleet — pijplijn las 42 posts terwijl een completere 120-post-scrape verweesd in de root lag. Scraper-compleetheids-grendel gebouwd, consolidatiescript klaar (dry-run geverifieerd). Bevestigingsroutine beoordeeld: stale, herontwerp nodig. Zie nieuwe sectie "Kennislaag bron-governance".)*
+*Bijgewerkt: 8 juli 2026, avond (twee bugs uit de daily-review gefixed: em dash-lek in de Slack-klantregel + ``` -codeblok-lek in elke Meetingnote, beide mechanisch gedicht. Roadmap opgeschoond: stale regels gecorrigeerd, 3 zoekgeraakte repo-audit-bevindingen als losse items teruggezet. Eerder vandaag: kennislaag bron-governance uitgezocht — LinkedIn-Jörgen-bron bleek incompleet, compleetheids-grendel + consolidatiescript gebouwd. Zie sectie "Kennislaag bron-governance".)*
 *Beheerd door: Claude Code + Thomas — elke sessie bijwerken*
 
 Dit is de centrale backlog voor Ainstein. Alle openstaande items — acties, bugs, ideeën, todo's — staan hier met context en prioriteit. Niet in CLAUDE.md (dat is sessiememorie), niet in losse documenten.
@@ -45,8 +45,15 @@ Gevonden via de betrouwbare serviceaccount-scan, dus echte bevindingen (geen con
 ### Dubbele/overbodige bestanden opruimen (rest — laag)
 Grotendeels gedaan (3 juli, zie ✅ Gedaan): stray `06_Marketing`, dubbele lege `_kennis`, 2x `.DS_Store`, en de bewezen-identieke `260601_Opzet NN LEAD3`-dubbel opgeruimd. Legacy `slack_C09CEQ29AU8` Google Docs: 0 gevonden, al eerder weg. Wat nog rest:
 - **BESLISSING NODIG:** `00_Werkdocumenten` heeft `LEAD3_NN_Group_Opzet_updated.pptx` **4x met drie verschillende groottes** (62467/62801/63074 b). Dit zijn géén schone duplicaten maar mogelijk verschillende versies van een klant-deck. Niet blind verwijderd. Thomas: welke is de canonieke versie? Dan ruim ik de rest op.
-- `01_Clients/.../Test/Meetingnotes`: 4x identieke `Meetingnote 2026-06-26 — Test kennismaking` (nog niet onderzocht; laag).
+- ~~`01_Clients/.../Test/Meetingnotes`: 4x identieke `Meetingnote 2026-06-26 — Test kennismaking`~~ **Onderzocht en vrijgegeven (7 juli, review-Cleared):** testartefacten uit het verifiëren van de brand-formatting-fix, staan in een `Test`-map (niet een echte klantmap), geen dataverlies-risico. Kunnen blijven staan of handmatig weg door Thomas; geen actie vereist.
 **Prioriteit:** laag, blokkeert niets.
+
+### Drie repo-audit-bevindingen die "apart genoteerd" claimden maar nergens landden
+**Gevonden door daily-code-review 8 juli 2026:** de archief-regel (`plans/ainstein-roadmap.md`, ✅ Gedaan-tabel, repo-audit-entry 8 juli) noemt drie bevindingen als "apart genoteerd — zie backlog", maar geen van de drie kwam ooit in een actieve backlog-sectie terecht. Ze bestonden alleen in die ene archiefzin, die niet wordt teruggelezen voor open items. Hierbij alsnog toegevoegd:
+- ~~**LinkedIn Jörgen-bronvarianten**~~ — inmiddels **niet meer een los item**: volledig uitgezocht en aangepakt op 8 juli, zie sectie "Kennislaag bron-governance" hierboven (dat is nu de canonieke plek voor dit onderwerp, met veel meer diepgang dan deze oorspronkelijke bevinding).
+- **NN Group lege submappen** — de serviceaccount-scan (2 juli) vond dat NN Group's per-klant submapstructuur grotendeels leeg steigerwerk is (vergelijkbaar met het `01_Clients`-patroon dat Thomas op 8 juli signaleerde, zie "Bronlaag-ordening ontwerpen"). Nog niet inhoudelijk beoordeeld of dit steigerwerk gevuld moet worden of weg mag. **Actie:** meenemen in het bronlaag-ordeningstraject, geen apart traject nodig.
+- **Onboarding-doc-naamgeving** — `00_Werkdocumenten` heeft zowel `Ainstein Onboarding Guide` (Google Doc) als `Ainstein_ONBOARDING.md` (plain-text). Onbekend of dit twee actieve documenten zijn of een verweesde dubbeling (zelfde patroon als het LinkedIn-lek: een cache/export naast een origineel). **Actie:** inhoud vergelijken (zoals bij de LinkedIn-consolidatie) vóór opruimen — niet blind op bestandsgrootte/naam kiezen.
+**Prioriteit:** laag voor de eerste twee (meelopen in groter traject), laag-en-klein voor de derde (kan los, snel).
 
 ---
 
@@ -204,12 +211,6 @@ Wat --apply doet (lossless): schrijft de 120-post VOLLEDIG als `linkedin_jorgen.
 **Actie Thomas:** review eerst of de docs nog actueel zijn, daarna verplaatsen in Drive.
 **Prioriteit:** laag.
 
-
-### dev-branch cleanup
-**Wat:** `dev` staat 10 commits voor op `main` met deels verouderd werk. De skills-verbeteringen en de meeste Drive-fixes zijn al apart op main gecommit. Dev bevat mogelijk unieke commits (save_note refactor, folder hint depth, deploy.yml health check).
-**Actie:** `git diff main...dev -- *.py` draaien, unieke waardevolle commits identificeren, cherry-pick of delete. Daarna `dev` verwijderen of opnieuw baseren op main.
-**Prioriteit:** laag — niets blokkeert productie, maar de branch rommelt.
-
 ### Klant-Agent — adversariale voorstelreview
 **Wat:** Tweede API-aanroep na `build_proposal`. Speelt kritische klant (CHRO, inkoper, directeur) — genereert 3–5 scherpe bezwaren op het concept. Ainstein verwerkt ze en levert versterkt eindvoorstel. Thomas ziet alleen het eindresultaat + optioneel een "Verwerkte kritiek"-sectie.
 **Architectuur:** tweede `client.messages.create()` aanroep in `agent.py`, geen tools, geen loop. Max 1500 tokens, 60s timeout. Bezwaartaxonomie uit `map_objections.md` als kader.
@@ -239,7 +240,7 @@ Wat --apply doet (lossless): schrijft de 120-post VOLLEDIG als `linkedin_jorgen.
 ### Klantbronnen als kennisbron — websites, jaarverslagen, nieuws
 **Wat:** publiek beschikbare informatie over (potentiële) klanten toevoegen als bron aan de kennis-laag. Per klant: website, jaarverslag, persberichten, LinkedIn. Geeft Ainstein context over de wereld van de klant — vóórdat een voorstel of meeting begint.
 **Eerste kandidaat:** NN Group (ankerklant, 300+ deelnemers, multi-year). Thomas denkt dat er al een sessie/item over bestaat — nog te traceren.
-**Aanpak:** `scrape_client.py` per klant, output naar `06_Marketing/_bronmateriaal/klanten/<klantnaam>/`. Zelfde plain-text .md bakje als andere bronnen. Origine: `klant-extern`.
+**Aanpak:** `scrape_client.py` per klant, output naar `04_Marketing/_bronmateriaal/klanten/<klantnaam>/`. Zelfde plain-text .md bakje als andere bronnen. Origine: `klant-extern`.
 **Waarde:** Ainstein kan in proposals en meetings zeggen "jullie jaarverslag noemt X — dat raakt precies aan Y." Echte onafhankelijke stem, niet alleen Minkowski-perspectief.
 **Status:** in de maak — nog geen code.
 **Prioriteit:** medium.
@@ -380,6 +381,7 @@ Wat --apply doet (lossless): schrijft de 120-post VOLLEDIG als `linkedin_jorgen.
 4. Trek de oude PAT (uit de remote-URL) in op github.com — die heeft in platte tekst in `.git/config` en in sessie-output gestaan
 **Prioriteit:** medium-hoog — geen productie-impact, maar drie verschillende credential-plekken waarvan twee dood en één in platte tekst is onhoudbaar en veroorzaakte deze sessie opnieuw uitzoekwerk.
 **Update 5 juli 2026:** ook de `gh` CLI is niet geïnstalleerd in de lokale/daily-review-omgeving — dit is nu 3 dagen op rij (3, 4, 5 juli) een blinde vlek voor PR/issue-status in elke daily-code-review. `daily-code-review`-skill is vandaag aangepast om automatisch op de GitHub MCP-tools terug te vallen zodra `gh` ontbreekt, maar zolang de MCP-auth ook stuk is (zie hierboven) blijft PR/issue-status structureel onbekend. Deze sanering lost dus twee losse problemen in één keer op.
+**Deelverificatie 8 juli 2026:** stap 3 blijkt al gedaan — `git remote -v` toont een schone HTTPS-URL zonder embedded token (waarschijnlijk via de keychain-herstel-actie van 6 juli, zie memory `connector_access_paths.md`). `gh` CLI ontbreekt nog steeds (geverifieerd: `which gh` geeft niets). Niet geverifieerd: of de oude PAT is ingetrokken op github.com (stap 4, alleen Thomas kan dat) en of de GitHub MCP-connector inmiddels vernieuwd is (stap 2). Restant: stap 2 (MCP her-auth) + stap 4 (oude PAT intrekken) + `gh` CLI installeren.
 
 ### ✅ `_detect_meeting_type()` misclassificatie-risico
 **OPGELOST 5 juli 2026.** Eerst gevlagd 2026-07-04, herbevestigd nog open op 2026-07-05, daarna direct gefixt. Meeting werd als `internal` geclassificeerd zodra geen deelnemer een niet-Minkowski e-maildomein had — ook als dat kwam doordat Jamie simpelweg geen e-mailveld aan een deelnemer had gekoppeld (bv. "Speaker 1"). Fix: deelnemers zonder e-mailveld blokkeren nu de interne classificatie (ze zijn geen bewijs van "geen externen", ze zijn onbekend). 5 nieuwe tests in `tests/test_detect_meeting_type.py`, inclusief het exacte Lead3-scenario van 3 juli als regressietest. Volledige suite (51/51) groen.
@@ -827,6 +829,7 @@ Eerste project? Zet alles in je persoonlijke Drive als backup, maar **werk altij
 
 | Item | Commit/PR | Datum |
 |---|---|---|
+| Twee bugs uit daily-review 8 juli gefixed. (1) Em dash-lek: `_extract_client_line()` in `transcript_processor.py` gaf de LLM-gegenereerde "Klant/traject"-regel ongefilterd door aan Slack, en het model negeerde het CORE em dash-verbod herhaaldelijk (~2/3 van de gevallen op 7-8 juli). Mechanische guard toegevoegd (`—` → `,`) i.p.v. alleen op prompt-adherentie te vertrouwen. (2) Codeblok-lek: `skills/briefing_writer.md` toont zijn eigen outputtemplate binnen een ```-codeblok om het format te demonstreren; Haiku reproduceerde dat blok soms letterlijk, waardoor elke Meetingnote begon/eindigde met een kale ``` -regel (eerst gevlagd 7 juli, direct zichtbaar naast de net gefixte merk-opmaak `f605536`). Nieuwe `_strip_code_fence()` in `transcript_processor.py`, verwijdert een omringende fence alleen als die de VOLLEDIGE respons omvat (een losse code-snippet middenin blijft intact). 6 nieuwe tests (1 em dash + 5 fence-cases), 88/88 groen. | transcript_processor.py | 8 juli 2026 |
 | Kennislaag bron-governance uitgezocht + LinkedIn-compleetheids-lek gedicht (code-deel). Bewezen via serviceaccount op de VM: de pijplijn las 42 posts (`linkedin_jorgen_archief.md`) terwijl een 120-post-scrape (27 mei) verweesd in de root lag. `scrape_linkedin.py` compleetheids-grendel gebouwd (`_count_posts` + `_pick_richest`: stabiele naam, weigert overschrijven met minder, convergeert naar één bestand); docstring recht. `scripts/consolidate_linkedin_source.py` (eenmalig, dry-run default, overlap-grendel via shingles) — dry-run geverifieerd op de VM. Toegevoegd aan `audit_claude_md.py` SKIP_MODULES. 82/82 tests groen, audit geslaagd. Data-apply (VM-write) + Double Helix-herrun + echte merge-tot-één-bestand + routine-herontwerp staan als vervolg in de sectie "Kennislaag bron-governance". Mijn eerdere sessiediagnose ("twee versies vechten in één map") was fout en is door VM-verificatie gecorrigeerd — de map was schoon, de rommel lag verweesd in de root. | scraper-fix + consolidatiescript | 8 juli 2026 |
 | Repo-audit met workflow (4 parallelle scans + onafhankelijke verificatie per bevinding, 27 agents, 22 kandidaat-bevindingen, 21 bevestigd). Direct uitgevoerd na dubbele verificatie (zelf herhaald, niet alleen de workflow geloofd): 8 stale remote branches verwijderd (`claude/ainstein-slack-questions-AmZir`, `claude/busy-dhawan-14fcc1`, `claude/charlotte-recent-documents-Nm1Tp`, `claude/confident-babbage-4fafaf`, `claude/determined-haslett-2386c1`, `claude/quirky-jemison-02ab60`, `claude/review-code-plans-CrWIC`, `fix/startup-logging-and-deploy-check` — allemaal 0 unieke commits t.o.v. main, of al via ander pad aanwezig). Roadmap-item "Prompt Coaching format fixen" verwijderd: probleem al op 31 mei gefixed (`0953e5d`), geverifieerd dat "max 4 regels" niet meer in `brain.md` staat. `HANDOFF.md` verwijderd: volledig achterhaalde eenmalige sessie-overdracht (31 mei) die een Jamie-integratie als "nog te bouwen" beschreef terwijl die allang live is. Overige bevindingen (LinkedIn Jörgen-bronvarianten, LEAD3-pptx-duplicaten, `list_drive_changes.py`, Test/Meetingnotes-groei, NN Group lege submappen, onboarding-doc-naamgeving) staan apart genoteerd — zie backlog, vereisten eerst een beslissing of dieper onderzoek. | roadmap-edit + `git push origin --delete` (8x) | 8 juli 2026 |
 | `tools.py` Tavily `search_depth` niet meer hardcoded. `TAVILY_SEARCH_DEPTH` env var toegevoegd (default `"basic"`, was hardcoded `"advanced"`), gedocumenteerd in `.env.example`. Voorkomt onbewust sneller opmaken van het gratis Tavily-quotum (1.000 zoekopdrachten/maand). Geen tests raakten de oude hardcoded waarde. Testsuite 82/82 groen, audit_claude_md geslaagd. | geen aparte hash bekend bij schrijven | 8 juli 2026 |

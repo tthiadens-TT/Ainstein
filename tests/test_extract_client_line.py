@@ -36,3 +36,13 @@ def test_returns_none_when_line_absent():
 def test_returns_none_for_empty_input():
     assert _extract_client_line("") is None
     assert _extract_client_line(None) is None
+
+
+def test_strips_em_dash_core_violation():
+    """Daily-review 2026-07-08: het model negeert het CORE em dash-verbod
+    herhaaldelijk (~2/3 van de gevallen) in deze vrije-tekstregel. Mechanische
+    guard i.p.v. alleen op prompt-adherentie vertrouwen."""
+    debrief = "**Klant/traject:** Test BV — eerste contact, 26 juni 2026.\n\n**Taken**"
+    result = _extract_client_line(debrief)
+    assert "—" not in result
+    assert result == "Test BV, eerste contact, 26 juni 2026."

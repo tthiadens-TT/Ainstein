@@ -26,7 +26,10 @@ import threading
 import tempfile
 import traceback
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import certifi
+
+_AMS = ZoneInfo("Europe/Amsterdam")
 
 
 def _configure_ssl() -> None:
@@ -1336,14 +1339,14 @@ if __name__ == "__main__":
     threading.Thread(target=_heartbeat_loop, daemon=True, name="slack-heartbeat").start()
 
     handler = SocketModeHandler(app, app_token)
-    start_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+    start_time = datetime.now(_AMS).strftime("%Y-%m-%d %H:%M")
     status_channel = os.environ.get("AINSTEIN_STATUS_CHANNEL", "").strip()
     logger.info("Ainstein is running in Slack. Press Ctrl+C to stop.")
     logger.info("Status notifications: channel=%s", status_channel or "(niet geconfigureerd — stel AINSTEIN_STATUS_CHANNEL in)")
     _notify_status(f"_Ainstein gestart om {start_time} (Amsterdam). Klaar voor gebruik._")
 
     def _on_shutdown(signum, frame):
-        shutdown_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        shutdown_time = datetime.now(_AMS).strftime("%Y-%m-%d %H:%M")
         logger.info("Ainstein shutting down (signal %s)", signum)
         _notify_status(
             f"_Ainstein gestopt om {shutdown_time} (signaal {signum}). "
@@ -1371,7 +1374,7 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as e:
-        crash_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        crash_time = datetime.now(_AMS).strftime("%Y-%m-%d %H:%M")
         logger.exception("Ainstein crashed: %s", e)
         _notify_status(
             f"_Ainstein gecrasht om {crash_time}: `{type(e).__name__}: {e}`_\n"
